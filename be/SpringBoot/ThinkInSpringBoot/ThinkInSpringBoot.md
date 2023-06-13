@@ -1289,9 +1289,9 @@ public class CusConfig {
 }
 ```
 
-默认值是 true，说明要求 SpringBoot 对 CusConfig 类中的 3 个 @Bean 方法都进行代理。可以看到上面 serviceA() 和 serviceB() 方法都调用到了 serviceC() 方法，按照正常的逻辑来说理应对 ServiceC 进行多次实例化，但是我们将 proxyBeanMethods 设置为了 true，SpringBoot 就会对 serviceC() 进行代理，最终不管调用多少次 serviceC() 方法返回的都是 SpringBoot 生成的代理对象，都是同一个对象。同时，这也被称为 Full 模式，对配置类中每个直接调用 @Bean 方法的地方进行代理。
+默认值是 true，表示要求 SpringBoot 对 CusConfig 类中的 3 个 @Bean 方法都进行代理。可以看到上面 serviceA() 和 serviceB() 方法都调用到了 serviceC() 方法，按照正常的逻辑来说理应对 ServiceC 进行多次实例化。但是这里设置 proxyBeanMethods=true，SpringBoot 就会对 serviceC() 进行代理，最终不管调用多少次 serviceC() 方法返回的都是 SpringBoot 生成的代理对象，都是同一个对象。
 
-有点抽象，从输出结果观察一下：
+这也被称为 Full 模式，对配置类中每个直接调用 @Bean 方法的地方进行代理。有点抽象，从输出结果观察一下：
 
 ```java
 ServiceA a = ac.getBean(ServiceA.class);
@@ -1309,7 +1309,7 @@ com.boot.bean.ServiceC@622ef26a
 
 在 SpringBoot 2 之前，使用的都是 Full 模式，随着配置类的增加，SpringBoot 需要创建的代理类也随着增加，生成太多代理类会拖慢 SpringBoot 的启动。为了加快启动速度，SpringBoot 引入了一个 Lite 模式，就是将 proxyBeanMethods 设置为 false。
 
-继续看刚才的代码，现在将 proxyBeanMethods 设置为 false：
+继续看刚才的代码，将 proxyBeanMethods 设置为 false：
 
 ```java
 @Configuration(proxyBeanMethods = false)
@@ -1367,16 +1367,31 @@ public class CusConfig {
 * @EnableAutoConfiguration，为 SpringBoot 应用开启自动配置功能。
 * @ComponentScan，负责 SpringBoot 应用组件扫描。
 
-重点在 @EnableAutoConfiguration 注解，它也是一个复合注解：
+<br>
 
-* @AutoConfigurationPackage，自动导入包
-* @Import(AutoConfigurationImportSelector.class)，借助 @Import 导入 AutoConfigurationImportSelector
+重点在 @EnableAutoConfiguration，它也是一个复合注解：
+
+```java
+@AutoConfigurationPackage
+@Import(AutoConfigurationImportSelector.class)
+public @interface EnableAutoConfiguration
+```
+
+* @AutoConfigurationPackage，通过 AutoConfigurationPackages 类实现自动导入包
+* @Import(AutoConfigurationImportSelector.class)，导入 AutoConfigurationImportSelector，AutoConfigurationImportSelector 用来筛选真正需要导入的类。
 
 <br>
 
-SpringBoot 在启动的过程中会检查 spring-boot-autoconfigure 模块中的 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件，文件中包含了一系列需要 SpringBoot 自动导入的类。
+SpringBoot 从哪里决定自动导入的类呢？主要有两个文件，都定义在 spring-boot-autoconfigure 模块中：
 
-如果我们导入了一个 spring-boot-starter-web 模块，SpringBoot 在启动的时候会扫描 Classpath 路径，发现存 AutoConfiguration.imports 中定义的类，比如：
+* AutoConfiguration.imports
+* spring.factories
+
+<br>
+
+先讲 *.imports 文件。SpringBoot 在启动的过程中会检查 spring-boot-autoconfigure 模块中的 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件，文件中包含了一系列需要 SpringBoot 自动导入的类。
+
+比如我们导入了一个 spring-boot-starter-web 模块，SpringBoot 在启动的时候会扫描 Classpath 路径，如果发现存在 AutoConfiguration.imports 中定义的类，比如：
 
 ```
 org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration
@@ -1387,7 +1402,7 @@ org.springframework.boot.autoconfigure.web.servlet.MultipartAutoConfiguration
 org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration
 ```
 
-这几个类，SpringBoot 就会使用 ImportCandidates 类自动加载。
+SpringBoot 就会使用 ImportCandidates 类将它们导入。
 
 ```java
 public final class ImportCandidates implements Iterable<String> {
@@ -1397,7 +1412,21 @@ public final class ImportCandidates implements Iterable<String> {
 
 <br>
 
-这一套流程有点类似 SpringFactoriesLoader 加载 `META-INF/spring.factories` 文件，实际上也可以看成是 SpringFactoriesLoader 加载 spring.factories 文件的升级版。
+此外还有一个 `META-INF/spring.factories` 文件，
+
+```
+# Auto Configuration Import Listeners
+org.springframework.boot.autoconfigure.AutoConfigurationImportListener=\
+org.springframework.boot.autoconfigure.condition.ConditionEvaluationReportAutoConfigurationImportListener
+
+# Auto Configuration Import Filters
+org.springframework.boot.autoconfigure.AutoConfigurationImportFilter=\
+org.springframework.boot.autoconfigure.condition.OnBeanCondition,\
+org.springframework.boot.autoconfigure.condition.OnClassCondition,\
+org.springframework.boot.autoconfigure.condition.OnWebApplicationCondition
+```
+
+SpringBoot 使用 SpringFactoriesLoader 类来加载 spring.factories 文件。
 
 ```java
 public final class SpringFactoriesLoader {
@@ -1406,15 +1435,19 @@ public final class SpringFactoriesLoader {
 }
 ```
 
-
-
 > 从 SpringBoot 2.7 开始官方逐步使用 AutoConfiguration.imports 来代替 spring.factories 文件。在 SpringBoot 3.0 更是直接将 spring.factories 标注为弃用。
 
-SpringFactoriesLoader 加载 spring.factories 实际上就是 SPI 的变种。只不过 SpringBoot 使用的是 SpringFactoriesLoader 来加载，Java 使用的是 ServiceLoader 类来加载。
+SpringFactoriesLoader 加载 spring.factories 可以看成是 Java SPI 的变种。只不过 SpringBoot 使用的是 SpringFactoriesLoader 来加载，Java 使用的是 ServiceLoader 类来加载。
 
 <br>
 
-SpringBoot 会根据 AutoConfigurationImportSelector 将所需要的类自动加载。AutoConfigurationImportSelector 继承自 ImportSelector 接口，主要用来定义配置自动导入规则。
+AutoConfigurationImportSelector 是一个自动配置导入选择器，继承自很多接口：
+
+* DeferredImportSelector 接口，主要用来定义延迟配置自动导入规则。
+* BeanClassLoaderAware、ResourceLoaderAware、BeanFactoryAware、EnvironmentAware 在启动的各个流程进行操作。
+* Ordered 定义类实例化的顺序，Ordered#getOrder 方法返回的数值越小，类实例化的优先级就越高。
+
+
 
 <br>
 
