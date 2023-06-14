@@ -6,24 +6,24 @@
 
 > 8 种 基本数据类型
 
-| 类型    | 字节 | 位     | 包装类   |
-| ------- | ---- | ------ | -------- |
-| byte    | 1    | 8 bit  | Byte     |
-| boolean | 1    | 8 bit  | Boolean  |
-| char    | 2    | 16 bit | Charater |
-| shot    | 2    | 16 bit | Shot     |
-| int     | 4    | 32 bit | Integer  |
-| float   | 4    | 32 bit | Float    |
-| long    | 8    | 64 bit | Long     |
-| double  | 8    | 64 bit | Double   |
+| 类型    | 字节/Byte | 位/bit | 包装类   |
+| ------- | --------- | ------ | -------- |
+| byte    | 1         | 8      | Byte     |
+| boolean | 1         | 8      | Boolean  |
+| char    | 2         | 16     | Charater |
+| shot    | 2         | 16     | Shot     |
+| int     | 4         | 32     | Integer  |
+| float   | 4         | 32     | Float    |
+| long    | 8         | 64     | Long     |
+| double  | 8         | 64     | Double   |
 
 <br>
 
 ### 缓冲池
 
-在 Java 中`Boolean/Byte/Character/Integer/Short`这几个包装类型都存在一个缓冲池，使用这些对应的包装类型时，满足条件（比如频繁读取的值）的值就会存放到缓冲池中，待下次直接从缓冲池中读取。
+在 Java 中 `Boolean/Byte/Character/Integer/Short` 这几个包装类型都存在一个缓冲池，使用这些对应的包装类型时，满足条件（比如频繁读取的值）的值就会存放到缓冲池中，待下次直接从缓冲池中读取。
 
-Java 中常见的包装类除`Double/Float`都存在缓冲池：
+Java 中常见的包装类除 `Double/Float` 都存在缓冲池：
 
 ```java
 // Boolean
