@@ -1361,7 +1361,34 @@ public class CusConfig {
 
 这样才能保证创建出来的 ServiceC 在容器中是一个单实例。
 
-<br>回到标题，继续来分析 SpringBoot 的自动配置。看到 @SpringBootApplication，它是由 3 个注解组成的复合注解：
+<br>
+
+接下来，看看 SpringBoot 如何导入类进行配置。和下面这几个注解有关：
+
+* @Import，容器导入一个或多个配置类
+
+* @ImportResource，导入一个或多个配置文件（properties/yaml）
+
+* @Conditional，根据条件导入组件
+
+  ```java
+  @ConditionalOnExpression
+  @ConditionalOnSingleCandidate // 容器中有某个 bean 且为单例
+  @ConditionalOnMissingBean // 容器中没有有某个 bean
+  @ConditionalOnBean // 容器中有某个 bean
+  @ConditionalOnJava // 当前 Java 版本
+  @ConditionalOnClass // 容器中包含有某个 Class
+  @ConditionalOnWebApplication  // web 应用
+  @ConditionalOnNotWebApplication // 不是 web 应用
+  @ConditionalOnMissingClass // 容器中不包含某个 Class
+  @ConditionalOnResource // 容器中包含有某个资源
+  ```
+
+  
+
+<br>
+
+回到标题，继续来分析 SpringBoot 的自动配置。看到 @SpringBootApplication，它是由 3 个注解组成的复合注解：
 
 * @SpringBootConfiguration，SpringBoot 应用只能有一个 @SpringBootConfiguration 注解，可以看成是 @Configuration 的替代。
 * @EnableAutoConfiguration，为 SpringBoot 应用开启自动配置功能。
@@ -1377,12 +1404,20 @@ public class CusConfig {
 public @interface EnableAutoConfiguration
 ```
 
-* @AutoConfigurationPackage，通过 AutoConfigurationPackages 类实现自动导入包
-* @Import(AutoConfigurationImportSelector.class)，导入 AutoConfigurationImportSelector，AutoConfigurationImportSelector 用来筛选真正需要导入的类。
+* @AutoConfigurationPackage，自动导入包中的类
+* @Import(AutoConfigurationImportSelector.class)，AutoConfigurationImportSelector 用来筛选真正需要导入的类。
 
 <br>
 
-SpringBoot 从哪里决定自动导入的类呢？主要有两个文件，都定义在 spring-boot-autoconfigure 模块中：
+AutoConfigurationImportSelector 是一个自动配置导入选择器，继承自很多接口：
+
+* DeferredImportSelector 接口，主要用来定义延迟配置自动导入规则。
+* BeanClassLoaderAware、ResourceLoaderAware、BeanFactoryAware、EnvironmentAware 在启动的各个流程进行操作。
+* Ordered 定义类实例化的顺序，Ordered#getOrder 方法返回的数值越小，类实例化的优先级就越高。
+
+<br>
+
+**SpringBoot 从哪里决定自动导入的类呢？**主要有两个文件，都定义在 spring-boot-autoconfigure 模块中：
 
 * AutoConfiguration.imports
 * spring.factories
@@ -1441,17 +1476,20 @@ SpringFactoriesLoader 加载 spring.factories 可以看成是 Java SPI 的变种
 
 <br>
 
-AutoConfigurationImportSelector 是一个自动配置导入选择器，继承自很多接口：
+自动配置导入的配置文件 *.import 和 spring.factories 文件一般都在 spring-boot-xxx-autoconfigure 包中。这就涉及到 starter 了，**什么是 spring-boot-starter 呢？**
 
-* DeferredImportSelector 接口，主要用来定义延迟配置自动导入规则。
-* BeanClassLoaderAware、ResourceLoaderAware、BeanFactoryAware、EnvironmentAware 在启动的各个流程进行操作。
-* Ordered 定义类实例化的顺序，Ordered#getOrder 方法返回的数值越小，类实例化的优先级就越高。
+<br>
+
+一个 starter 应该包括两部分内容：
+
+* starter，没什么大用，实际上是一个空的 jar 包，提供 autoconfigure 模块需要的依赖。
+* autoconfigure，包含自动配置类，*.import 和 spring.factories 文件都在里面。
+
+如果配置比较简单，可以将两个模块合并成一个。
 
 
 
 <br>
-
-
 
 ## Web 源码分析
 
