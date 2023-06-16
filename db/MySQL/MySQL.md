@@ -479,22 +479,22 @@ mysql> SHOW COLUMNS FROM City;
 
 #### explain
 
-用于查询语句执行计划（查看 MySQL 会如何执行某条 SQL 语句）。
+用于查询 SQL 语句执行计划（查看 MySQL 会如何执行某条 SQL 语句）。
 
 ![image-20230413132236383](./assets/image-20230413132236383.png)
 
-当使用 explain 查询某条 SQL 语句的时候，MySQL 会展示经过 SQL 优化器优化之后该 SQL 语句的执行信息，比如有无使用索引，使用了什么关键字（where/and）等。
+当使用 explain 查询某条 SQL 语句的时候，MySQL 会展示经过 SQL 优化器优化之后该 SQL 语句的执行信息，比如：有无使用索引，使用了什么关键字（where/and）等。
 
 | 输出列名      | 解释                                                         |
 | ------------- | ------------------------------------------------------------ |
-| id            | The `SELECT` identifier                                      |
-| select_type   | The `SELECT` type                                            |
-| table         | The table for the output row                                 |
-| partitions    | The matching partitions                                      |
-| type          | The join type, `All/index/range/ref/eq_ref/const(system)/NULL` |
-| possible_keys | The possible indexes to choose                               |
-| key           | The index actually chosen                                    |
-| key_len       | The length of the chosen key                                 |
+| id            | 查询执行的顺序，数字越小越先执行                             |
+| select_type   | 查询的类型：SIMPLE/PRIMARY/SUBQUERY/UNION/...                |
+| table         | 查询的表名                                                   |
+| partitions    | 查询结果所在的分区                                           |
+| type          | 表示 MySQL 查询优化器选择的访问方法或操作类型：All/index/range/ref/eq_ref/const(system)/NULL |
+| possible_keys | 可能被选择使用的索引                                         |
+| key           | 真正使用到的索引                                             |
+| key_len       | 使用的索引长度                                               |
 | ref           | The columns compared to the index                            |
 | rows          | Estimate of rows to be examined                              |
 | filtered      | Percentage of rows filtered by table condition               |
@@ -529,10 +529,10 @@ type 表示 MySQL 查询优化器选择的访问方法或操作类型：
 
 ref 表示使用非唯一索引或唯一索引的部分前缀来进行表之间的连接：
 
-* 对于单表查询：`ref` 表示使用非唯一索引或唯一索引的部分前缀进行条件匹配
-* 对于连接查询：`ref` 表示使用非唯一索引或唯一索引的部分前缀进行连接操作
+* 对于单表查询：ref 表示使用非唯一索引或唯一索引的部分前缀进行条件匹配
+* 对于连接查询：ref 表示使用非唯一索引或唯一索引的部分前缀进行连接操作
 
-当查询语句中的条件使用到非唯一索引或唯一索引的部分前缀时，MySQL 优化器会选择使用 `ref` 类型的访问方法来加速查询。
+当查询语句中的条件使用到非唯一索引或唯一索引的部分前缀时，MySQL 优化器会选择使用 ref 类型的访问方法来加速查询。
 
 <br>
 
@@ -544,7 +544,7 @@ filtered 表示对表进行条件过滤后，预计返回结果的行数所占�
 
 <br>
 
-Extra 表示额外的执行信息，如使用临时表、文件排序等
+Extra 表示额外的执行信息，如是否使用临时表、文件排序等，一般使用 group by 语句时会出现额外执行信息。
 
 
 

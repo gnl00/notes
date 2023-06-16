@@ -1052,6 +1052,28 @@ CMS（*Concurrent Mark Sweep*） 收集器是一种并发垃圾收集器，以�
 
 <br>
 
+## JVM 参数
+
+-XX:MetaspaceSize=128m 元空间 Size
+
+-XX:MaxMetaspaceSize=128m 元空间最大 Size
+
+-Xms1024m 堆内存最小
+
+-Xmx1024m 堆内存最大
+
+-Xmn256m 新生代大小
+
+-Xss256k 栈最大深度
+
+-XX:+PrintGCDetails 打印 GC 细节
+
+> 这里有一篇[文章](https://help.aliyun.com/document_detail/148851.html)较为完整
+
+
+
+<br>
+
 ## 参考
 
 [jdk 1.7 后 intern 方法的变化](https://blog.csdn.net/zzzgd_666/article/details/87999870)

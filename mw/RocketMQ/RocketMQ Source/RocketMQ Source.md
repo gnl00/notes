@@ -199,13 +199,9 @@ public synchronized void start() throws MQClientException {
             if (!registerOK) {
                 this.serviceState = ServiceState.CREATE_JUST;
                 this.consumeMessageService.shutdown(defaultMQPushConsumer.getAwaitTerminationMillisWhenShutdown());
-                throw new MQClientException("The consumer group[" + this.defaultMQPushConsumer.getConsumerGroup()
-                    + "] has been created before, specify another name please." + FAQUrl.suggestTodo(FAQUrl.GROUP_NAME_DUPLICATE_URL),
-                    null);
-            }
+
 
             mQClientFactory.start();
-            log.info("the consumer [{}] start OK.", this.defaultMQPushConsumer.getConsumerGroup());
             this.serviceState = ServiceState.RUNNING;
             break;
         case RUNNING:
@@ -657,7 +653,7 @@ public void invokeOnewayImpl(/**...*/) /**...*/ {
 
 #### 总结
 
-> 总体来说，同步/异步单向消息的发送逻辑大体相同，最后都是借助 Netty（本质是 nio） 的 ChannelOutboundInvoker#writeAndFlush 进行非阻塞发送。在各自的 invokeXXXImpl 方法中，只有单向和异步需要使用到信号量来控制发送线程。因为单向消息不关心发送结果，无所谓发送成功与否；而异步消息初衷就是异步发送，自然需要主线程之外的其他线程来执行发送操作。
+> 总体来说，同步/异步单向消息的发送逻辑大体相同，最后都是借助 Netty  的 ChannelOutboundInvoker#writeAndFlush 进行非阻塞发送。在各自的 invokeXXXImpl 方法中，只有单向和异步需要使用到信号量来控制发送线程。因为单向消息不关心发送结果，无所谓发送成功与否；而异步消息初衷就是异步发送，自然需要主线程之外的其他线程来执行发送操作。
 
 
 

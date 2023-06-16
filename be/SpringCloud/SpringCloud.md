@@ -2944,7 +2944,7 @@ Hystrix 存在问题
 
 ## Apollo 配置中心
 
-> Apollo（阿波罗）是一款可靠的分布式配置管理中心，诞生于携程框架研发部，能够集中化管理应用不同环境、不同集群的配置，配置修改后能够实时推送到应用端，并且具备规范的权限、流程治理等特性，适用于微服务配置管理场景。
+> Apollo 是一款可靠的分布式配置管理中心，能够集中化管理应用不同环境、不同集群的配置，配置修改后能够实时推送到应用端，并且具备规范的权限、流程治理等特性，适用于微服务配置管理场景。
 
 
 
@@ -2983,7 +2983,7 @@ apollo_portal_db_username=用户名
 apollo_portal_db_password=密码（如果没有密码，留空即可）
 ```
 
-4、启动 apollo，`./demo.sh start`
+4、执行 `./demo.sh start` 启动 apollo
 
 5、打开连接 `localhost:8070`，进入控制面板，用户名 apollo，密码 admin
 
@@ -3020,12 +3020,6 @@ apollo_portal_db_password=密码（如果没有密码，留空即可）
         <artifactId>apollo-client</artifactId>
         <version>1.9.1</version>
     </dependency>
-
-    <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-    </dependency>
-
 </dependencies>
 ```
 
@@ -3036,7 +3030,6 @@ apollo_portal_db_password=密码（如果没有密码，留空即可）
 ```yaml
 server:
   port: 3355
-
 spring:
   application:
     name: apollo-config-client
@@ -3051,13 +3044,11 @@ apollo:
   bootstrap:
     enabled: true # 启用 apollo
 
-
 logging:
   level:
     com:
       boot:
         controller: debug
-
 
 # 自定义信息
 myname: gnl-v11111
@@ -3134,26 +3125,7 @@ public class Apollo3355MainApp {
 **以日志输出级别的修改为例**
 
 ```java
-package com.boot.config;
-
-import com.ctrip.framework.apollo.Config;
-import com.ctrip.framework.apollo.model.ConfigChangeEvent;
-import com.ctrip.framework.apollo.spring.annotation.ApolloConfig;
-import com.ctrip.framework.apollo.spring.annotation.ApolloConfigChangeListener;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.logging.LogLevel;
-import org.springframework.boot.logging.LoggingSystem;
-import org.springframework.context.annotation.Configuration;
-
-import javax.annotation.PostConstruct;
-import java.util.Set;
-
-/**
- * LoggerConfig 监听日志变化配置类
- */
+// LoggerConfig 监听日志变化配置类
 @Configuration
 public class LoggerConfig {
 
@@ -3163,7 +3135,7 @@ public class LoggerConfig {
     @Autowired
     private LoggingSystem loggingSystem;
 
-    // @ApolloConfig 将Apollo服务端的中的配置注入这个类中
+    // @ApolloConfig 将 Apollo 服务端的中的配置注入这个类中
     @ApolloConfig
     private Config config;
 
@@ -3186,51 +3158,20 @@ public class LoggerConfig {
         }
     }
 }
-
 ```
 
+<br>
 
+# 参考
 
+[RPC与Http的区别](https://www.cnblogs.com/helloworldmybokeyuan/p/11626833.html)
 
+[Nacos 服务注册与发现原理分析](https://www.jianshu.com/p/61608ff86344/)
 
+[Spring Cloud Alibaba | 微服务分布式事务之Seata](https://www.cnblogs.com/babycomeon/p/11504210.html)
 
+[微服务：注册中心ZooKeeper、Eureka、Consul 、Nacos对比](https://blog.csdn.net/fly910905/article/details/100023415)	
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-**参考**
-
-[RPC与Http的区别 - helloworldmybokeyuan - 博客园 (cnblogs.com)](https://www.cnblogs.com/helloworldmybokeyuan/p/11626833.html)
-
-[Nacos 服务注册与发现原理分析 - 简书 (jianshu.com)](https://www.jianshu.com/p/61608ff86344/)
-
-[Spring Cloud Alibaba | 微服务分布式事务之Seata - 极客挖掘机 - 博客园 (cnblogs.com)](https://www.cnblogs.com/babycomeon/p/11504210.html)
-
-[微服务：注册中心ZooKeeper、Eureka、Consul 、Nacos对比_琦彦-CSDN博客_nacos zookeeper](https://blog.csdn.net/fly910905/article/details/100023415)	
-
-[eureka、consul、nacos三大产品对比 - ☆野生架构师☆ - 博客园 (cnblogs.com)](https://www.cnblogs.com/shumtn/p/13391470.html)
+[eureka、consul、nacos三大产品对比](https://www.cnblogs.com/shumtn/p/13391470.html)
 
 [SpringBoot 整合 apollo](https://www.cnblogs.com/huanchupkblog/p/10509427.html)

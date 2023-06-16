@@ -1306,7 +1306,7 @@ final Node<K,V>[] resize() {
 
 ### Hashtable
 
-> This class implements a hash table, which maps keys to values. Any non-null object can be used as a key or as a value.
+> Any non-null object can be used as a key or as a value.
 
 
 
@@ -1321,9 +1321,9 @@ public class Hashtable<K,V>
 #### 内部属性
 
 ```java
-    private transient volatile Set<K> keySet;
-    private transient volatile Set<Map.Entry<K,V>> entrySet;
-    private transient volatile Collection<V> values;
+private transient volatile Set<K> keySet;
+private transient volatile Set<Map.Entry<K,V>> entrySet;
+private transient volatile Collection<V> values;
 ```
 
 
@@ -1331,39 +1331,47 @@ public class Hashtable<K,V>
 #### 内部方法
 
 ```java
-    public Hashtable() {
-        this(11, 0.75f); // 默认容量 11，默认加载因子 0.75
-    }
-		public synchronized int size()
-    public synchronized Enumeration<K> keys()
-    public synchronized boolean contains(Object value)
-    public synchronized V get(Object key)
-    public synchronized V put(K key, V value)
-      
-    // newCapacity = (oldCapacity << 1) + 1
-    // 扩大到原来的 2 倍 + 1
-    protected void rehash()
+public Hashtable() {
+    this(11, 0.75f); // 默认容量 11，默认加载因子 0.75
+}
+public synchronized int size()
+public synchronized Enumeration<K> keys()
+public synchronized boolean contains(Object value)
+public synchronized V get(Object key)
+public synchronized V put(K key, V value)
+
+// newCapacity = (oldCapacity << 1) + 1
+// 扩大到原来的 2 倍 + 1
+protected void rehash()
 ```
 
 
 
-#### HashMap 对比
+#### 对比 HashMap
 
-1. 父类不同，HashMap 父类为 AbstractMap，Hashtable 父类为 Dictionary；
+1. 父类不同。HashMap 父类为 AbstractMap；Hashtable 父类为 Dictionary。
 
-2. 初始大小和每次扩容大小不同。HashMap 初始大小为 16，每次扩容为原来的 2 倍；Hashtable 初始大小为 11，每次扩容为原来的 2 倍再加 1
+2. 初始大小和每次扩容大小不同。HashMap 初始大小为 16，每次扩容为原来的 2 倍；Hashtable 初始大小为 11，每次扩容为原来的 2 倍再加 1。
 
-3. 计算哈希值的方法不同。HashMap 的哈希结果是 `(h = key.hashCode()) ^ (h >>> 16)`；而 Hashtable 是 `(key.hashCode() & 0x7FFFFFFF) % tab.length`
+3. 计算哈希值的方法不同。
 
-4. 安全性不同。HashMap 线程不安全，Hashtable 是线程安全的，它的属性都使用 volatile 来修饰，每个方法都是同步方法；
+   HashMap 的哈希结果是 `(h = key.hashCode()) ^ (h >>> 16)`；
 
-5. 对 `null` 值的支持不同。HashMap 中 key 和 value 都可以为 `null`，但是 `null` 值的 key 只能存在一个，`null` 值的 value 可以有多个；Hashtable 中 key 和 value 都不能为 `null`
+   而 Hashtable 是 `(key.hashCode() & 0x7FFFFFFF) % tab.length`。
 
-6. 处理哈希冲突的方式不同。HashMap 使用链表或红黑树来解决哈希冲突，而 Hashtable 使用开放寻址法来解决哈希冲突
+4. 安全性不同。HashMap 线程不安全，Hashtable 是线程安全的，它的属性都使用 volatile 来修饰，每个方法都是同步方法。
 
-7. 对外提供的方法不同
+5. 对 null 值的支持不同。HashMap 中 key 和 value 都可以为 null，null 值的 key 只能存在一个，null 值的 value 可以有多个；Hashtable 中 key 和 value 都不能为 null。
 
-   Hashtable 比 HashMap 多提供了 `elements/contains` 方法。`elements` 继承自 Dictionary，`contains` 判断 Hashtable 是否包含传入的 value，作用与 `containsValue` 一致。
+6. 处理哈希冲突的方式不同。HashMap 使用链表或红黑树来解决哈希冲突，而 Hashtable 使用开放寻址法来解决哈希冲突。
+
+7. 对外提供的方法不同。
+
+   Hashtable 比 HashMap 多提供了 elements/contains 方法。
+
+   elements 继承自 Dictionary；
+
+   contains 作用与 containsValue 一致。
 
 
 
@@ -1392,12 +1400,8 @@ public class TreeMap<K,V>
 #### 内部属性
 
 ```java
-/**
- * The comparator used to maintain order in this tree map, or
- * null if it uses the natural ordering of its keys.
- */
+// The comparator used to maintain order in this tree map, or null if it uses the natural ordering of its keys.
 private final Comparator<? super K> comparator;
-
 private transient Entry<K,V> root;
 ```
 
@@ -1436,7 +1440,6 @@ public V put(K key, V value) {
     else {
         if (key == null)
             throw new NullPointerException();
-        		@SuppressWarnings("unchecked")
       			// 如果未指定 comparator 使用 key 的 compareTo 方法
             Comparable<? super K> k = (Comparable<? super K>) key;
         do {
@@ -1469,9 +1472,9 @@ public V put(K key, V value) {
 
 ### LinkedHashMap
 
-> 带排序的 Map，基于链表和红黑树
+> 带排序的 Map，基于链表和红黑树。继承自 HashMap，实现 Map 接口。
 
-继承 HashMap，实现 Map 接口。与 HashMap 不同的是 LinkedHashMap 使用双向链表来连接它的 entry。使用链表的同时也确定了 LinkedHashMap 的遍历顺序，通常来说 LinkedHashMap 的遍历都是按照 key 添加的顺序来进行的。如果已经存在的 key 重新插入，不会影响其先前的顺序。
+与 HashMap 不同的是 LinkedHashMap 使用双向链表来连接它的 entry。使用链表的同时也确定了 LinkedHashMap 的遍历顺序，通常来说 LinkedHashMap 的遍历都是按照 key 添加的顺序来进行的。如果已经存在的 key 重新插入，不会影响其先前的顺序。
 
 ```java
 public class LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V> {}
@@ -1577,11 +1580,9 @@ public V put(K key, V value) {
 
 ### ConcurrentMap
 
->A Map providing thread safety and atomicity guarantees. 
+>提供线程安全操作和原子性的接口。
 >
->Memory consistency effects: As with other concurrent collections, actions in a thread prior to placing an object into a ConcurrentMap as a key or value happen-before actions subsequent to the access or removal of that object from the ConcurrentMap in another thread.
->
->一个线程对 ConcurrentMap 的 key-value 的 put 操作 happen-before 于另一个线程对该 ConcurrentMap 的访问和移除操作
+>内存一致性：一个线程对 ConcurrentMap 的 key-value 的 put 操作 happen-before 于另一个线程对该 ConcurrentMap 的访问和移除操作
 
 
 
@@ -1595,20 +1596,24 @@ public interface ConcurrentMap<K, V> extends Map<K, V>
 
 ### ConcurrentHashMap
 
-> 一个支持全并发检索和高并发更新的哈希表
-> * 与 HashMap 不同，ConcurrentHashMap 不允许 null 作为键
-> * 支持和 Hashtable 一样的功能规范，每个方法都和 Hashtable 的方法相对应
-> * 所有操作都是线程安全的，但读操作并不完全加锁，不支持锁住整个哈希表
-> * 同一个键值的更新操作 happen-before 读取操作
-> * 当出现太多哈希碰撞时，动态扩容
+> 一个支持并发查找和并发更新的哈希表：
+> * 与 HashMap 不同，ConcurrentHashMap 不允许 null 作为键；
+> * 支持和 Hashtable 一样的功能规范，每个方法都和 Hashtable 的方法相对应；
+> * 所有操作都是线程安全的，但读操作并不完全加锁，不支持锁住整个哈希表；
+> * 同一个键值的更新操作 happen-before 读取操作；
+> * 当出现太多哈希碰撞时，动态扩容。
 >
-> ConcurrentHashMap 的 Node 结点是基础结点，保存 key-value 对，不会向外暴露。Node 的子类结点有着不同的作用
->* TreeNode，树型结构结点
->* TreeBin，指向 TreeNode 集合 TreeNodes 的 root 结点
->* ForwardingNode，在调整大小的过程中，被放置在 bin 的头部
->* ReservationNode，在使用 computeIfAbsent 和相关方法设置值时，ReservationNode 用作占位符
-> 
-> 以上这些子类没有 key/value/hash，它们的 hash 为负值且 key 和 value 是 null 值，很容易区分。这些特殊节点要么不常见，要么是暂时性的，因此携带一些未使用的字段的影响是微不足道的。
+> <br>
+>
+> ConcurrentHashMap 的 Node 结点是基础结点，保存 key-value 对不会向外暴露。Node 的子类节点有着不同的作用：
+> * TreeNode，树型结构节点；
+> * TreeBin，指向 TreeNode 集合 TreeNodes 的 root 节点；
+> * ForwardingNode，在调整大小的过程中使用，被放置在 bin 的头部；
+> * ReservationNode，在使用 computeIfAbsent 和相关方法设置值时，ReservationNode 用作占位符；
+>
+> 以上这些子类没有 key/value/hash，它们的 hash 为负值，而且 key 和 value 是 null 值，很容易和普通的 Node 进行区分。这些特殊节点是不常见且暂时的，因此携带一些未使用的字段的影响是微不足道的。
+
+
 
 ```java
 public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
@@ -1685,6 +1690,24 @@ private static final int DEFAULT_CONCURRENCY_LEVEL = 16; // 默认并发级别
 
 ##### get
 
+方法流程如下：
+
+1、计算 key 的哈希值。
+
+2、判断：① table 非空；② table.length > 0；③ table 中对应的哈希位置上的元素 e 存在。
+
+上面的步骤就是要看 table 中对应的 hash 槽是否有元素存在。
+
+3、有元素存在，对比：① 元素.key 和 key 的哈希值；或者 ② 元素.key 和 key 的内存地址；③ 元素.key 的值和 key 的值是否一致。
+
+上面的第 3 步是为了避免存在 key 哈希冲突的情况。如果上面的步骤都没问题，说明查找成功，将结果返回。如果第 3 步的哈希值对不上，继续往下走。
+
+4、如果元素.hash < 0，说明当前位置的元素节点是一个转发节点（ForwardingNode）。出现转发节点可能是因为当前 table 正在进行扩容操作。
+
+顺着转发节点往下继续找，如果找到了就返回，没找到返回 null。
+
+5、如果元素.hash = key.hash，但是 key 和 e.key 内存地址不等，或者 key 的值和 e.key 不等，说明存在哈希冲突。接下来在链表中找到期望元素。
+
 ```java
 // key 相等，获取成功
 // key 对应的 entry 的 hash 为负值
@@ -1694,18 +1717,30 @@ public V get(Object key) {
     
     // (tab = table) != null 表示 table 非空
     // (n = tab.length) > 0 表示 table 中含有内容
-    // (e = tabAt(tab, (n - 1) & h)) != null 表示 key 对应的位置存在 value 且非空
+    // (e = tabAt(tab, (n - 1) & h)) != null 表示 key 对应的位置存在元素非空
     if ((tab = table) != null && (n = tab.length) > 0 &&
         (e = tabAt(tab, (n - 1) & h)) != null) {
-        if ((eh = e.hash) == h) { // 哈希值相等
-            if ((ek = e.key) == key || (ek != null && key.equals(ek))) // key 相等
+        if ((eh = e.hash) == h) { // 元素.hash = key.hash
+          	// 还要判断内存地址 (ek = e.key) == key 
+          	// 和值 key.equals(ek) 
+          	// 是因为存在 key 哈希碰撞的情况
+            if ((ek = e.key) == key || (ek != null && key.equals(ek))) // key 相等 // 1
                 return e.val; // 获取成功
         }
-        // 如果元素的哈希值 eh 小于 0，表示这个元素是一个 ForwardingNode（转发节点）。
+      	// 到这里说明 key.hash 和当前 bucket 中的 key 的哈希都不等
+      
+        // 如果元素的哈希值 eh 小于 0，表示这个元素是一个 ForwardingNode（转发节点）
+      	// 存在转发节点说明当前 ConcurrentHashMap 可能正在进行扩容操作
         // 需要在转发节点中寻找元素
         else if (eh < 0)
             return (p = e.find(h, key)) != null ? p.val : null;
-        while ((e = e.next) != null) { // 哈希冲突，在链表中找到期望元素
+      	
+      	// 这一步结合上面 1 位置的代码好理解一点
+      	// 1 位置判断：如果 key.hash = e.hash 但是 key 和 e.key 内存地址不等
+      	// 或者 key 的值和 e.key 不等
+      	// 哈希值相等，但是内存地址和值不等，说明存在哈希冲突
+      	// 接下来在链表中找到期望元素 e = e.next
+        while ((e = e.next) != null) {
             if (e.hash == h &&
                 ((ek = e.key) == key || (ek != null && key.equals(ek))))
                 return e.val;
@@ -1715,8 +1750,27 @@ public V get(Object key) {
 }
 ```
 
-
 ##### putVal
+
+方法流程如下：
+
+1、key 和 value 都不支持 null。
+
+2、获取 key.hash。
+
+① if table 未初始化，则先进行初始化；
+
+② else-if table 已经存在但是哈希槽对应的位置为空。
+
+上面的 ① 和 ② 都是直接 CAS 操作在对应的哈希槽位置设置值。
+
+③ else-if key.hash 小于 0，说明当前节点是一个转发节点，当前 table 正在进行扩容操作，则调用 helpTransfer 方法帮助 table 进行扩容。
+
+4、else key.hash 对应的哈希槽非空，说明发生哈希冲突，使用 synchronized 同步机制，锁监视器为当前操作的节点 f。
+
+5、接下来判断节点类型：① 普通 Node 节点。则新值替换旧值，或者尾插法插入链表尾部；② 树型结构的节点。调用 putTreeVal 设置值，如果添加成功返回 null；添加失败，说明存在旧值，将其更新为新值。
+
+6、最后判断 table 中的节点数量是否满足树化。
 
 ```java
 final V putVal(K key, V value, boolean onlyIfAbsent) {
@@ -1726,12 +1780,12 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
     for (Node<K,V>[] tab = table;;) {
         Node<K,V> f; int n, i, fh;
         if (tab == null || (n = tab.length) == 0)
-          	// 如果哈希表未初始化或长度为 0，则调用 initTable() 方法初始化哈希表
+          	// 如果哈希表未初始化或长度为 0，则调用 initTable() 方法初始化哈希表，默认 16，负载因子 0.75
             tab = initTable();
-      
         else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
-          	// 如果对应哈希桶为空，则使用 CAS 操作将新节点插入哈希桶
+          	// 如果对应哈希位置的 bucket 为空，则使用 CAS 操作将新节点插入哈希桶
             // no lock when adding to empty bin
+          	// 和 HashMap 对比，ConcurrentHashMap 好就好在这里，支持并发写，如果添加到一个空的哈希 bucket 中只需要 CAS 操作，不需要 synchronized
             if (casTabAt(tab, i, null,
                          new Node<K,V>(hash, key, value, null)))
                 break;
@@ -1740,10 +1794,13 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
         else if ((fh = f.hash) == MOVED) // MOVED = -1 hash for forwarding nodes
             tab = helpTransfer(tab, f); // 如果当前正在进行 resize 操作，帮助调整大小
       
-        else { // 在当前哈希桶中查找是否已经存在相同的 key
+        else { // 在当前哈希槽中存在相同的哈希值的 key
             V oldVal = null;
             synchronized (f) { // 对结点 f 加锁再进行修改操作
-                if (tabAt(tab, i) == f) {
+							// 如果 tab 中 i 位置的元素 = 当前节点 f
+              if (tabAt(tab, i) == f) {
+                		// f.hash 大于 0 说明 f 节点是一个普通的 Node 节点，不是树型节点
+                		// 转发节点上面已经判断过了，这里不用理会
                     if (fh >= 0) {
                         binCount = 1;
                         for (Node<K,V> e = f;; ++binCount) {
@@ -1765,11 +1822,14 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
                             }
                         }
                     }
-                    else if (f instanceof TreeBin) { // 如果当前哈希桶是树形节点，则在树中查找 key
+                
+                		// 到这里说明当前节点 f 是一个树型结构节点
+                    else if (f instanceof TreeBin) { // 如果当前哈希桶是树型节点，则调用 putTreeVal
                         Node<K,V> p;
                         binCount = 2;
-                        if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key,
-                                                       value)) != null) {
+                      	// putTreeVal Returns null if added 如果添加成功返回 null
+                        if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key, value)) != null) {
+                          	// 走到这里说明添加失败，更新树型节点的值
                             oldVal = p.val;
                             if (!onlyIfAbsent)
                                 p.val = value; // 已存在，值替换
@@ -1793,51 +1853,6 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
 
 
 
-##### addCount
-
-```java
-// 加元素计数，如果表太小且尚未调整大小，则开始转移
-// 如果已经调整了大小，帮助执行转移
-// 转移后重新检查占用情况，查看是否需要另一个调整大小，因为调整大小操作滞后于元素添加操作
-private final void addCount(long x, int check) {
-    CounterCell[] as; long b, s;
-    if ((as = counterCells) != null ||
-        !U.compareAndSwapLong(this, BASECOUNT, b = baseCount, s = b + x)) {
-        CounterCell a; long v; int m;
-        boolean uncontended = true;
-        if (as == null || (m = as.length - 1) < 0 ||
-            (a = as[ThreadLocalRandom.getProbe() & m]) == null ||
-            !(uncontended =
-              U.compareAndSwapLong(a, CELLVALUE, v = a.value, v + x))) {
-            fullAddCount(x, uncontended);
-            return;
-        }
-        if (check <= 1)
-            return;
-        s = sumCount();
-    }
-    if (check >= 0) { // check = bitCount >= 0
-        Node<K,V>[] tab, nt; int n, sc;
-        while (s >= (long)(sc = sizeCtl) && (tab = table) != null &&
-               (n = tab.length) < MAXIMUM_CAPACITY) {
-            int rs = resizeStamp(n) << RESIZE_STAMP_SHIFT;
-            if (sc < 0) {
-                if (sc == rs + MAX_RESIZERS || sc == rs + 1 ||
-                    (nt = nextTable) == null || transferIndex <= 0)
-                    break;
-                if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1))
-                    transfer(tab, nt);
-            }
-            else if (U.compareAndSwapInt(this, SIZECTL, sc, rs + 2))
-                transfer(tab, null);
-            s = sumCount();
-        }
-    }
-}
-```
-
-
-
 ##### transfer
 
 ```java
@@ -1851,7 +1866,6 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
   	// nextTab 为 null，表示初始化
     if (nextTab == null) {            // initiating
         try {
-            @SuppressWarnings("unchecked")
           	// 创建新哈希表表，容量是旧表的 2 倍
             Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n << 1];
             nextTab = nt;
@@ -1910,72 +1924,7 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
         else {
             synchronized (f) {
                 if (tabAt(tab, i) == f) {
-                    Node<K,V> ln, hn;
-                    if (fh >= 0) {
-                        int runBit = fh & n;
-                        Node<K,V> lastRun = f;
-                        for (Node<K,V> p = f.next; p != null; p = p.next) {
-                            int b = p.hash & n;
-                            if (b != runBit) {
-                                runBit = b;
-                                lastRun = p;
-                            }
-                        }
-                        if (runBit == 0) {
-                            ln = lastRun;
-                            hn = null;
-                        }
-                        else {
-                            hn = lastRun;
-                            ln = null;
-                        }
-                        for (Node<K,V> p = f; p != lastRun; p = p.next) {
-                            int ph = p.hash; K pk = p.key; V pv = p.val;
-                            if ((ph & n) == 0)
-                                ln = new Node<K,V>(ph, pk, pv, ln);
-                            else
-                                hn = new Node<K,V>(ph, pk, pv, hn);
-                        }
-                        setTabAt(nextTab, i, ln);
-                        setTabAt(nextTab, i + n, hn);
-                        setTabAt(tab, i, fwd);
-                        advance = true;
-                    }
-                    else if (f instanceof TreeBin) {
-                        TreeBin<K,V> t = (TreeBin<K,V>)f;
-                        TreeNode<K,V> lo = null, loTail = null;
-                        TreeNode<K,V> hi = null, hiTail = null;
-                        int lc = 0, hc = 0;
-                        for (Node<K,V> e = t.first; e != null; e = e.next) {
-                            int h = e.hash;
-                            TreeNode<K,V> p = new TreeNode<K,V>
-                                (h, e.key, e.val, null, null);
-                            if ((h & n) == 0) {
-                                if ((p.prev = loTail) == null)
-                                    lo = p;
-                                else
-                                    loTail.next = p;
-                                loTail = p;
-                                ++lc;
-                            }
-                            else {
-                                if ((p.prev = hiTail) == null)
-                                    hi = p;
-                                else
-                                    hiTail.next = p;
-                                hiTail = p;
-                                ++hc;
-                            }
-                        }
-                        ln = (lc <= UNTREEIFY_THRESHOLD) ? untreeify(lo) :
-                            (hc != 0) ? new TreeBin<K,V>(lo) : t;
-                        hn = (hc <= UNTREEIFY_THRESHOLD) ? untreeify(hi) :
-                            (lc != 0) ? new TreeBin<K,V>(hi) : t;
-                        setTabAt(nextTab, i, ln);
-                        setTabAt(nextTab, i + n, hn);
-                        setTabAt(tab, i, fwd);
-                        advance = true;
-                    }
+                    // ...
                 }
             }
         }
@@ -1987,69 +1936,93 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
 
 #### 扩容操作
 
-> `ConcurrentHashMap` 的扩容操作主要涉及两个阶段：创建新表和迁移数据
+ConcurrentHashMap 的扩容操作分为：
+
+* 创建新表；
+* 计算 transferIndex；
+* 迁移数据。
+
+<br>
+
+##### 创建新表
+
+创建一个新的数组 newTable，长度为原数组的两倍，并将原数组的引用指向新数组。这时，需要通过 CAS 操作将新数组的引用设置为主引用
+
+```java
+Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n << 1];
+nextTab = nt;
+nextTable = nextTab;
+```
+
+<br>
+
+##### 计算 transferIndex
+
+```java
+// tab 为旧哈希表
+int n = tab.length;
+transferIndex = n; // 将 transferIndex 后面的元素都复制到新的数组中。
+
+boolean advance = true;
+while（advance）{
+  if (--i >= bound || finishing) // 迁移完成退出
+     advance = false;
+
+  // nextIndex <= 0 表示迁移完成
+  else if ((nextIndex = transferIndex) <= 0) {
+     i = -1;
+     advance = false;
+  }
+
+  else if (U.compareAndSwapInt
+          (this, TRANSFERINDEX, nextIndex,
+           nextBound = (nextIndex > stride ?
+                        nextIndex - stride : 0))) {
+     bound = nextBound;
+     i = nextIndex - 1; // 从后往前一个个迁移元素
+     advance = false;
+  }
+}
+```
+
+<br>
+
+##### 重新计算哈希值 元素迁移
+
+遍历原 table 中的每个元素，重新计算哈希值，如果哈希值仍然在原数组的范围内，则将元素放回原位置；如果哈希值在新数组的范围内，则将元素放入新数组中对应的位置。
+
+> 将哈希值仍然在原数组的范围内的元素放回原位置的目的是为了保证数据的一致性。在并发情况下，可能会有多个线程同时对 ConcurrentHashMap 进行修改，而这些修改可能会涉及到同一个数组元素。如果不将这些元素放回原位置，在扩容过程中，原数组和新数组中的元素映射关系就会不一致，导致数据丢失或者出现错误的结果。因此需要将这些元素放回原位置，以保证数据的一致性。
+
+在重新计算所有元素的哈希值之后，再次遍历旧的 table 的每个元素，挪到新的 table 中。具体过程如下：
+
+1. 新 table 的每个槽位上都有一个指针指向旧 table 中的相同位置，如果旧 table 中的 bucket 非空，全部转移到新 table 的相应 bucket 中。
+2. 如果桶中元素只有一个，可以直接将元素挪到新桶中；如果桶中元素有多个，则需要遍历链表或红黑树中的所有元素，再重新计算它们在新数组中的位置，并将它们放到相应的桶中。
+
+在这个过程中，可能会有多个线程同时参与，每个线程都会负责迁移一部分元素，最终合并所有的结果到新的 table 中。
+
+
+
+**扩容时的转发操作**
+
+> 当 ConcurrentHashMap 进行扩容时，为了保证线程安全，需要将旧的哈希桶数组中的所有元素迁移到新的哈希桶数组中。这个过程是比较耗时的，因为需要遍历每个哈希桶中的链表，并逐个将其中的元素迁移到新的哈希桶数组中。而在这个过程中，如果有其他线程对 ConcurrentHashMap 进行了插入或删除操作，就需要及时将这些操作同步到新的哈希桶数组中，以保证线程安全。
 >
-> 
+> 为了实现这个功能，ConcurrentHashMap 中引入了转发机制。在扩容期间，如果某个线程需要访问哈希桶数组中的某个元素，但发现该元素已经被迁移到了新的哈希桶数组中，那么它会自动转发到新的哈希桶数组中，然后再进行操作。这个过程是透明的，对线程来说是无感知的。
 >
-> **创建新数组**
+> 需要注意的是，转发操作是在扩容期间进行的，一旦扩容完成，就不再需要进行转发操作了。因此，在扩容期间，ConcurrentHashMap 的性能可能会有所下降，因为需要进行转发操作。但是，一旦扩容完成，ConcurrentHashMap 的性能又会恢复到正常水平。
+
+
+> 除了转发操作外，ConcurrentHashMap 扩容过程中还有一些与之密切相关的操作，包括：
 >
-> 创建一个新的数组 newTable，长度为原数组的两倍，并将原数组的引用指向新数组。这时，需要通过 CAS 操作将新数组的引用设置为主引用
+> 1. 预检查操作：在进行扩容操作前，会先检查当前 Map 中的元素数量是否达到了扩容阈值，如果未达到，就不会触发扩容操作。
+> 2. 创建新表：在进行扩容操作时，会创建一个新的哈希表，用于存储新的键值对。
+> 3. 数据迁移操作：将旧哈希表中的键值对迁移到新哈希表中，这是扩容操作的核心步骤。
+> 4. 转移标记：在进行数据迁移操作时，需要将旧哈希表中的每个段（Segment）都标记为“迁移中”，以避免多个线程同时对同一个段进行迁移操作。
+> 5. 多线程迁移操作：在多线程环境下进行数据迁移操作时，需要保证线程安全，避免数据覆盖或重复迁移等问题。这需要采用一些并发控制机制，比如 `synchronized`、`CAS`、`Lock` 等。
+> 6. 完成迁移操作：在所有数据迁移操作完成后，需要将新哈希表设置为当前哈希表，并清除旧哈希表，以释放内存空间。
 >
-> ```java
-> Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n << 1];
-> nextTab = nt;
-> nextTable = nextTab;
-> ```
->
-> 
->
-> **计算 transfer 位置**
->
-> ```java
-> // tab 为旧哈希表
-> int n = tab.length;
-> transferIndex = n; // 将 transferIndex 后面的元素都复制到新的数组中。
-> 
-> boolean advance = true;
-> while（advance）{
->   if (--i >= bound || finishing) // 迁移完成退出
->     advance = false;
->   
->   // nextIndex <= 0 表示迁移完成
->   else if ((nextIndex = transferIndex) <= 0) {
->       i = -1;
->       advance = false;
->   }
-> 
->   else if (U.compareAndSwapInt
->            (this, TRANSFERINDEX, nextIndex,
->             nextBound = (nextIndex > stride ?
->                          nextIndex - stride : 0))) {
->       bound = nextBound;
->       i = nextIndex - 1; // 从后往前一个个迁移元素
->       advance = false;
->   }
-> }
-> ```
->
-> 
->
-> 遍历原数组中的每个元素，将每个元素所在的链表或红黑树中的元素重新计算 hash 值，如果 hash 值仍然在原数组的范围内，则将元素放回原位置；如果 hash 值在新数组的范围内，则将元素放入新数组中对应的位置。
->
-> 
->
-> 扩容时需要维护新旧两个数组，而将 hash 值仍然在原数组的范围内的元素放回原位置的目的是为了保证数据的一致性。因为在并发情况下，可能会有多个线程同时对 ConcurrentHashMap 进行修改，而这些修改可能会涉及到同一个数组元素。如果不将这些元素放回原位置，那么在扩容过程中，原数组和新数组中的元素映射关系就会不一致，导致数据丢失或者出现错误的结果。因此需要将这些元素放回原位置，以保证数据的一致性。
->
-> 
->
-> **元素迁移**
->
-> 在重新计算了所有元素的哈希值之后，会再次遍历旧的哈希桶数组，将每个桶里的元素挪到新的哈希桶数组中。具体过程如下：
->
-> 1. 新数组中每个桶的位置上都有一个指针指向旧数组中相同位置的桶，如果旧数组中的桶不为空，那么就需要将里面的元素转移到新数组的相应桶中。
-> 2. 如果桶中元素只有一个，可以直接将元素挪到新桶中；如果桶中元素有多个，则需要遍历链表或红黑树中的所有元素，再重新计算它们在新数组中的位置，并将它们放到相应的桶中。
->
-> 移动旧数组中的元素到新数组中的过程称为“迁移”，在这个过程中，可能会有多个线程同时参与，每个线程都会负责迁移一部分元素，最终所有线程的工作结果都会被合并到新的哈希桶数组中。
+> 这些操作都是在 ConcurrentHashMap 进行扩容操作时必须执行的，它们共同协作完成了 ConcurrentHashMap 的扩容过程。
+
+
 
 
 
@@ -2070,26 +2043,6 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
 > 6. 所有元素移动完成后，ConcurrentHashMap 将新哈希表 newTab 赋值给 table 变量，然后将 `sizeCtl` 设置为新的阈值。
 >
 > 需要注意的是，在扩容过程中，新旧哈希表可能会同时被多个线程进行读写操作，因此需要使用同步机制来确保操作的正确性和一致性。另外，扩容操作需要消耗大量的时间和系统资源，因此需要根据实际情况合理设置扩容
-
-
-**扩容时的转发操作**
-> 当 ConcurrentHashMap 进行扩容时，为了保证线程安全，需要将旧的哈希桶数组中的所有元素迁移到新的哈希桶数组中。这个过程是比较耗时的，因为需要遍历每个哈希桶中的链表，并逐个将其中的元素迁移到新的哈希桶数组中。而在这个过程中，如果有其他线程对 ConcurrentHashMap 进行了插入或删除操作，就需要及时将这些操作同步到新的哈希桶数组中，以保证线程安全。
->
-> 为了实现这个功能，ConcurrentHashMap 中引入了转发机制。在扩容期间，如果某个线程需要访问哈希桶数组中的某个元素，但发现该元素已经被迁移到了新的哈希桶数组中，那么它会自动转发到新的哈希桶数组中，然后再进行操作。这个过程是透明的，对线程来说是无感知的。
->
-> 需要注意的是，转发操作是在扩容期间进行的，一旦扩容完成，就不再需要进行转发操作了。因此，在扩容期间，ConcurrentHashMap 的性能可能会有所下降，因为需要进行转发操作。但是，一旦扩容完成，ConcurrentHashMap 的性能又会恢复到正常水平。
-
-
-> 除了转发操作外，ConcurrentHashMap 扩容过程中还有一些与之密切相关的操作，包括：
->
-> 1. 预检查操作：在进行扩容操作前，会先检查当前 Map 中的元素数量是否达到了扩容阈值，如果未达到，就不会触发扩容操作。
-> 2. 创建新表：在进行扩容操作时，会创建一个新的哈希表，用于存储新的键值对。
-> 3. 数据迁移操作：将旧哈希表中的键值对迁移到新哈希表中，这是扩容操作的核心步骤。
-> 4. 转移标记：在进行数据迁移操作时，需要将旧哈希表中的每个段（Segment）都标记为“迁移中”，以避免多个线程同时对同一个段进行迁移操作。
-> 5. 多线程迁移操作：在多线程环境下进行数据迁移操作时，需要保证线程安全，避免数据覆盖或重复迁移等问题。这需要采用一些并发控制机制，比如 `synchronized`、`CAS`、`Lock` 等。
-> 6. 完成迁移操作：在所有数据迁移操作完成后，需要将新哈希表设置为当前哈希表，并清除旧哈希表，以释放内存空间。
->
-> 这些操作都是在 ConcurrentHashMap 进行扩容操作时必须执行的，它们共同协作完成了 ConcurrentHashMap 的扩容过程。
 
 
 
