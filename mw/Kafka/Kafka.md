@@ -4,11 +4,13 @@
 
 ## 前言
 
-> Kafka 是一个分布式流处理平台，基于发布/订阅模式的消息队列，主要应用于大数据实时处理领域。使用 Kafka 可以帮助进行解耦、异步、削峰等操作。
+Kafka 是一个分布式流处理平台，基于发布/订阅模式的消息队列，主要应用于大数据实时处理领域。使用 Kafka 可以帮助进行解耦、异步、削峰等操作。
+
+
 
 <br>
 
-### 基础架构
+## 基础架构
 
 ![img](./assets/基础架构.png)
 
@@ -16,47 +18,32 @@
 
 <br>
 
-### 相关概念
+## 相关概念
 
-- Producer，消息生产者
+- Producer，消息生产者。
 
-- Consumer，消息消费者，从 Broker 拉取消息
+- Consumer，消息消费者，从 Broker 拉取消息。
 
-- ConsumerGroup
-
-  消费者组，组内每个消费者负责消费不同分区的数据，一个分区只能由一个组内消费者消费。所有的消费者都属于某个消费者组，消费者组是逻辑上的一个订阅者
+- *Consumer Group*，消费者组，组内每个消费者负责消费不同分区的数据，一个分区只能由一个组内消费者消费。所有的消费者都属于某个消费者组，消费者组是逻辑上的一个订阅者。
 
   ![img](./assets/consumer-groups.png)
 
-- Broker
+- Broker，一个 Kafka 服务就是一个 Broker，一个 Broker 可以容纳多个 Topic，一个集群由多个 Broker 组成。
 
-  一个 Kafka 服务就是一个 Broker，一个 Broker 可以容纳多个 Topic，一个集群由多个 Broker 组成。
+- Topic，Topic 可以分成多个分区存在于多个 Broker 上。
 
-- Topic，发布订阅模式中，生产者和消费者面向的都是一个 Topic。Topic 可以分成多个分区存在于多个 Broker 上。
-
-  > Replica 副本，一个 Topic 的每个分区都有若干个副本，一个 Leader 和零个或若干个 Follower
-
-- Partition
-
-  一个 Topic 可以分为多个 Partition，每个 Partition 是一个有序的队列。
+- Partition，一个 Topic 可以分为多个 Partition，每个 Partition 是一个有序的队列。
 
   > Topic 是逻辑上的概念，Partition 是物理上的概念。
 
   ![img](./assets/streams-and-tables-p1_p4.png)
 
-  > **Leader**
-  >
-  > 一个分区只有一个 Leader，领导一个或多个副本。一个 Partition 的数据只能由 Leader 来处理。生产者发送数据的对象，以及消费者消费数据的对象都是 Leader
-  >
-  > **Follower**
-  >
-  > 实时从 Leader 中同步数据，Leader 发生故障时，从 Follower 中选出新的 Leader
 
 
 
 <br>
 
-**Zookeeper 与 Nameserver**
+### Zookeeper 与 Nameserver
 
 > Kafka 中 Zookeeper 和 RocketMQ 的 Nameserver 功能相似，都是用来管理集群中的节点信息。但是它们的职责不完全相同：
 >
@@ -79,8 +66,8 @@
 
 ### 消费模式
 
-* 点对点，消费者主动拉取，消息收到后被清除。生产者生产消息发送到消息队列，消费者从队列中主动拉取并消费消息。消息消费后，队列中不再存储，所以消费者不可能消费到已经被消费的消息。一个消息队列支持多个消费者，但是一个消息只有一个消费者可以消费。
-* 发布/订阅，一对多，消息被消费后不会被清除。消息生产者将消息发布到 Topic 中，同时可以有多个消费者订阅该 Topic。和点对点方式不同，发布到 Topic 的消息被消费后不会被清除，会被所有订阅者消费
+* 点对点。一对一，生产者生产消息发送到消息队列，消费者从队列中主动拉取并消费消息。消息消费后，队列中不再存储。一个消息队列支持多个消费者进行消费，但是一条消息只有一个消费者可以消费。
+* 发布/订阅。一对多，消息被消费后不会被清除。消息生产者将消息发布到 Topic 中，同时可以有多个消费者订阅该 Topic。和点对点方式不同，发布到 Topic 的消息被消费后不会被清除，会被所有订阅者消费。
 
 
 
@@ -352,6 +339,22 @@ Kafka 中消息是以 Topic 进行分类的，消息的生产和消费都是面�
 Producer 生产的数据会被不断追加到该 log 文件末端，且每条数据都有自己的 Offset。消费者组中的每个消费者会实时记录自己消费到了哪个 Offset，以便出错恢复时从上次的位置继续消费。
 
 > 生产者 -> Topic（实际上是 Partition Log File） -> 消费者
+
+
+
+<br>
+
+## 高可用
+
+一个 Topic 的每个 Partition 都有若干个副本，一个 Leader 和零个或若干个 Follower。
+
+**Leader**
+
+一个分区只有一个 Leader，领导一个或多个副本。一个 Partition 的数据只能由 Leader 来处理。生产者发送数据的对象，以及消费者消费数据的对象都是 Leader。
+
+**Follower**
+
+实时从 Leader 中同步数据，Leader 发生故障时，从 ISR 列表中的 Follower 中选出新的 Leader。
 
 
 
