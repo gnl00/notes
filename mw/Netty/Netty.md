@@ -1171,9 +1171,11 @@ private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
 
 > 在 [GitHub](https://github.com/wandererex/wormhole) 看到一个使用 Netty 实现内网穿透的工具，使用 Java 实现，学习一下。
 
-以 MySQL 为例，将 127.0.0.1:3307 代理到 127.0.0.1:3306。如何实现呢？可以启动两个服务，local 和 proxy，将 proxy:3307 的请求转发到 local:3306，使用 local:3306 来操作 MySQL。
+比如，将 127.0.0.1:3307 代理到 127.0.0.1:3306。**如何实现呢？**
 
+需要三个角色相互配合起作用：客户端服务、代理服务、目标服务。以 MySQL 连接为例：客户端服务连接到代理服务:3307，代理服务会将客户端的请求转发到目标服务:3306。因为代理服务依赖于目标服务，所以它们的启动顺序是：先启动目标服务，再启动代理服务，然后使用客户端连接到代理服务。
 
+利用 Netty 来启动服务是很容易的，难点在数据帧的设计和 ChannelHandler 处理数据的逻辑上。先创建目标服务
 
 <br>
 

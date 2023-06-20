@@ -43,7 +43,7 @@
 // Spring 事务的顶层父类，用来管理 Spring 事务
 public interface TransactionManager {}
 
-// PlatformTransactionManager 是 Spring 事务框架中最基础/重要的接口
+// Spring 事务框架中最基础/重要的接口
 public interface PlatformTransactionManager extends TransactionManager {
     /**
      * 此方法根据参数 TransactionDefinition 返回一个 TransactionStatus 对象
@@ -55,9 +55,7 @@ public interface PlatformTransactionManager extends TransactionManager {
      * 并非所有事务定义设置都会受到每个事务管理器的支持，在遇到不受支持的设置时事务管理器会抛出异常
      */
     TransactionStatus getTransaction(TransactionDefinition definition) throws TransactionException;
-
     void commit(TransactionStatus status) throws TransactionException;
-
     void rollback(TransactionStatus status) throws TransactionException;
 }
 
@@ -93,47 +91,30 @@ public interface TransactionDefinition {
 
   	// 以下为 Spring 事务管理支持的传播行为，一共 7 种
   	/**
-  	 * Support a current transaction. Create a new one if none exists. This is typically the default setting of a transaction definition and typically defines a transaction synchronization scope.
   	 * 如果当前存在事务，则加入；如果事务不存在，则新建
-  	 * 这通常是事务的默认隔离级别，通常定义事务同步范围
+  	 * 是 Spring 事务的默认传播行为，通常定义事务同步范围
   	 */
     int PROPAGATION_REQUIRED = 0;
   	
-  	/**
-  	 * Support a current transaction; execute non-transactionally if none exists.
-  	 * 如果当前存在事务，则加入；如果事务不存在，则以无事务的方式运行
-  	 */
+  	// 如果当前存在事务，则加入；如果事务不存在，则以无事务的方式运行
   	int PROPAGATION_SUPPORTS = 1;
   
-  	/**
-  	 * Support a current transaction; throw an exception if no current transaction exists.
-  	 * 如果当前存在事务，则加入；如果不存在则抛出异常
-  	 */
+  	// 如果当前存在事务，则加入；如果不存在则抛出异常
   	int PROPAGATION_MANDATORY = 2;
-  	/**
-  	 * Create a new transaction, suspending the current transaction if one exists.
-  	 * 如果存在事务，则暂停当前事务，创建新事务
-  	 */
+  
+  	// 如果存在事务，则暂停当前事务，创建新事务
 		int PROPAGATION_REQUIRES_NEW = 3;
-  	/**
-  	 * Do not support a current transaction; rather always execute non-transactionally.
-  	 * 总是以无事务的方式运行
-  	 */
+  	
+  	// 总是以无事务的方式运行
 		int PROPAGATION_NOT_SUPPORTED = 4;
-  	/**
-  	 * Do not support a current transaction; throw an exception if a current transaction exists.
-  	 * 如果当前存在事务则抛出异常
-  	 */
+  	
+  	// 如果当前存在事务则抛出异常
   	int PROPAGATION_NEVER = 5;
-  	/**
-  	 * Execute within a nested transaction if a current transaction exists, behaving like PROPAGATION_REQUIRED otherwise.
-  	 * 如果当前存在事务，则在嵌套事务中执行，否则表现为 PROPAGATION_REQUIRED
-  	 */
+  	
+  	// 如果当前存在事务，则在嵌套事务中执行，否则表现为 PROPAGATION_REQUIRED
 		int PROPAGATION_NESTED = 6;
   
-  	/**
-  	 * 是否将事务优化为只读事务，只读标志适用于任何事务隔离级别
-  	 */
+  	// 是否将事务优化为只读事务，只读标志适用于任何事务隔离级别
     default boolean isReadOnly() {
       return false;
     }
@@ -168,31 +149,17 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 
 #### 开启声明式事务
 
-Spring 的声明式事务支持需手动开启，注解驱动使用 `@EnableTransactionManagement` 标注在 Spring 配置类上，XML 开发则在配置文件加上 `<tx:annotation-driven/>` 。
+Spring 的声明式事务支持需手动开启，注解驱动使用 `@EnableTransactionManagement` 标注在 Spring 配置类上；XML 开发则在配置文件加上 `<tx:annotation-driven/>` 。
 
+使用 @EnableTransactionManagement 相对来说更加灵活，因为它不仅可以根据名称还能根据类型将 TransactionManager 加载到 IOC 容器中。 
 
-
-> However `@EnableTransactionManagement` is more flexible; it will fall back to a by-type lookup for any `TransactionManager` bean in the container. Thus the name can be "txManager", "transactionManager", or "tm": it simply does not matter.
-
-使用 `@EnableTransactionManagement` 相对来说更加灵活，因为它不仅可以根据名称还能根据类型将 `TransactionManager` 加载到 IOC 容器中。
-
-
-
-> `@EnableTransactionManagement` and `<tx:annotation-driven/>` look for `@Transactional` only on beans in the same application context in which they are defined. This means that, if you put annotation-driven configuration in a `WebApplicationContext` for a `DispatcherServlet`, it checks for `@Transactional` beans only in your controllers and not in your services. 
-
-`@EnableTransactionManagement` 和 `<tx:annotation-driven/>` 只会扫描和它们自己相同的应用上下文内的 `@Transactional` 注解，也就是说，如果在  `DispatcherServlet` 的 `WebApplicationContext` 中标注 `@EnableTransactionManagement`，它只会扫描和 Controller 同级别下的 `@Transactional`。
+@EnableTransactionManagement 和 `<tx:annotation-driven/>` 只会扫描和它们自己相同的应用上下文内的 `@Transactional` 注解，也就是说，如果在  DispatcherServlet 的 WebApplicationContext 中标注 @EnableTransactionManagement，它只会扫描和 Controller 同级别下的 @Transactional。
 
 
 
 #### @Transactional
 
-> When you use transactional proxies with Spring’s standard configuration, you should apply the `@Transactional` annotation only to methods with `public` visibility. If you do annotate `protected`, `private`, or package-visible methods with the `@Transactional` annotation, no error is raised, but the annotated method does not exhibit the configured transactional settings.
-
 `@Transactional` 注解可以标注在类或者 `public` 方法上，如果标注在 `protected/private` 方法或者近包内可见的方法上不会报错，但是在这些地方 Spring 事务不会生效。
-
-
-
-> When using `@EnableTransactionManagement` in a `@Configuration` class, `protected` or package-visible methods can also be made transactional for class-based proxies by registering a custom `transactionAttributeSource` bean.
 
 如果在 Spring 配置类上标注 `@EnableTransactionManagement`，可以通过注入自定义的 `TransactionAttributeSource` 来让事务可以在类中的非 `public` 方法中生效。
 
@@ -211,9 +178,10 @@ TransactionAttributeSource transactionAttributeSource() {
 
 **类和方法的优先级**
 
-`@Transactional` 注解可以同时标注在类和方法上，但是标注在方法上的优先级会比标注在类上的优先级高。
+@Transactional 注解可以同时标注在类和方法上，但是标注在方法上的优先级会比标注在类上的优先级高。
 
 ```java
+// (readOnly = true) 表示该事务从事的操作是读操作
 @Transactional(readOnly = true)
 public class DefaultFooService implements FooService {
 
@@ -329,8 +297,6 @@ txManager.commit(status);
 <br>
 
 ### 回滚规则
-
-> In its default configuration, the Spring Framework’s transaction infrastructure code marks a transaction for rollback only in the case of runtime, unchecked exceptions. That is, when the thrown exception is an instance or subclass of `RuntimeException`. (`Error` instances also, by default, result in a rollback). Checked exceptions that are thrown from a transactional method do not result in rollback in the default configuration.
 
 Spring 事务只会在遇到运行时异常和未受检查异常时会滚，也就是说只有在遇到 `RuntimeException` 及其之类或者 `Error` 及其之类的时候才会回滚。事务遇到受检查异常时，不会回滚，而是将其捕获并抛出。
 
