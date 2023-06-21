@@ -1185,7 +1185,7 @@ public class ObjectOutInStreamTest {
  * Throwable 是 Java 中所有 Error 和 Exception 的父类
  * 只有 Throwable 及其子类异常才能被 JVM 通过 Java 的 throw 语句抛出
  * 同样，仅有 Throwable 及其子类异常才能被 catch 语句捕获
- * 对于编译期间的检查时异常，只有 Throwable 及其没有继承自 RuntimeException 的子类或 Error 才会被认为是检查时异常
+ * 只有 Throwable 及其没有继承自 RuntimeException 的子类或 Error 才会被认为是受检查异常
  */
 public class Throwable implements Serializable {}
 ```
@@ -1196,11 +1196,11 @@ public class Throwable implements Serializable {}
 
 **1、`try-catch-finally`**
 
-1）多个 catch 语句的时候，前面 catch 的`Exception`不能大于后面，否则后面的 catch 将捕获不到异常；
+1）多个 catch 语句的时候，前面 catch 的 `Exception` 不能大于后面，否则后面的 catch 将捕获不到异常；
 
-2）try 中若是有`return`或者在 catch 块中有`return`，finally 照样执行，并且 finally 的执行早于 try/catch 中的`return`；
+2）try 中若是有 `return` 或者在 catch 块中有 `return`，finally 照样执行，并且 finally 的执行早于 try/catch 中的 `return`；
 
-3）finally 中若是出现`return`，程序会提前退出，并且`return`的返回值也不是 try 或者 catch 中的返回值，而是 finally 中返回的值。
+3）finally 中若是出现 `return`，程序会提前退出，并且 `return` 的返回值是 finally 中返回的值。
 
 
 
@@ -1209,30 +1209,24 @@ public class Throwable implements Serializable {}
 
 1）子类重写的方法抛出的异常必须小于父类方法中抛出的异常；
 
-2）`throws`的方式只是将异常抛给方法的调用者，并**没有真正的处理异常**。使用`try-catch-finally`代码块才能**真正将异常处理**。
+2）`throws` 的方式只是将异常抛给方法的调用者，并**没有真正的处理异常**。使用 `try-catch-finally` 代码块才能**真正将异常处理**。
 
 
 
 **3、Java 7 新增的 `try-with-resources` 语法**
 
-如果资源类实现了`AutoCloseable`接口，就可以使用这个语法。
+如果资源类实现了 `AutoCloseable` 接口，就可以使用这个语法。
 
 ```java
 /**
  * An object that may hold resources (such as file or socket handles) until it is closed.
  * The close() method of an AutoCloseable object is called automatically when exiting a try-with-resources block for which the object has been declared in the resource specification header.
- * This construction ensures prompt release, avoiding resource exhaustion exceptions and errors that may otherwise occur.
  * 这个类能确保资源可以迅速释放，避免资源耗尽异常或者可能造成的其他错误
  */
 public interface AutoCloseable {
   /**
-   * This method is invoked automatically on objects managed by the try-with-resources statement.
-   * The close method is unlikely to be invoked more than once and so this ensures that the resources are released in a timely manner.
-   * Note that unlike the close method of java.io.Closeable, this close method is not required to be idempotent. 
-   * close 方法不强制要求幂等性，而 java.io.Closeable 中的 close 方法要求保持幂等性
-   * In other words, calling this close method more than once may have some visible side effect, unlike Closeable.close which is required to have no effect if called more than once.
+   * AutoCloseable#close 方法不强制要求幂等性，而 Closeable#close 方法要求保持幂等性
    * 多次执行此 close 方法可能会带来某些副作用
-   * However, implementers of this interface are strongly encouraged to make their close methods idempotent.
    * 因此强烈建议重写 close 方法时，使其保持幂等性
    */
   void close() throws Exception;
@@ -1282,18 +1276,12 @@ public class TryWithResourceTest {
 ### 异常输出
 
 ```java
-/**
- * Prints this throwable and its backtrace to the standard error stream.
- *
- */
+// Prints this throwable and its backtrace to the standard error stream.
 public void printStackTrace() {  
     printStackTrace(System.err);  
 }
 
-/**
- * Returns the cause of this throwable or null if the cause is nonexistent or unknown.
- *
- */
+// Returns the cause of this throwable or null if the cause is nonexistent or unknown.
 public synchronized Throwable getCause() {  
     return (cause==this ? null : cause);  
 }
@@ -1313,9 +1301,9 @@ public Throwable(Throwable cause) {
 
 
 
-**Usage Notes**
+**使用注意**
 
-在遇到`NullPointerException`时，`getMessage()`方法获取到的信息为`null`，输出异常时可能导致空指针异常，编码时建议直接输出`e.printStackTrace()`打印出完整的堆栈信息。
+在遇到 NullPointerException 时，getMessage 方法获取到的信息为 null，输出异常时可能导致空指针异常，建议直接使用 printStackTrace 打印出完整的堆栈信息。
 
 ```java
 class NullPointerException extends RuntimeException {  
@@ -1358,7 +1346,7 @@ public class Throwable implements Serializable {
 
 ### 异常屏蔽
 
-在使用`try-finally`时，若是捕获到多个异常，会造成异常屏蔽。
+在使用 `try-finally` 时，若是捕获到多个异常，会造成异常屏蔽。
 
 ```java
 class MyConnection {  
@@ -1400,9 +1388,9 @@ java.lang.Exception: close exception
 	at exception.TryCatchTest.main(TryCatchTest.java:12)
 ```
 
-可以看到，`start`方法中的异常并没有输出，而是被`close`方法的异常覆盖了。解决方法有两个：
+可以看到， start方法中的异常并没有输出，而是被 close 方法的异常覆盖了。解决方法有两个：
 
-* 使用完整的`try-catch-finally`代码块
+* 使用完整的 `try-catch-finally` 代码块
 
   ```java
   try {
@@ -1429,13 +1417,10 @@ java.lang.Exception: close exception
 
   
 
-* 使用`try-with-resources`
+* 使用 `try-with-resources`
 
-  >As of release 7, the platform supports the notion of suppressed exceptions (in conjunction with the try-with-resources statement).
-  >Java 7 开始，配合 try-with- resources 代码块，支持异常压制
-  >Any exceptions that were suppressed in order to deliver an exception are printed out beneath the stack trace.
-  >为了异常传递，任何被压制的异常都会在堆栈信息中打印出来
-
+  Java 7 开始，配合 try-with- resources 代码块，支持异常压制（Suppressed），任何被压制的异常都会在堆栈信息中打印出来
+  
   ```java
   class MyConnection implements AutoCloseable {
       public void start() throws Exception {
@@ -1459,9 +1444,9 @@ java.lang.Exception: close exception
       }
   }
   ```
-
+  
   运行上述代码，输出的异常如下：
-
+  
   ```java
   java.lang.Exception: start exception
   	at exception.MyConnection.start(MyConnection.java:11)
@@ -1470,9 +1455,9 @@ java.lang.Exception: close exception
   		at exception.MyConnection.close(MyConnection.java:16)
   		at exception.MyConnectionTest.main(MyConnectionTest.java:15)
   ```
-
+  
   输出的内容中包含一个信息：*Suppressed*，后面跟着的是后发生的异常，被压制在前发生的异常下。查看编译后的字节码：
-
+  
   ```java
   public static void main(String[] args) {
       try {
@@ -1501,30 +1486,21 @@ java.lang.Exception: close exception
       }
   }
   ```
-
-  编译后的源码多出了一个方法：`addSuppressed`。这是`Throwable`的方法。
-
+  
+  编译后的源码多出了一个方法：addSuppressed。这是 Throwable 类的方法。
+  
   ```java
   // Throwable#addSuppressed
   /**
-   * Appends the specified exception to the exceptions that were suppressed in order to deliver this exception.
    * 将指定的异常追加到被压制的异常下，以保持异常的传递顺序
-   * This method is thread-safe and typically called (automatically and implicitly) by the try-with-resources statement.
    * 此方法是线程安全的，通常来说由 try-with-resources 语句自动隐式调用
-   * The suppression behavior is enabled unless disabled via a constructor.
    * 通常来说，异常压制是自动启用的，除非在创建异常的构造方法中将其关闭
-   * When suppression is disabled, this method does nothing other than to validate its argument.
    * 如果关闭异常压制，这个方法除了验证参数就没有其他用处了
    *
-   * Note that when one exception causes another exception, the first exception is usually caught and then the second exception is thrown in response.
    * 如果有一个异常引起了另一个异常，第一个异常通常会被捕获，然后第二个异常会被抛出作为响应（响应中只有第二个异常的信息，但实际上是发生了两处异常，而第一处异常此时并没有被发现）。
-   * Only one of the thrown exceptions can be propagated
    * 只有抛出的异常才可以被传播
-   * In the try-with-resources statement, when there are two such exceptions, the exception originating from the try block is propagated and the exception from the finally block is added to the list of exceptions suppressed by the exception from the try block.
    * 在 try-with-resources 语句中，当其中出现了两个异常时，源自 try 代码块中的异常将会被传播，同时 finally 块中的异常将会被添加到 try 块的压制异常列表中
-   * An exception may have suppressed exceptions while also being caused by another exception.
    * 当一个异常导致其他异常，也可能会产生异常压制
-   * Note that programmer written code is also able to take advantage of calling this method in situations where there are multiple sibling exceptions and only one can be propagated.
    * 在编写代码时，若是某处出现了多个异常，但是只能够传播其中一个，就可以使用此方法
    */
   public final synchronized void addSuppressed(Throwable exception) {
@@ -1579,7 +1555,7 @@ public class ExceptionTableTest {
 }
 ```
 
-将上述代码编译成*class*字节码，再使用`javap`命令进行反编译操作，得到以下内容：
+将上述代码编译成字节码，再使用 `javap` 命令进行反编译操作，得到以下内容：
 
 ```java
 // javac ExceptionTableTest.java
@@ -1648,7 +1624,7 @@ public class exception.ExceptionTableTest {
 }
 ```
 
-从上述代码中可以发现，`tryCatch`和`tryCatchFinally`方法的末尾都有一个*Exception table*。在包含 try-catch 块的方法中会有一个异常表，异常表包含一个或多个异常处理者（Exception Handler）的信息，这些信息包含如下：
+从上述代码中可以发现，tryCatch 和 tryCatchFinally 方法的末尾都有一个 *Exception table*。在包含 try-catch 块的方法中会有一个异常表，异常表包含一个或多个异常处理（*Exception Handler*）信息，这些信息包含如下：
 
 - **from**，可能发生异常的起始点；
 - **to**，可能发生异常的结束点；
