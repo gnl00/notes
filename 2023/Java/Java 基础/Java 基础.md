@@ -1182,18 +1182,12 @@ public class ObjectOutInStreamTest {
 
 ```java
 /**
- * The Throwable class is the superclass of all errors and exceptions in the Java language.
  * Throwable 是 Java 中所有 Error 和 Exception 的父类
- * Only objects that are instances of this class (or one of its subclasses) are thrown by the Java Virtual Machine or can be thrown by the Java throw statement.
  * 只有 Throwable 及其子类异常才能被 JVM 通过 Java 的 throw 语句抛出
- * Similarly, only this class or one of its subclasses can be the argument type in a catch clause.
  * 同样，仅有 Throwable 及其子类异常才能被 catch 语句捕获
- * For the purposes of compile-time checking of exceptions, Throwable and any subclass of Throwable that is not also a subclass of either RuntimeException or Error are regarded as checked exceptions.
  * 对于编译期间的检查时异常，只有 Throwable 及其没有继承自 RuntimeException 的子类或 Error 才会被认为是检查时异常
  */
-public class Throwable implements Serializable {
-  
-}
+public class Throwable implements Serializable {}
 ```
 
 <br>
