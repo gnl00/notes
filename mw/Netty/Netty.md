@@ -1167,6 +1167,85 @@ private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
 
 ## 实例
 
+### Redis 客户端
+
+创建了客户端之后添加好对应的编解码器：
+
+```java
+protected void initChannel(SocketChannel ch) throws Exception {
+    ch.pipeline()
+            .addLast(new RedisDecoder())
+            .addLast(new RedisEncoder())
+            .addLast(new RedisBulkStringAggregator())
+            .addLast(new RedisArrayAggregator())
+            .addLast(new GreenisChannelHandler());
+}
+```
+
+其中，Redis 消息相关的编解码器 Netty 内部已经有实现了，接下来只要自定义处理好消息发送与接收即可：
+
+```java
+public class GreenisChannelHandler extends ChannelDuplexHandler {
+    // 发送 redis 命令
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        String[] cmds = ((String) msg).split("\\s+");
+        ArrayList<RedisMessage> messages = new ArrayList<>(cmds.length);
+        for (String cmd : cmds) {
+            FullBulkStringRedisMessage redisMessage =
+                    new FullBulkStringRedisMessage(ByteBufUtil.writeUtf8(ctx.alloc(), cmd));
+            messages.add(redisMessage);
+        }
+        ArrayRedisMessage requestMessages = new ArrayRedisMessage(messages);
+        ctx.write(requestMessages, promise);
+    }
+
+  	// 接收 redis 响应
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        RedisMessage message = (RedisMessage) msg;
+        printResponse(message);
+        System.out.print(">");
+        ReferenceCountUtil.release(message);
+    }
+
+    private void printResponse(RedisMessage message) {
+        if (message instanceof SimpleStringRedisMessage) {
+            String content = ((SimpleStringRedisMessage) message).content();
+            System.out.println(content);
+        } else if (message instanceof IntegerRedisMessage) {
+            long value = ((IntegerRedisMessage) message).value();
+            System.out.println(value);
+        } else if (message instanceof FullBulkStringRedisMessage) {
+            ByteBuf content = ((FullBulkStringRedisMessage) message).content();
+            System.out.println(content.toString(CharsetUtil.UTF_8));
+        } else if (message instanceof ArrayRedisMessage) {
+            List<RedisMessage> children = ((ArrayRedisMessage) message).children();
+            for (RedisMessage child : children) {
+                printResponse(child);
+            }
+        } else if (message instanceof ErrorRedisMessage) {
+            String content = ((ErrorRedisMessage) message).content();
+            System.out.println(content);
+        } else {
+            throw new RuntimeException("Unknown message type " + message);
+        }
+    }
+}
+```
+
+<br>
+
+### 代理服务器
+
+使用 Netty 如何实现代理服务器？既然是服务器，那就要用到 ServerBootStrap。
+
+> 我悟了！只要将 inBoard 数据使用 outBoard 转发即可。可以使用 ChannelDuplexHandler。
+
+
+
+<br>
+
 ### 内网穿透
 
 > 在 [GitHub](https://github.com/wandererex/wormhole) 看到一个使用 Netty 实现内网穿透的工具，使用 Java 实现，学习一下。

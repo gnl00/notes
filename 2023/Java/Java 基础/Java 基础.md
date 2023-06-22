@@ -1174,11 +1174,11 @@ public class ObjectOutInStreamTest {
 
 ## 异常
 
-**异常体系框架**
+### 异常体系
 
 ![异常体系结构](./assets/异常体系结构.png)
 
-
+### 异常父类
 
 ```java
 /**
@@ -1194,7 +1194,7 @@ public class Throwable implements Serializable {}
 
 ### 异常捕获
 
-**1、`try-catch-finally`**
+#### try-catch-finally
 
 1）多个 catch 语句的时候，前面 catch 的 `Exception` 不能大于后面，否则后面的 catch 将捕获不到异常；
 
@@ -1204,8 +1204,7 @@ public class Throwable implements Serializable {}
 
 
 
-
-**2、`throws`**
+#### throws
 
 1）子类重写的方法抛出的异常必须小于父类方法中抛出的异常；
 
@@ -1213,7 +1212,9 @@ public class Throwable implements Serializable {}
 
 
 
-**3、Java 7 新增的 `try-with-resources` 语法**
+#### try-with-resources
+
+> Java 7 新增
 
 如果资源类实现了 `AutoCloseable` 接口，就可以使用这个语法。
 
@@ -1233,7 +1234,7 @@ public interface AutoCloseable {
 }
 ```
 
-大多数的 Java 标准资源都继承了这个接口。在 try 子句中使用资源，资源会在 try 代码块执行后或异常处理后自动关闭。
+大多数的 Java 标准资源都继承了 AutoCloseable 接口。在 try 子句中使用资源，资源会在 try 代码块执行后或异常处理后自动关闭。
 
 ```java
 public class TryWithResourceTest {  
@@ -1456,7 +1457,7 @@ java.lang.Exception: close exception
   		at exception.MyConnectionTest.main(MyConnectionTest.java:15)
   ```
   
-  输出的内容中包含一个信息：*Suppressed*，后面跟着的是后发生的异常，被压制在前发生的异常下。查看编译后的字节码：
+  输出的内容中包含一个信息：*Suppressed*，后面跟着的是后发生的异常，被压制在前异常下。查看编译后的字节码：
   
   ```java
   public static void main(String[] args) {
@@ -1494,8 +1495,7 @@ java.lang.Exception: close exception
   /**
    * 将指定的异常追加到被压制的异常下，以保持异常的传递顺序
    * 此方法是线程安全的，通常来说由 try-with-resources 语句自动隐式调用
-   * 通常来说，异常压制是自动启用的，除非在创建异常的构造方法中将其关闭
-   * 如果关闭异常压制，这个方法除了验证参数就没有其他用处了
+   * 通常来说，异常压制是自动启用的，除非在创建异常的构造方法中将其关闭。如果关闭异常压制，这个方法除了验证参数就没有其他用处了
    *
    * 如果有一个异常引起了另一个异常，第一个异常通常会被捕获，然后第二个异常会被抛出作为响应（响应中只有第二个异常的信息，但实际上是发生了两处异常，而第一处异常此时并没有被发现）。
    * 只有抛出的异常才可以被传播
