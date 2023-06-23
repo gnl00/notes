@@ -4,6 +4,10 @@
 
 
 
+> 关于 IO 模型的演变以及多路复用可以看看[这篇文章](https://mp.weixin.qq.com/s/zAh1yD5IfwuoYdrZ1tGf5Q)，很详细。
+
+
+
 <br>
 
 ## 基本使用
@@ -1238,9 +1242,9 @@ public class GreenisChannelHandler extends ChannelDuplexHandler {
 
 ### 代理服务器
 
-使用 Netty 如何实现代理服务器？既然是服务器，那就要用到 ServerBootStrap。
+原理如下图
 
-> 我悟了！只要将 inBoard 数据使用 outBoard 转发即可。可以使用 ChannelDuplexHandler。
+![image-20230623163413683](./assets/image-20230623163413683.png)
 
 
 

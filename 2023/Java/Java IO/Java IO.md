@@ -2,7 +2,7 @@
 
 ## 前言
 
-> Java 中的 IO 操作，包括 BIO（Blocking IO）和 NIO（Non-Blocking IO）。在处理大量数据时，BIO 往往无法满足性能要求，推荐使用 NIO。
+> Java 中的 IO 操作，包括 BIO（*Blocking IO*）和 NIO（*Non-Blocking IO*）。在处理大量数据时，BIO 往往无法满足性能要求，推荐使用 NIO。
 >
 > 在实际应用中，BIO 适用于连接数比较少的情况下，如数据库连接、文件上传等；而 NIO 适用于连接数较多且连接时间较短的情况下，如聊天服务器、在线游戏等。
 
@@ -37,11 +37,13 @@
 >
 > * epoll
 >
->   epoll 函数是 Linux 下的一种 IO 多路复用机制，可监视的文件描述符数量也不受限制。epoll 函数使用了事件驱动方式，所以效率比 select 和 poll 高很多。epoll 函数内部使用了红黑树来管理文件描述符，减少遍历整个文件描述符集合的时间复杂度，时间复杂度为 O(log N) 。
+>   在 select 和 poll 中，用户态每次都需要对整个 fd_set 进行轮询，才能知道有哪个 socket 的 IO 就绪了。
+>   
+>   epoll 函数是 Linux 下的一种 IO 多路复用机制，可监视的文件描述符数量也不受限制。epoll 函数不需要将 fd_set 集合在用户和内核态中来回拷贝，并且对就绪 IO 进行了标记，不再需要对整个 fd_set 进行轮询操作，效率比 select 和 poll 高。而且 epoll 内部使用红黑树来管理文件描述符，减少遍历文件描述符集合的时间复杂度，时间复杂度为 O(log N) 。
 >
 > <br>
 >
-> fd_set 是 IO 多路复用技术中 select/poll/epoll 用于存储被监控的文件描述符（file descriptor）的一种数据结构
+> fd_set 是 IO 多路复用技术中 select/poll/epoll 用于存储被监控的文件描述符（*file descriptor*）的一种数据结构
 
 > Java 的 NIO 实现早期版本使用的是 select，从 JDK 1.5 版本开始采用 epoll
 
