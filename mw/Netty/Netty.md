@@ -813,7 +813,7 @@ public ReflectiveChannelFactory(Class<? extends T> clazz) {
 
 <br>
 
-其他内容先按下不表。回顾 Java NIO，在开启了一个 Channel 之后，我们需要手动的把它注册到 Selector 中，在 Netty 中这一个步骤如何进行？创建了 Channel 之后，该如何注册到 Selector 中？
+回顾 Java NIO，在开启了一个 Channel 之后，我们需要手动的把它注册到 Selector 中，在 Netty 中这一个步骤如何进行？**创建了 Channel 之后，该如何注册到 Selector 中？**
 
 让我们把目光转移到标号 [1] 这一行代码，接下来就到 NioEventLoopGroup 出场了。
 
@@ -848,7 +848,7 @@ DEFAULT_EVENT_LOOP_THREADS = Math.max(1, SystemPropertyUtil.getInt
 
 <br>
 
-还记得 Java NIO 中的内容吗？
+**还记得 Java NIO 中的内容吗？**
 
 > *Selector#open 方法会使用系统默认的 SelectorProvider 创建一个 Selector；也可以使用自定义的 SelectorProvider 来创建 Selector。*
 
@@ -861,28 +861,40 @@ public NioEventLoopGroup(int nThreads, Executor executor) {
 ```
 
 ```java
-provider == sun.nio.ch.DefaultSelectorProvider.create() == new sun.nio.ch.PollSelectorProvider()
+// SelectorProvider#provider -> provider = sun.nio.ch.DefaultSelectorProvider.create();
+public static SelectorProvider create() {
+    String osname = AccessController
+        .doPrivileged(new GetPropertyAction("os.name"));
+    if (osname.equals("SunOS"))
+        return createProvider("sun.nio.ch.DevPollSelectorProvider");
+    if (osname.equals("Linux"))
+        return createProvider("sun.nio.ch.EPollSelectorProvider");
+    return new sun.nio.ch.PollSelectorProvider();
+}
 ```
 
-Netty 使用的是 PollSelectorProvider 来创建 Selector。
+可以看到，Netty 会根据 OS 使用不同的 SelectorProvider 来创建 Selector。
 
-源码中顺着这个流程查看：
+**Selector 在哪里呢？**顺着下面的流程：
 
 1、NioEventLoopGroup()
 
 2、MultithreadEventLoopGroup(int, Executor, Object...)
 
-3、NioEventLoopGroup#newChild
+3、MultithreadEventExecutorGroup(int, Executor, EventExecutorChooserFactory, Object...)
 
-4、NioEventLoop(NioEventLoopGroup, Executor, SelectorProvider, SelectStrategy, RejectedExecutionHandler, EventLoopTaskQueueFactory, EventLoopTaskQueueFactory)
+4、NioEventLoopGroup#newChild
+
+5、NioEventLoop(NioEventLoopGroup, Executor, SelectorProvider, SelectStrategy, RejectedExecutionHandler, EventLoopTaskQueueFactory, EventLoopTaskQueueFactory)
 
 ```java
 NioEventLoop(/**...**/) {
     super(parent, executor, false, newTaskQueue(taskQueueFactory), newTaskQueue(tailTaskQueueFactory),
             rejectedExecutionHandler);
     this.provider = ObjectUtil.checkNotNull(selectorProvider, "selectorProvider"); // 设置 SelectorProvider
-    this.selectStrategy = ObjectUtil.checkNotNull(strategy, "selectStrategy");
-    final SelectorTuple selectorTuple = openSelector();
+    this.selectStrategy = ObjectUtil.checkNotNull(strategy, "selectStrategy"); // IO 就绪事件轮询的策略
+  	// SelectorTuple 包含：unwrappedSelector 和 selector
+    final SelectorTuple selectorTuple = openSelector(); 
     this.selector = selectorTuple.selector;
     this.unwrappedSelector = selectorTuple.unwrappedSelector;
 }
@@ -910,7 +922,7 @@ private ChannelFuture doBind(final SocketAddress localAddress) {
 ```java
 final ChannelFuture initAndRegister() {
     Channel channel = null;
-  	// 反射拿到 Channel，同时会创建 ChannelPipeline
+  	// 反射拿到 Channel，同时创建 ChannelPipeline
     channel = channelFactory.newChannel();
   	// 初始化 Channel，设置 ChannelOption、设置 ChannelPipeline
     init(channel); // 这里有个细节，后续再聊
@@ -1091,7 +1103,6 @@ private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapte
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         final Channel child = (Channel) msg;
 
@@ -1269,3 +1280,7 @@ https://waylau.com/netty-4-user-guide
 https://waylau.com/essential-netty-in-action
 
 https://dongzl.github.io/netty-handbook
+
+https://mp.weixin.qq.com/s/zAh1yD5IfwuoYdrZ1tGf5Q
+
+https://mp.weixin.qq.com/s/IuIsUtpiye13L8ZyHWvzXA
