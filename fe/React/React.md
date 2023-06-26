@@ -303,7 +303,7 @@ export default class Son extends Component {
         </div>
         <div className='context'>
           <Consumer>
-            {/* 注意： 接收 context传递的值时，最外层只有一个大括号 */}
+            {/* 注意： 接收 context 传递的值时，最外层只有一个大括号 */}
             {(value) =>
               <div>
                 <p>son: {value}</p>
@@ -705,7 +705,7 @@ https://juejin.cn/post/6975864046058733576#heading-19
 
 ## 路由
 
-> `react` 提供`react-router`来管理路由，`react-router` 包含 `3` 个部分，分别为`react-router`、`react-router-dom` （网页）和 `react-router-native`（native）
+> `react` 提供 `react-router` 来管理路由，`react-router` 包含 `3` 个部分，分别为 `react-router`、`react-router-dom` （网页）和 `react-router-native`（native）
 
 **安装**
 
@@ -720,7 +720,7 @@ npm install react-router-dom
 * `BrowserRouter`
 * `HashRouter`
 
-使用时需要将根组件`</App>`包裹在路由组件中
+使用时需要将根组件 `</App>` 包裹在路由组件中
 
 ```js
 import { BrowserRouter } from 'react-router-dom';
@@ -738,7 +738,7 @@ import { BrowserRouter } from 'react-router-dom';
 * `<Switch>`，在 6.0 版本之后改成 `<Routes>`
 * `<Route>`
 
-这两个组件通常是放在一起用的，在`<Routes>`里面包裹多个`<Route>`，它会逐步去比对每个`<Route>`的`path`属性和浏览器当前`location`的`pathname`是否一致，如果一致则返回内容，否则返回`null`。所以`<Switch>`组件只会 `render` 第一个匹配到的路由
+这两个组件通常是放在一起用的，在 `<Routes>` 里面包裹多个 `<Route>`，它会逐步去比对每个 `<Route>` 的 `path` 属性和浏览器当前 `location` 的 `pathname` 是否一致，如果一致则返回内容，否则返回 `null`。所以 `<Switch>` 组件只会 `render` 第一个匹配到的路由
 
 ```js
 <Routes>
@@ -754,7 +754,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 ### 导航组件
 
-* `<Link>`，`<Link>`在页面上会被渲染成`<a>`
+* `<Link>`，`<Link>` 在页面上会被渲染成 `<a>`
   
   ```js
   <Link to='/'>Home</Link>
@@ -763,7 +763,7 @@ import { BrowserRouter } from 'react-router-dom';
   <a href='/'>Home</a>
   ```
 
-* `<NavLink>`，`<NavLink>`是一种特殊的`<Link>` ，当`<NavLink>`中的地址和浏览器地址匹配成功的时候，会添加一个激活样式
+* `<NavLink>`，`<NavLink>` 是一种特殊的 `<Link>` ，当 `<NavLink>` 中的地址和浏览器地址匹配成功的时候，会添加一个激活样式
   
   ```js
   <NavLink to='/about' activeClassName='active'>
@@ -776,7 +776,7 @@ import { BrowserRouter } from 'react-router-dom';
   </a>
   ```
 
-* `<Redirect>`，强制跳转到某个页面，比如未登录不能进入首页，这个时候可以使用`<Redirect>`
+* `<Redirect>`，强制跳转到某个页面，比如未登录不能进入首页，这个时候可以使用 `<Redirect>`
   
   ```js
   <Redirect to='/login' />
@@ -845,7 +845,7 @@ function App() {
 
 **嵌套路由默认渲染**
 
-> 添加`index`属性来指定默认路由
+> 添加 `index` 属性来指定默认路由
 
 ```js
 function App() {
@@ -881,7 +881,7 @@ function App() {
 
 ### 路由参数
 
-> 使用`useParams`和`useSearchParams`获取参数
+> 使用 `useParams` 和 `useSearchParams` 获取参数
 
 **`useParams`**
 
@@ -909,7 +909,7 @@ export default function UserDetail() {
 
 **`useSearchParams`**
 
-`useSearchParams `返回的是一个当前值和 set 方法
+`useSearchParams ` 返回的是一个当前值和 set 方法
 
 ```js
 let [searchParams, setSearchParams] = useSearchParams();
@@ -922,16 +922,16 @@ let [searchParams, setSearchParams] = useSearchParams();
 
 ### useNavigate
 
-> `useNavigate`是替代原 V5 中的`useHistory`的新 hooks，用法和`useHistory`类似，使用起来更轻量
+> `useNavigate` 是替代原 V5 中的 `useHistory` 的新 hooks，用法和 `useHistory` 类似，使用起来更轻量
 
-```js
-//js写法
+```jsx
+// js 写法
 let navigate = useNavigate();
 function handleClick() {
     navigate("/home");
 }
 
-//组件写法
+// 组件写法
 function App() {
     return <Navigate to="/home" replace state={state} />;
 }
@@ -950,9 +950,9 @@ function App() {
 
 ### useRoutes
 
-> 可以使用`useRoutes`将路由信息抽取出来
+> 可以使用 `useRoutes` 将路由信息抽取出来
 
-```js
+```jsx
 import { Navigate } from 'react-router-dom';
 import Home from './Home';
 import User from './User';
@@ -960,7 +960,7 @@ import About from './About';
 import UserAdd from './UserAdd';
 import UserProfile from './UserProfile';
 
-// 抽取routes
+// 抽取 routes
 const routes = [
     { path: "/", element: <Home /> },
     { 
@@ -1009,7 +1009,7 @@ ReactDOM.render(
 
 **分模块管理**
 
-```js
+```jsx
 import { 
   BrowserRouter as Router, 
   useRoutes 
@@ -1076,7 +1076,7 @@ const GetAllRoutes = () => {
       element: <GetAdminRoutes />,
     },
     {
-      path: '*', // 这个404页面不会被匹配到
+      path: '*', // 这个 404 页面不会被匹配到
       element: <div>404</div>,
     }
   ])
@@ -1096,13 +1096,13 @@ const SetRoutes = () => {
 
 ### useLocation
 
-> `useLocation` 会返回当前 URL 的`location`对象
+> `useLocation` 会返回当前 URL 的 `location` 对象
 
 <br/>
 
 ### 权限认证
 
-```js
+```jsx
 <Router>
   <main>
     <nav>
@@ -1151,7 +1151,7 @@ const SetRoutes = () => {
 
 ### useEffect
 
-```js
+```jsx
 /*
 * 一个组件内可以有多个 useEffect
 * 若第二个参数不传，则在每次页面渲染 UI 后调用
@@ -1273,10 +1273,10 @@ export default NavBar;
 
 ### Store
 
-> `Store`就是保存数据的地方，你可以把它看成一个容器。整个应用只能有一个`Store`。`Store`中包含多个`state`，并且其中的`state`是不能直接修改的，需要通过`action`来修改
+> `Store` 就是保存数据的地方，可以把它看成一个容器。整个应用只能有一个 `Store`。`Store` 中包含多个 `state`，并且其中的 `state` 是不能直接修改的，需要通过 `action` 来修改
 
 ```js
-// Redux 提供了一个 createStore 来创建 state
+// Redux 提供了一个 createStore 方法来创建 state
 import { createStore } from 'redux'
 const store = createStore(reducer)
 ```
@@ -1285,12 +1285,12 @@ const store = createStore(reducer)
 
 ### Action
 
-> Redux 将每一个更改动作描述为一个`action`，要更改`state`中的内容，你需要发送`action`。一个`action`是一个简单的对象，用来描述`state`发生了什么变更
+> Redux 将每一个更改动作描述为一个 `action`，要更改 `state` 中的内容，你需要发送 `action`。一个 `action` 是一个简单的对象，用来描述 `state` 发生了什么变更
 
-每个`action`必须有一个`type`属性，这表示`action`的名称，然后还可以有一个 `payload`属性，这个属性可以带一些参数，用作`Store`变更
+每个 `action` 必须有一个 `type` 属性，这表示 `action` 的名称，然后还可以有一个 `payload` 属性，这个属性可以带一些参数，用作 `Store` 变更
 
 ```js
-// Action 是一个对象。其中的type属性是必须的，表示 Action 的名称。其他属性可以自由设置
+// Action 是一个对象。其中的 type 属性是必须的，表示 Action 的名称。其他属性可以自由设置
 const action = {
   type: 'ADD_ITEM',
   payload: 'new item', // 可选属性
@@ -1303,17 +1303,17 @@ Redux 可以用 `Action Creator` 批量来生成一些 `action`
 
 ### Reducer
 
-> `Store`表示数据，`Action`表示对数据的操作，`Reducer`则是一个纯函数，`Reducer `函数负责生成 `state`，根据`Action`来对`state`进行操作，然后返回一个新的`state`
+> `Store` 表示数据，`Action` 表示对数据的操作，`Reducer` 则是一个纯函数，`Reducer ` 函数负责生成  `state`，根据 `Action` 来对 `state` 进行操作，然后返回一个新的 `state`
 
-一个`store`可以添加多个`reducer`，还可以分文件创建其它的操作，便于分类管理。只要创建`store`的时候使用`combineReducers`将`reducer`全部绑定到一起即可
+一个 `store` 可以添加多个 `reducer`，还可以分文件创建其它的操作，便于分类管理。只要创建 `store` 的时候使用 `combineReducers` 将 `reducer` 全部绑定到一起即可
 
 **操作流程**
 
-1、`store`通过`dispatch`分发到对应的 `action`
+1、`store` 通过 `dispatch` 分发到对应的 `action`
 
-2、当 `dispatch `发起一个 `action `之后，请求会到达 `reducer`。`reducer `接收两个参数，一个是当前 `state `和需要执行的 `action`，经过`reducer`操作返回一个新的`state`，来进行对`state`的变更
+2、当 `dispatch` 发起一个 `action` 之后，请求会到达 `reducer`。`reducer` 接收两个参数，一个是当前  `state` 和需要执行的 `action`，经过 `reducer` 操作返回一个新的 `state`，来进行对 `state` 的变更
 
-```js
+```jsx
 // App.js
 import store from "../../redux/store";
 import {incrementAction, decrementAction} from "../../redux/action/action";
@@ -1441,11 +1441,11 @@ export {
 
 ### 中间件
 
-> 在 Reducer 中有异步操作怎么办？Action 发出以后，过一段时间再执行 Reducer，比如网络请求，在 Reducer 中如何请求结束并进行 State 计算？此时需要使用 Redux 中间件`redux-thunk`来解决
+> 在 Reducer 中有异步操作怎么办？Action 发出以后，过一段时间再执行 Reducer，比如网络请求，在 Reducer 中如何请求结束并进行 State 计算？此时需要使用 Redux 中间件 `redux-thunk` 来解决
 
 **`applyMiddlewares`**
 
-`applyMiddlewares()` 是 Redux 的原生方法，作用是将所有中间件组成一个数组，依次执行。有的中间件有次序要求，使用前要查一下文档。比如，`logger`就一定要放在最后，否则输出结果会不正确。
+`applyMiddlewares()` 是 Redux 的原生方法，作用是将所有中间件组成一个数组，依次执行。有的中间件有次序要求，使用前要查一下文档。比如，`logger` 就一定要放在最后，否则输出结果会不正确。
 
 ```js
 import { applyMiddleware, createStore } from 'redux';
@@ -1581,7 +1581,7 @@ ReactDOM.render(
 
 #### 使用 Hooks
 
-> `useSelector`和`useDispatch`
+> `useSelector` 和 `useDispatch`
 
 ```js
 // 以登录认证作为例子
@@ -1706,7 +1706,7 @@ export default function Auth(props) {
 
 ### connected-react-router
 
-> 当我们在项目中同时用了`react-router` 和 `redux`的时候，我们可以把他们两个深度整合。我们想要在`store`里面拿到`router`，甚至可以操作`router`，还可以记录`router`的改变。例如我们把用户是否登录的状态存在`redux`里面，在登录之后会进行页面的跳转
+> 当我们在项目中同时用了 `react-router` 和 `redux` 的时候，可以把他们两个深度整合。我们想要在 `store` 里面拿到 `router`，甚至可以操作 `router`，还可以记录 `router` 的改变。例如我们把用户是否登录的状态存在 `redux` 里面，在登录之后会进行页面的跳转
 
 稍后补充。。。
 
