@@ -1,7 +1,5 @@
 # Linux
 
-
-
 ## 命令
 
 
@@ -24,7 +22,7 @@ apt install systemd
 
 # 查找命令
 find 目录 -name 查找目标
-# 查找redis开头的文件/目录
+# 查找 redis 开头的文件/目录
 find 目录 -name "redis*"
 
 # 查看运行情况
@@ -49,30 +47,13 @@ ifconfig
 systemctl stop firewalld
 
 # 查看当前目录下文件内容
-[root@iZbp141lw91pvis8z44ee5Z /]# ls -l
+> ls -l
 total 68
 lrwxrwxrwx.  1 root root     7 Dec 25 11:18 bin -> usr/bin
 dr-xr-xr-x.  5 root root  4096 Feb  7 20:48 boot
 drwxr-xr-x  19 root root  2960 Apr 18 10:32 dev
 drwxr-xr-x. 79 root root  4096 Apr 18 10:31 etc
 drwxr-xr-x.  5 root root  4096 Feb 20 17:03 home
-drwxr-xr-x   4 root root  4096 Feb 19 15:41 leyou
-lrwxrwxrwx.  1 root root     7 Dec 25 11:18 lib -> usr/lib
-lrwxrwxrwx.  1 root root     9 Dec 25 11:18 lib64 -> usr/lib64
-drwx------.  2 root root 16384 Dec 25 11:18 lost+found
-drwxr-xr-x.  2 root root  4096 Apr 11  2018 media
-drwxr-xr-x.  2 root root  4096 Apr 11  2018 mnt
-drwxr-xr-x   8 root root  4096 Feb 19 15:25 mydata
-drwxr-xr-x.  3 root root  4096 Feb 19 15:53 opt
-dr-xr-xr-x  89 root root     0 Apr 18 10:32 proc
-dr-xr-x---.  7 root root  4096 Feb 20 17:38 root
-drwxr-xr-x  25 root root   780 Apr 18 10:39 run
-lrwxrwxrwx.  1 root root     8 Dec 25 11:18 sbin -> usr/sbin
-drwxr-xr-x.  2 root root  4096 Apr 11  2018 srv
-dr-xr-xr-x  13 root root     0 Apr 18 18:32 sys
-drwxrwxrwt.  8 root root  4096 Apr 25 03:35 tmp
-drwxr-xr-x. 14 root root  4096 Feb 20 17:21 usr
-drwxr-xr-x. 19 root root  4096 Dec 25 03:22 var
 
 lrwxrwxrwx（共10位）
 l -- 表示这是一个链接文件
@@ -80,25 +61,31 @@ d -- 表示目录文件
 l ->rwx<- rwxrwx 所属主权限
 lrwx ->rwx<- rwx 所属组权限
 lrwxrwx ->rwx<- 任何人（公有权限）
+
+-rw------- (600)    只有拥有者有读写权限。
+-rw-r--r-- (644)    只有拥有者有读写权限；而属组用户和其他用户只有读权限。
+-rwx------ (700)    只有拥有者有读、写、执行权限。
+-rwxr-xr-x (755)    拥有者有读、写、执行权限；而属组用户和其他用户只有读、执行权限。
+-rwx--x--x (711)    拥有者有读、写、执行权限；而属组用户和其他用户只有执行权限。
+-rw-rw-rw- (666)    所有用户都有文件读、写权限。
+-rwxrwxrwx (777)    所有用户都有读、写、执行权限。
 ```
 
 
 
-### 开发常用命令
+### 开发命令
 
 1、查看整机整体性能
 
 ```shell
-# q退出top
+# q 退出top
 top
-# top精简版
-
 ```
 
 - cpu
 - memory
 - id(Idle) 空闲率，越高越好
-- load average 系统负载 1分钟 5分钟15分钟的系统负载量 3个值相加后除3乘100% 大于60%说明系统负担重，大于80%说明要完了
+- load average 系统负载 1分钟 5 分钟 15 分钟的系统负载量 3 个值相加后除 3 乘 100%  大于 60% 说明系统负担重，大于 80% 说明要完了
 - uptime
 
 2、查看内存
@@ -128,7 +115,7 @@ df -h
 
 ```shell
 #查看cpu使用情况（包含但不限于cpu，还包括进程，内存），每隔2秒刷新，共显示3行记录
-[root@iZbp141lw91pvis8z44ee5Z ~]# vmstat -n 2 3
+> vmstat -n 2 3
 procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
  r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
  6  0      0 1018380 136920 492228    0    0     1     2   23   39  1  1 97  0  0
@@ -147,7 +134,7 @@ procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
 
 ```shell
 #每隔2秒刷新，共显示3行记录
-[root@iZbp141lw91pvis8z44ee5Z ~]# iostat -xdk 2 3
+> iostat -xdk 2 3
 Linux 3.10.0-1062.12.1.el7.x86_64 (iZbp141lw91pvis8z44ee5Z)     04/25/2020      _x86_64_        (1 CPU)
 
 Device:         rrqm/s   wrqm/s     r/s     w/s    rkB/s    wkB/s avgrq-sz avgqu-sz   await r_await w_await  svctm  %util
@@ -166,7 +153,7 @@ w/s -- 每秒磁盘写
 
 
 
-#### docker
+### Docker 命令
 
 ```shell
 service docker start
@@ -178,24 +165,34 @@ service docker restart
 
 
 
-### 系统命令
+### 更改 SHELL
 
 ```shell
-echo $SHELL # 查看当前使用的shell
-cat /etc/shells # 查看已安装的shell
-chsh -s /bin/zsh # 修改shell为zsh，修改完成需要重启终端，最后安装oh-my-zsh
+echo $SHELL # 查看当前使用的 shell
+cat /etc/shells # 查看已安装的 shell
+chsh -s /bin/zsh # 修改 shell 为 zsh
 ```
 
 
 
-**查看apt-get install 安装位置**
+**查看 apt 安装位置**
 
-https://www.cnblogs.com/zhuiluoyu/p/5181098.html
+* https://www.cnblogs.com/zhuiluoyu/p/5181098.html
 
-https://www.cnblogs.com/mch0dm1n/p/5422179.html
+* https://www.cnblogs.com/mch0dm1n/p/5422179.html
 
-https://blog.csdn.net/u013276277/article/details/81033129
+* https://blog.csdn.net/u013276277/article/details/81033129
+
+
 
 **dpkg 相关命令**
 
-https://blog.csdn.net/Courage_Insight/article/details/41827167
+* https://blog.csdn.net/Courage_Insight/article/details/41827167
+
+
+
+<br>
+
+## 文件权限
+
+* https://blog.csdn.net/u013197629/article/details/73608613
