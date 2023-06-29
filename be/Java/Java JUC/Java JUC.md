@@ -36,7 +36,7 @@ protected final void setExclusiveOwnerThread(Thread thread) {
 
 ### AbstractQueuedSynchronizer
 
-> 提供一个基本框架，用于实现阻塞锁（依靠 FIFO 等待队列）和相关同步器（信号量、事件等）。此类是大多数依靠单一原子 int 值来表示状态的同步器的基础，它定义了一些实现同步机制需要使用的方法，提供给具体的锁和相关的同步器使用。
+> 提供一个基本框架，用于实现阻塞锁（依靠 FIFO 等待队列）和相关同步器（信号量、栅栏等）。此类是大多数依靠单一原子 int 值来表示状态的同步器的基础，它定义了一些实现同步机制需要使用的方法，提供给具体的锁和相关的同步器使用。
 
 > **子类与实现类**
 >
@@ -380,7 +380,6 @@ public static void park() {
 }
 
 // 恢复指定线程
-
 public static void unpark(Thread thread) {
     if (thread != null)
         UNSAFE.unpark(thread);
@@ -680,7 +679,7 @@ public boolean hasWaiters(Condition condition) {}
 > 
 >   写优先是很常见的，因为预计写的时间很短，而且不经常发生。读偏好不太常见，如果读线程较频繁且持续时间长，可能会导致长时间的写入延迟。
 > 
->   当然公平/非公平模式也是支持的。
+>   当然也可以选择公平/非公平模式。
 > 
 > * 确定锁是否是可重入的
 > 
