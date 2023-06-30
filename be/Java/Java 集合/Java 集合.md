@@ -962,8 +962,11 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     static final int TREEIFY_THRESHOLD = 8;
   
     /**
-    * 底层结构从树变成链表的 bin 阈值
-    * 当底层树型结构的元素小于 UNTREEIFY_THRESHOLD 时，就会从树形结构变回链表
+     * 底层结构从树变成链表的 bin 阈值
+     * 当底层树型结构的元素小于 UNTREEIFY_THRESHOLD 时，就会从树形结构变回链表
+     * 为什么是 6 时进行 UNTREEIFY 操作而不是 8 就开始呢？
+     * 设想一下，当小于 8 进行 UNTREEIFY 操作时，如果下一个插入的元素恰好插入刚 UNTREEIFY 完成的链表中，
+     * 此时又会重新进行 TREEIFY，底层数据结构在链表和红黑树之间来回转换，存在一定的开销
      */
     static final int UNTREEIFY_THRESHOLD = 6;
   
@@ -994,9 +997,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
 ##### 构造方法
 
 ```java
-public HashMap() {
-    this.loadFactor = DEFAULT_LOAD_FACTOR; // all other fields defaulted
-}
+public HashMap() { this.loadFactor = DEFAULT_LOAD_FACTOR; /** all other fields defaulted */ }
 ```
 
 
@@ -1305,9 +1306,17 @@ final Node<K,V>[] resize() {
 #### 1.7 VS 1.8
 
 * Entry<K, V>[] => Node<K, V>[]
+
 * 初始化时机：饿汉 => 懒汉
+
 * 初始化大小：10 => 16
-* 哈希冲突：头插法 => 尾插法
+
+* 哈希冲突：头插法 => 尾插法；因为在并发场景下使用头插法进行插入操作的话可能会造成链表成环的问题
+
+  ![image-20230630145927447](./assets/image-20230630145927447.png)
+
+  
+
 * 底层结构：数组 + 链表 => 数组 + 链表 + 红黑树
 
 
