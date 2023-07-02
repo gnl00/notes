@@ -1039,6 +1039,8 @@ CREATE INDEX idx_phone_name ON user(phone,name);
 
 > 需要注意的是，并非所有的存储引擎都支持索引下推，具体支持程度取决于数据库管理系统和所使用的存储引擎。
 
+> 可以借助这篇文章理解：[Mysql性能优化：什么是索引下推？](https://zhuanlan.zhihu.com/p/121084592)
+
 
 
 <br>
