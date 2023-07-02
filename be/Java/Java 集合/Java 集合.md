@@ -1611,8 +1611,7 @@ public interface ConcurrentMap<K, V> extends Map<K, V>
 > 一个支持并发查找和并发更新的哈希表，具有以下特点：
 > * 支持和 Hashtable 一样的功能规范，每个方法都和 Hashtable 的方法相对应；
 > * 在线程安全方面和 Hashtable 是互通的，但在保证线程安全的实现细节上是不同的；Hashtable 使用的是 synchronized 方法，ConcurrentHashMap 使用局部 CAS + synchronized 块。
-> * 所有操作都是线程安全的，但读操作并不完全加锁，不支持锁住整个哈希表；
-> * 同一个键值的更新操作 happen-before 读取操作；
+> * 所有操作都是线程安全的，但读操作并不完全加锁，不支持锁住整个哈希表。因此可能存在对元素的更新/删除操作与读取操作重叠，此时同一个键值的更新操作 happen-before 读取操作。
 > * 与 HashMap 不同：ConcurrentHashMap 不允许 null 作为键；
 > * 当出现太多哈希碰撞时，动态扩容。
 >
@@ -1693,7 +1692,7 @@ private transient volatile int sizeCtl;
 // 并发级别就是指定了 ConcurrentHashMap 内部初始创建的 Segment 数量，Segment 数量默认是 16。
 // 当系统中有很多线程需要同时对 ConcurrentHashMap 进行读写操作时，可以适当增大并发级别，增加 Segment 的数量，从而提高并发度，减少线程之间的竞争，提升性能。反之，如果系统中的并发度比较低，可以适当降低并发级别，减少内部 Segment 的数量，降低系统开销。
 
-// 在 Java 7 的时候 ConcurrentHashMap 是使用 Segment 来实现的，Java 8 之后就改成链表和红黑树，此属性就没有使用了
+// 在 Java 7 的时候 ConcurrentHashMap 的线程安全操作是使用 Segment 来实现的，Java 8 之后就改成 CAS + synchronized，此属性就没有使用了，放在此处仅用作向下兼容
 private static final int DEFAULT_CONCURRENCY_LEVEL = 16; // 默认并发级别
 ```
 
