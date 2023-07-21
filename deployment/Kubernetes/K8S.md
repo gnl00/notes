@@ -67,7 +67,7 @@ Master 负责集群的管理，协调集群中的所有行为/活动，例如应
 
 使用 K8s 需要安装下面这些东西：
 
-* 先安装 Docker；
+* 先安装 Docker，作为虚拟化主机（host）；
 * K8s 的命令行客户端 kubectl；
 * K8s 运行环境，比如 minikube ；
 
