@@ -804,6 +804,89 @@ kubectl rollout undo deployments/ndoe-hello --to-revision=1
 
 
 
+## K8s 中的对象
+
+K8s 对象是 K8s 系统中的持久实体，K8s 使用这些实体来表示集群的状态。可以使用对象来描述：
+
+* 应用如何运行，在哪些节点上运行；
+* 应用可用资源；
+* 应用运行策略、重启策略、升级和容错策略。
+
+K8s 对象的表现行为是 *record of intent* 的，一旦创建了对象，K8s 系统就会确保对象存在。通过创建对象，可以告诉 K8s 系统你希望集群的工作负载是什么样的。
+
+
+
+## Namespace
+
+当存在大量不同类型的应用时，可以使用 namespace 来区分；还能隔离资源的使用。在 K8s 中，相同 namespace 下的应用具有相同的资源访问控制策略。
+
+
+
+1、查看当前的 namespace
+
+```bash
+kubectl get namespace
+```
+
+输出内容大概如下：
+
+```bash
+NAME                   STATUS   AGE
+default                Active   29h
+kube-node-lease        Active   29h
+kube-public            Active   29h
+kube-system            Active   29h
+kubernetes-dashboard   Active   29h
+```
+
+可以看到 K8s 默认存在多个 namesapce，我们创建的应用若未指定 namespace，那就会被分配到 default 这个命名空间中。
+
+2、创建 namespace
+
+2.1、命令行创建
+
+```
+kubectl create namespace new-namespace
+```
+
+2.2、通过文件创建
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: new-namespace
+```
+
+3、删除 namespace
+
+```
+kubectl delete namespaces new-namespace
+```
+
+> 注意：
+>
+> * 删除一个 namespace 会自动删除该 namespace 下的所有资源。
+> * default 和 kube-system 命名空间不可删除。
+
+
+
+### 配置 Pod 限额
+
+1、创建 namespace
+
+```bash
+kubectl create namespace quota-pod
+```
+
+
+
+
+
+### 配置 CPU 限额
+
+### 配置内存限额
+
 
 
 ## 微服务配置外部化
