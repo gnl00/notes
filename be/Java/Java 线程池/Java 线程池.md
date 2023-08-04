@@ -458,7 +458,7 @@ public ThreadPoolExecutor(int corePoolSize,
 
 > Future 表示异步任务的结果，任务完成后，可使用 get 方法获取；如果未完成，get 方法将会阻塞。还额外提供有检查任务是否完成和是否取消的方法。任务的取消可以使用 cancel 方法，如果任务已完成就不可被取消。
 >
-> 如果使用 Future 仅仅是为了获得可取消的任务，但不提供有效返回值，可以使用 Future<?> 在任务执行完后，返回 null 作为结果。
+> 如果使用 Future 仅仅是为了获得可取消的任务，不需要返回值，可以使用 `Future<?>` 在任务执行完后，返回 null 作为结果。
 
 ```java
 public interface Future<V>
@@ -501,32 +501,24 @@ class App {
 
 <br>
 
-### FutureTask
+### RunnableFuture
 
-> A cancellable asynchronous computation. 
->
-> This class provides a base implementation of Future, with methods to start and cancel a computation, query to see if the computation is complete, and retrieve the result of the computation.
->
-> The result can only be retrieved when the computation has completed; the get methods will block if the computation has not yet completed. Once the computation has completed, the computation cannot be restarted or cancelled (unless the computation is invoked using runAndReset).
->
-> A FutureTask can be used to wrap a Callable or Runnable object. Because FutureTask implements Runnable, a FutureTask can be submitted to an Executor for execution.
->
-> In addition to serving as a standalone class, this class provides protected functionality that may be useful when creating customized task classes.
+> A Future that is Runnable. 可执行的 Future，run 方法执行成功后可以通过 Future 自身的 get 方法获取到返回值。
 
 ```java
-public class FutureTask<V> implements RunnableFuture<V>
+public interface RunnableFuture<V> extends Runnable, Future<V>
 ```
 
 <br>
 
-### RunnableFuture
+### FutureTask
 
-> A Future that is Runnable.
+> 一个可取消的异步操作。这个类提供了 Future 的一个简单实现，实现了：开始/取消/获取结果/检查是否完成方。只有操作完成之后才能获取到返回结果，否则会一直阻塞 get 方法的执行；操作结束之后不能被 restart 或者 cancelled（存在例外：runAndReset 方法）。
 >
-> 可执行的 Future，run 方法执行成功后可以通过 Future 自身的 get 方法获取到返回值
+> 可以将 Callable 或者 Runnable 对象传递到 FutureTask 的构造函数，来创建 一个 FutureTask。
 
 ```java
-public interface RunnableFuture<V> extends Runnable, Future<V>
+public class FutureTask<V> implements RunnableFuture<V>
 ```
 
 <br>
@@ -539,12 +531,11 @@ public interface RunnableFuture<V> extends Runnable, Future<V>
 
 > 运行在 ForkJoinPool 中的的任务的抽象任务类，ForkJoinTask 是一种轻量级的 Future。
 >
-> ForkJoinTask 是一个比普通线程更加轻量的线程，在 ForkJoinPool 中使用少量的线程即可完成大量的 ForkJoinTask 任务
+> ForkJoinTask 线程比普通线程更加轻量，在可用资源受到限制的时候，在 ForkJoinPool 中使用少量的线程即可完成大量的 ForkJoinTask 任务。
 
 ```java
 public abstract class ForkJoinTask<V> implements Future<V>, Serializable
 ```
-
 
 ### ForkJoinPool
 
