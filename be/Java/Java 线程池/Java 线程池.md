@@ -524,7 +524,35 @@ public class FutureTask<V> implements RunnableFuture<V>
 
 <br>
 
-## Fork/Join 框架
+### CompletableFuture
+
+> 一个明确会在将来完成的 Future。实现了 CompletionStage 接口，用于在异步任务进行时针对不同阶段进行不同操作。
+
+
+
+> **内部方法**
+>
+> * complete
+> * completeExceptionally
+> * cancel
+>
+> 当存在多个线程同时执行以上三个方法时，只有一个能执行成功。
+
+
+
+> **Overview**
+>
+> CompletableFuture 中可能会存在依赖于结果完成的动作，这些动作被保存在关联在一起的栈中。CompletableFuture 通过对结果字段的 CAS 操作来自动完成这一系列动作。
+>
+> 
+>
+> 返回的结果字段非空，说明 CompletableFuture 操作完成。CompletableFuture 使用一个 AltResult 来包装 null 值结果，同时也是使用 AltResult 来保存异常。使用单一字段能更加容易检测（或者触发）操作完成。
+
+
+
+<br>
+
+## ForkJoin 框架
 
 ### ForkJoinPool
 
@@ -747,6 +775,6 @@ public class ForkJoinWorkerThread extends Thread
 
 <br>
 
-## 文章分享
+## 文章
 
 * https://mp.weixin.qq.com/s/7jU0ci2tn5TwCvOyxdX6dA

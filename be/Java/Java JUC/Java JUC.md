@@ -2,13 +2,15 @@
 
 > JUC 指的是 `java.util.concurrent` 包及其子包下用于并发场景的类
 
+
+
 ## 基础框架
 
 <br>
 
 ### AbstractOwnableSynchronizer
 
-> 一个可以让线程独占的同步器，为锁和相关同步器的创建提供了一个基础的概念
+> 线程独占的同步器，为锁和相关同步器的创建提供基础框架。
 
 ```java
 public abstract class AbstractOwnableSynchronizer
@@ -21,50 +23,45 @@ public abstract class AbstractOwnableSynchronizer
 // The current owner of exclusive mode synchronization.
 private transient Thread exclusiveOwnerThread;
 
-/**
- * A null argument indicates that no thread owns access. This method does not otherwise
- * impose any synchronization or volatile field accesses.
- */
+// A null argument indicates that no thread owns access.
 protected final void setExclusiveOwnerThread(Thread thread) {
     exclusiveOwnerThread = thread; // 设置 null 值表示当前没有线程有访问权
 }
 ```
 
-
-
 <br>
 
 ### AbstractQueuedSynchronizer
 
-> 提供一个基本框架，用于实现阻塞锁（依靠 FIFO 等待队列）和相关同步器（信号量、栅栏等）。此类是大多数依靠单一原子 int 值来表示状态的同步器的基础，它定义了一些实现同步机制需要使用的方法，提供给具体的锁和相关的同步器使用。
+> 提供一个基本框架，用于实现阻塞锁和相关同步器（信号量、栅栏等），借助 FIFO 队列来实现上述功能。AQS 是大多数同步器的基础，它定义了一些实现同步机制需要使用的方法，提供给具体的锁和相关的同步器使用。
 
 > **子类与实现类**
 >
-> * 子类必须定义用来修改同步机制状态 state 的 protected 方法，如同步锁资源被获取和释放时修改 state 的 acquire 和 release 方法。同时也要定义获取不到锁资源时用于排队的方法和实现阻塞机制的方法
-> * 子类还可以维护除了 state 之外的其他变量，但是只有使用 getState/setState 和 compareAndSetState 方法更新 state 值才会被当作同步机制的实现逻辑，进行同步状态跟踪
-> * 子类应该定义为非公开的内部辅助类，用于实现其封闭父类类的同步属性
+> * 子类必须定义用来修改同步状态 state 的 protected 方法。比如：锁资源被获取和释放时修改 state 的 acquire 和 release 方法。以及获取不到锁资源时用于排队的方法和实现阻塞机制的方法。
+> * 子类还可以维护除了 state 之外的其他变量，但是只有使用 getState/setState 和 compareAndSetState 方法更新 state 值才会被当作同步机制的实现逻辑，进行同步状态跟踪。
+> * 子类应该定义为非公开的内部辅助类，用于实现其封闭父类的同步属性。
 
 
 
 > **锁的两种模式**
 >
-> AbstractQueuedSynchronizer 同时支持独占和共享模式，在不同模式下排队的线程使用的都是同一个 FIFO 队列，可以使用 isHeldExclusively 方法来检查当前线程是否独占有锁资源。
+> AQS 同时支持独占和共享模式，在不同模式下排队的线程使用的都是同一个 FIFO 队列，可以使用 isHeldExclusively 方法来检查当前线程是否独占有锁资源。
 >
-> 通常来说子类可以只实现两种模式中的一种，这种情况下，未实现的模式的方法不需要实现；子类也可以同时支持两种模式，如 ReadWriteLock。
+> 通常来说子类可以只实现两种模式中的一种，未实现的模式的方法不需要实现。子类也可以同时支持两种模式，如 ReadWriteLock。
 
 
 
 > **Condition**
 >
-> ConditionObject 是 AbstractQueuedSynchronizer 的内部类，ConditionObject 实现了 Condition 接口，可以作为独占模式下锁资源获取与释放的条件来使用。
+> ConditionObject 是 AQS 的内部类，它实现了 Condition 接口，可以作为独占模式下锁资源获取与释放的条件来使用。
 >
-> 可以使用 getState 获取到的 state 作为参数，根据 Condition 条件调用 release/acquire 方法释放或者重入锁资源
+> 可以使用 getState 获取到的 state 作为参数，根据 Condition 条件调用 release/acquire 方法释放或者重入锁资源。
 
 
 
 > **序列化与反序列化**
 >
-> 对 AbstractQueuedSynchronizer 进行序列化操作会把 state 设置为 0，即无锁模式，线程等待队列不会进行序列化。需要自定义 readObject 方法，反序列化时将 state 和 等待队列恢复
+> 对 AQS 进行序列化操作会把 state 设置为 0，即无锁模式，线程等待队列不会进行序列化。需要自定义 readObject 方法，反序列化时将 state 和等待队列恢复。
 
 
 
@@ -78,16 +75,16 @@ protected final void setExclusiveOwnerThread(Thread thread) {
 > * tryReleaseShared
 > * isHeldExclusively
 >
-> 这几个方法是 AbstractQueuedSynchronizer 中的模版方法，默认抛出 UnsupportedOperationException 异常。
+> 这几个方法是 AQS 中的模版方法，默认抛出 UnsupportedOperationException 异常。
 >
-> 自定义实现时要求必须是内部线程安全的，并且调用流程应该是短暂，不阻塞的。重写这几个方法是使用 AbstractQueuedSynchronizer 的唯一方法，因为除此之外的其他方法基本上都是 final 声明的，不可被重写。
+> 自定义实现时要求必须是内部线程安全的，并且调用流程应该是短暂，不阻塞的。重写这几个方法是使用 AQS 的唯一方法，因为除此之外的其他方法基本上都是 final 声明的，不可被重写。
 
 
 
 > **公平与非公平**
 >
-> * 虽然 AbstractQueuedSynchronizer 同步机制的实现依赖于内部的 FIFO 队列，但它并不强制使用 FIFO 来获取锁资源
-> * 子类的实现为公平锁时，需要严格按照 FIFO 队列的要求来实现同步机制；子类的实现为非公平锁时，不需要按照 FIFO 要求实现同步机制。因为在获取锁资源时会先进行检查，所以非公平模式下，新获取的线程可能会在其他被阻塞和排队的线程之前获取到锁
+> * 虽然 AQS 同步机制的实现依赖于内部的 FIFO 队列，但它并不强制使用 FIFO 来获取锁资源
+> * 子类的实现为公平锁时，需要严格按照 FIFO 队列的要求来实现同步机制；子类的实现为非公平锁时，不需要按照 FIFO 要求实现同步机制。所以非公平模式下，新获取的线程可能会在其他被阻塞和排队的线程之前获取到锁
 > * 默认情况下（非公平模式），允许线程之间进行锁资源的争夺，此时吞吐量和可扩展性比较高。因为没获取到锁的线程会先进行自旋，并在自旋中尝试获取锁，自旋获取失败才会进入阻塞队列等待
 
 
@@ -96,23 +93,23 @@ protected final void setExclusiveOwnerThread(Thread thread) {
 
 ##### Node
 
-> 等待队列的 Node 结点，等待队列是 CLH（Craig, Landin, and Hagersten） 锁队列的一个变种。CLH 队列通常用于实现自旋锁，在 AQS 中使用 CLH 队列来实现阻塞同步器，将线程的控制信息保存在其前驱结点中。
+> 等待队列的 Node 结点，等待队列是 CLH（Craig, Landin, and Hagersten） 锁队列的变种。CLH 队列通常用于实现自旋锁，在 AQS 中使用 CLH 队列来实现阻塞同步器，将线程的控制信息保存在其前驱结点中。
 >
-> 
+> 在 AQS 中，一个 Node 节点就表示一个线程。每个 Node 节点中都有一个 waitStatus 字段，用来记录该线程是否应该阻塞（仅用作记录，不用做控制锁状态）。
 >
-> 每个线程中都有一个 status 字段，用来记录该线程是否应该阻塞（仅用作记录，不用做控制锁状态）。当前驱结点释放锁资源时，等待队列中阻塞的结点就会收到信号。等待队列中的第一个线程不能保证一定会获取到锁资源，只能保证它具有竞争锁的权利，如果获取失败会继续等待。
+> 当前驱结点释放锁资源时，等待队列中阻塞的结点就会收到信号。等待队列中的第一个线程不能保证一定会获取到锁资源，只能保证它具有竞争锁的权利，如果获取失败会继续等待。
 
-> ```
->      +------+  prev +-----+       +-----+
+> ```shell
+>         +------+  prev +-----+       +-----+
 > head |      | <---- |     | <---- |     |  tail
->      +------+       +-----+       +-----+
+>         +------+       +-----+       +-----+
 > ```
 >
-> * 线程入队阻塞队列仅需要使用原子操作将线程结点插入等待队列的尾部，线程出队只需要将获取到锁资源的线程设置为头结点即可。耗时的操作是确定后继结点，可能会出现超时或者中断的情况
+> * 线程入队阻塞队列仅需要使用原子操作将线程结点插入等待队列的尾部，线程出队只需要将获取到锁资源的线程设置为头结点即可。耗时的操作是确定后继结点，可能会出现超时或者中断的情况。
 >
-> * CHL 队列中的 prev 指针主要用作取消操作，如果一个线程结点被取消了，它的后继会重新指向前驱结点没被取消的前驱
+> * CHL 队列中的 prev 指针主要用作取消操作，如果一个 Node 节点被取消了，它的后继会重新指向前驱结点没被取消的前驱。
 >
-> * 除了 prev 还有一个 next 指针指向后继结点，获取到资源的线程释放时，会通过 next 通知后继的结点进行争夺
+> * 队列中的 next 指针指向后继结点，获取到资源的线程释放时，会通过 next 通知后继节点进行竞争。
 
 ```java
 static final class Node
@@ -387,6 +384,12 @@ public static void unpark(Thread thread) {
 ```
 
 
+
+### AbstractQueuedLongSynchronizer
+
+> A version of AbstractQueuedSynchronizer in which synchronization state is maintained as a long.
+>
+> This class may be useful when creating synchronizers such as multilevel locks and barriers that require 64 bits of state.
 
 <br>
 
