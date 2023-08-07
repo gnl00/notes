@@ -36,8 +36,8 @@
 > ```java
 > class DirectExecutor implements Executor {
 > 	public void execute(Runnable r) {
->     r.run();
->   }
+>     		r.run();
+>   	}
 > }
 > ```
 >
@@ -46,9 +46,9 @@
 >
 > ```java
 > class ThreadPerTaskExecutor implements Executor {
->   public void execute(Runnable r) {
->     new Thread(r).start();
->   }
+>       public void execute(Runnable r) {
+>        	new Thread(r).start();
+>       }
 > }
 > ```
 
@@ -115,7 +115,7 @@ public interface ExecutorService extends Executor
 
 > **内存一致性原则**
 >
-> 线程任务的提交 happens-before 线程任务的执行；线程任务执行完成 happens-before Future.get()
+> 线程任务的提交 happens-before 线程任务的执行；线程任务执行完成 happens-before Future#get
 
 <br>
 
@@ -283,10 +283,11 @@ public abstract class AbstractExecutorService implements ExecutorService
 >
 > * beforeExecute(Thread, Runnable)
 > * afterExecute(Runnable, Throwable)
+> * terminated()
 >
 > <br>
 >
-> 勾子函数可用作线程执行环境的检查/初始化 ThreadLocal/日志操作等。此外线程中止方法也可以被重写，用作中止前后进行清理操作等。如果勾子函数或回调方法抛出异常，内部工作线程可能反过来失败并突然终止
+> 勾子函数可用作线程执行环境的检查/初始化 ThreadLocal/日志操作等。线程 terminated 方法也可以被重写，用作中止前后进行清理操作等。如果勾子函数或回调方法抛出异常，内部工作线程可能反过来失败并突然终止
 
 
 
@@ -525,21 +526,13 @@ public class FutureTask<V> implements RunnableFuture<V>
 
 ## Fork/Join 框架
 
-<br>
-
-### ForkJoinTask
-
-> 运行在 ForkJoinPool 中的的任务的抽象任务类，ForkJoinTask 是一种轻量级的 Future。
->
-> ForkJoinTask 线程比普通线程更加轻量，在可用资源受到限制的时候，在 ForkJoinPool 中使用少量的线程即可完成大量的 ForkJoinTask 任务。
-
-```java
-public abstract class ForkJoinTask<V> implements Future<V>, Serializable
-```
-
 ### ForkJoinPool
 
-> An ExecutorService for running ForkJoinTasks.
+> 本质上是一个 ExecutorService，是一个专门用来运行 ForkJoinTask 的线程池。同样提供了对于 Non-ForkJoinTask 的线程池运行入口、管理和监控的操作。
+>
+> 与其他 ExecutorService 不同的是，ForkJoinPool 支持一种叫做 ”work-stealing“ 的工作模式：线程池中的所有线程都会尝试去找到并执行<u>所有被提交到线程池中的任务（或者是被其他活跃任务创建的任务）</u>。这种工作模式在会有很多子任务产生的情况下，或者有很多小人物会被从外部客户端提交到线程池中运行时是很高效的。
+>
+> ForkJoinPool 提供一个静态的 commonPool() 方法，适用于绝大多数应用，可以被任何一个 ForkJoinTask 使用。使用 commonPool 还能够减少资源的使用（线程不活跃的时候会被慢慢回收，使用的时候自动恢复）。
 
 > **三种运行方式**
 >
@@ -555,11 +548,200 @@ public class ForkJoinPool extends AbstractExecutorService
 
 <br>
 
+内部类 *WorkQueue* 维护一个 *work-stealing queues*，是 *Deques* 的一个变种，只支持 3 个操作：push，pop 和 poll（也叫做 steal）。push 和 pop 只能由线程本身调用，一个线程的 poll 操作可能会被其他外部线程调用。
+
+*work-stealing queue* 内部的用到了 CAS 来获取下一个 task 进行执行。
+
+> 关于 *work-stealing queue* 可以看看 [Dynamic Circular Work-Stealing Deque](http://research.sun.com/scalable/pubs/index.html) 和 [Idempotent work stealing](http://research.sun.com/scalable/pubs/index.html)。
+
+
+
+<br>
+
+### ForkJoinTask
+
+> 运行在 ForkJoinPool 中的的任务的抽象任务类，ForkJoinTask 是一种轻量级的 Future。
+>
+> ForkJoinTask 线程比普通线程更加轻量，在可用资源受到限制的时候，在 ForkJoinPool 中使用少量的线程即可完成大量的 ForkJoinTask 任务。
+
+```java
+public abstract class ForkJoinTask<V> implements Future<V>, Serializable
+```
+
+<br>
+
+ForkJoinTask 是一个抽象类，所以需要继承它的一系列子类来完成需要的功能。下面测试一下使用和不使用 ForJoinTask 的区别：
+
+1、不使用 ForJoinTask。
+
+```java
+public void noThread() {
+    long start = System.currentTimeMillis();
+    long sum = 0;
+    for (long i = 1; i <= 1000000000; i++) {
+        sum += i;
+    }
+    System.out.println(sum);
+    long end = System.currentTimeMillis();
+    System.out.println("total time spent ===> " + (end - start));
+}
+```
+
+```shell
+executing ===> noThread
+500000000500000000
+total time spent ===> 352
+```
+
+2、使用 ForJoinTask。
+
+```java
+public class MyForkJoinTask extends RecursiveTask<Long> {
+    private long from;
+    private long to;
+    private long maxRange;
+
+    public MyForkJoinTask(long from, long to, long maxRange) {
+        this.from = from;
+        this.to = to;
+        this.maxRange = maxRange;
+    }
+
+    @Override
+    protected Long compute() {
+
+        long range = to - from;
+        long sum = 0;
+        if (range >= maxRange) {
+            long mid = (from + to) / 2;
+            MyForkJoinTask left = new MyForkJoinTask(from, mid, maxRange);
+            MyForkJoinTask right = new MyForkJoinTask(mid + 1, to, maxRange);
+
+            // fork() asynchronously, execute this task in the pool the current task is running in
+            left.fork();
+            right.fork();
+
+            // join() Returns the result of the computation when it is done
+            sum += left.join();
+            sum += right.join();
+        } else {
+            for (; from <= to ; from++) {
+                sum += from;
+            }
+        }
+        return sum;
+    }
+}
+```
+
+```java
+public class MyForkJoinPool {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        ForkJoinPool fjp = ForkJoinPool.commonPool();
+
+        long start = System.currentTimeMillis();
+
+        MyForkJoinTask task = new MyForkJoinTask(1, 1000000000, 100000000);
+        ForkJoinTask<Long> resp = fjp.submit(task);
+        System.out.println(resp.get());
+
+        long end = System.currentTimeMillis();
+        System.out.println("cost time ==> " + (end - start));
+    }
+}
+```
+
+```shell
+500000000500000000
+cost time ==> 90
+```
+
+计算所需要的时间只需要原先的四分之一。
+
+> 在测试中发现，使用多线程来计算时间花费得更少：
+>
+> ```java
+> public void withThread() {
+>     AtomicLong globalSum = new AtomicLong();
+> 
+>     long from = 0;
+>     long max = 1000000000;
+>     long span = max/10;
+> 
+>     // 10 threads
+>     for (int i = 1; i <= 10; i++) {
+>         long finalFrom = from; // 0          1000000001
+>         long to = span * i; // 1000000000 2000000000
+>         new Thread(() -> {
+>             long sum = 0;
+>             for (long j = finalFrom; j <= to; j++) {
+>                 sum += j;
+>             }
+>             System.out.println("sum now: " + sum);
+>             long gs = globalSum.addAndGet(sum);
+>             System.out.println("global sum now: " + gs);
+>         }).start();
+>         from = to + 1;
+>     }
+> }
+> ```
+>
+> ```shell
+> executing ===> withThread
+> global sum now: 500000000500000000
+> total time spent ===> 42
+> ```
+>
+> 甚至只需要原先的九分之一的时间就可以完成计算。
+
+
+
+<br>
+
 ### ForkJoinWorkerThread
-> ForkJoinPool 可以通过池中的 ForkJoinWorkerThread 来处理 ForkJoinTask 任务。没有可重写的线程调度和执行方法，仅可围绕主任务的执行重写初始化和终止方法。
+
+> 由 ForkJoinPool 管理的线程，用来处理 ForkJoinTask 任务。
 ```java
 public class ForkJoinWorkerThread extends Thread
 ```
+
+在 ForkJoinPool 中有说明：
+
+```java
+/*
+ * Creating workers. To create a worker, we pre-increment total
+ * count (serving as a reservation), and attempt to construct a
+ * ForkJoinWorkerThread via its factory. Upon construction, the
+ * new thread invokes registerWorker, where it constructs a
+ * WorkQueue and is assigned an index in the workQueues array
+ * (expanding the array if necessary). The thread is then
+ * started. 
+ * Upon any exception across these steps, or null return
+ * from factory, deregisterWorker adjusts counts and records
+ * accordingly.  If a null return, the pool continues running with
+ * fewer than the target number workers. If exceptional, the
+ * exception is propagated, generally to some external caller.
+ * Worker index assignment avoids the bias in scanning that would
+ * occur if entries were sequentially packed starting at the front
+ * of the workQueues array. We treat the array as a simple
+ * power-of-two hash table, expanding as needed. The seedIndex
+ * increment ensures no collisions until a resize is needed or a
+ * worker is deregistered and replaced, and thereafter keeps
+ * probability of collision low. We cannot use
+ * ThreadLocalRandom.getProbe() for similar purposes here because
+ * the thread has not started yet, but do so for creating
+ * submission queues for existing external threads.
+ */
+```
+
+> 在创建 worker 时，ForkJoinPool 会提前新增线程总数，并尝试通过 ForkJoinWorkerThread 工厂来创建 ForkJoinWorkerThread。
+>
+> 在创建时，新线程通过调用 ForkJoinPool#registerWorker 创建一个 WorkQueue，并将 WorkQueue 添加到 WorkQueue 数组中，表示线程启动完毕。
+> 如果在这过程中出现了异常或者 ForkJoinWorkerThread 工厂返回了 null 值：
+>
+> * 调用 ForkJoinPool#deregisterWorker 调整线程数量，并进行相应的记录；
+> * 如果返回了 null 值，ForkJoinPool 会继续运行；
+> * 如果出现异常，通常会被抛出给外部调用者处理。
 
 
 
