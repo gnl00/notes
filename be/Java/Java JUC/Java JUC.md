@@ -132,11 +132,11 @@ static final Node EXCLUSIVE = null;
  * CONDITION
  * PROPAGATE
  *
- * 普通同步机制下默认值是 0，如果使用 condition 则默认值是 CONDITION = -2
+ * 普通同步机制下默认值是 0；如果使用 condition 则默认值是 CONDITION = -2
  */
 volatile int waitStatus; // 
 
-// waitStatus 属性的取值有以下情况 waitStatus value to indicate that
+// waitStatus 属性的取值有以下情况
 static final int CANCELLED =  1; // thread has cancelled due to timeout or interrupt, a thread with cancelled node never again blocks
 static final int SIGNAL    = -1; // successor's thread needs unparking
 static final int CONDITION = -2; // thread is waiting on condition
@@ -147,7 +147,7 @@ static final int PROPAGATE = -3; // the next acquireShared should unconditionall
 
 ##### ConditionObject
 
-> Condition implementation for a AbstractQueuedSynchronizer serving as the basis of a Lock implementation.
+> AQS 中 Condition 接口的实现，作为实现各种锁的基础。
 
 ```java
 public class ConditionObject implements Condition, java.io.Serializable
@@ -174,8 +174,6 @@ public final void signal() {}
 public final void signalAll() {}
 ```
 
-
-
 <br>
 
 #### 内部属性
@@ -184,8 +182,9 @@ public final void signalAll() {}
 private volatile int state; // 同步机制的状态
 
 /**
- * 等待队列的头结点，懒加载。除了初始化方法，只有 setHead 方法可以修改头结点。
- * 如果头结点存在，waitStatus 保证不会被设置为 CANCELLED
+ * 等待队列的头结点，懒加载。
+ * 除了初始化方法，只有 setHead 方法可以修改头结点。
+ * 如果头结点存在，waitStatus 不会被设置为 CANCELLED
  */
 private transient volatile Node head;
 
@@ -194,15 +193,11 @@ private transient volatile Node head;
 private transient volatile Node tail;
 
 // 自旋和 park 判定的阈值
-// The number of times a thread will spin before it gives up and waits for a timeout
-// This is useful for avoiding deadlocks, as it ensures that threads will eventually give up and allow other threads to progress.
-// This means that a thread will spin 1000 times before it gives up and waits for a timeout. If the thread is still unable to acquire the lock after 1000 spins, it will throw a TimeoutException.
+// 线程在竞争锁资源的时候会自旋 spinForTimeoutThreshold 次，自旋结束会被 park 等待。
+// 使用指定的自旋时间能避免死锁的发生，到达一定时间后让步给其他线程。自旋超过 spinForTimeoutThreshold 次后仍未能获取到锁，抛出 TimeoutException。
 static final long spinForTimeoutThreshold = 1000L;
 
-/**
- * 作为 CAS 操作的支持，虽然使用 AtomicInteger 原子类能获得同样的效果并且可能会达到更好的效果，但是
- * 为了未来的延展性，使用 Unsafe 即可。
- */
+// 作为 CAS 操作的支持，虽然使用 AtomicInteger 原子类能获得同样的效果并且可能会达到更好的效果，但是为了未来的延展性，使用 Unsafe 即可。
 private static final Unsafe unsafe = Unsafe.getUnsafe();
 private static final long stateOffset;
 private static final long headOffset;
@@ -242,12 +237,14 @@ protected final boolean compareAndSetState(int expect, int update) {
 
 // Inserts node into queue, initializing if necessary
 private Node enq(final Node node) {}
-
-// Creates and enqueues node for current thread and given mode.
-private Node addWaiter(Node mode) {}
+// Sets head of queue to be node, thus dequeuing.
+private void setHead(Node node) {
+    head = node;
+    node.thread = null;
+    node.prev = null;
+}
 
 // 获取独占锁
-// 实现中至少调用一次 tryRelease 方法
 // This method can be used to implement method Lock.lock.
 public final void acquire(int arg) {
     if (!tryAcquire(arg) && // 尝试获取
@@ -277,44 +274,108 @@ public final void acquireShared(int arg) {
 
 #### 模版方法
 
+> 尝试获取独占锁，会查询当前 state 是否支持独占模式，如果支持则尝试获取。始终会被当前执行的线程调用，如果获取失败，当前线程可能会进入等待队列。如果未入队，会一直阻塞知道有其他线程唤醒。可以用来实现 Lock.tryLock() 方法，默认实现抛出 UnsupportedOperationException。
+
 ```java
-/**
- * 尝试获取独占锁，会查询当前 state 是否支持独占模式，如果支持则尝试获取
- * 始终会被当前执行的线程调用，如果获取失败，当前线程可能会进入等待队列。如果未入队，会一直阻塞知道有其
- * 他线程唤醒
- * 可以用来实现 Lock.tryLock() 方法，默认实现抛出 UnsupportedOperationException
- */
 protected boolean tryAcquire(int arg) {}
+```
 
-// 尝试释放独占锁，始终会被当前执行的线程调用，默认实现抛出 UnsupportedOperationException
+> 尝试释放独占锁，始终会被当前执行的线程调用，默认实现抛出 UnsupportedOperationException。
+
+```java
 protected boolean tryRelease(int arg) {}
+```
 
-/**
- * 尝试获取共享锁，会查询当前 state 是否支持共享模式，如果支持则尝试获取
- * 始终会被当前执行的线程调用，如果获取失败，当前线程可能会进入等待队列。如果未入队，会一直阻塞知道有其
- * 他线程唤醒
- * 默认实现抛出 UnsupportedOperationException
- */
+> 尝试获取共享锁，会查询当前 state 是否支持共享模式，如果支持则尝试获取。始终会被当前执行的线程调用，如果获取失败，当前线程可能会进入等待队列。如果未入队，会一直阻塞知道有其他线程唤醒。默认实现抛出 UnsupportedOperationException。
+
+```java
 protected int tryAcquireShared(int arg) {}
+```
 
-// 尝试释放共享锁，始终会被当前执行的线程调用，默认实现抛出 UnsupportedOperationException
+> 尝试释放共享锁，始终会被当前执行的线程调用，默认实现抛出 UnsupportedOperationException。
+
+```java
 protected boolean tryReleaseShared(int arg) {}
+```
 
-// 检查当前是独占还是共享模式
-// 仅被 AbstractQueuedSynchronizer.ConditionObject 中的方法调用，如果不用 Condition 则无需实现
-// 默认实现抛出 UnsupportedOperationException
+> 检查当前是独占还是共享模式。仅被 AbstractQueuedSynchronizer.ConditionObject 中的方法调用，如果不用 Condition 则无需实现。默认实现抛出 UnsupportedOperationException。
+
+```java
 protected boolean isHeldExclusively() {}
 ```
 
 
 
-> 这篇[文章](https://mp.weixin.qq.com/s/hvku5GPxkfQ5GffLjiUAYw)中有几个 AQS 节点切换图可以看看。
+#### AQS 等待队列
+
+```java
+// Creates and enqueues node for current thread and given mode. 给定一个节点模式（共享|独占），为当前线程创建一个入队等待节点
+private Node addWaiter(Node mode) {
+    Node node = new Node(Thread.currentThread(), mode);
+    // Try the fast path of enq; backup to full enq on failure
+    Node pred = tail; // 尝试使用最快的方式入队，直接插入队尾
+    if (pred != null) {
+        node.prev = pred;
+        if (compareAndSetTail(pred, node)) {
+            pred.next = node;
+            return node;
+        }
+    }
+    enq(node); // 最快方式插入失败，使用 enq 方法入队
+    return node;
+}
+// Inserts node into queue, initializing if necessary
+private Node enq(final Node node) {
+    for (;;) {
+        Node t = tail;
+        if (t == null) { // Must initialize 如果尾节点为 null，说明队列未初始化
+            if (compareAndSetHead(new Node())) // 初始化队列头尾
+                tail = head;
+        } else { // 否则插入队尾
+            node.prev = t;
+            if (compareAndSetTail(t, node)) {
+                t.next = node;
+                return t;
+            }
+        }
+    }
+}
+
+// 以独占、不中断的形式在队列中等待获取锁
+final boolean acquireQueued(final Node node, int arg) {
+    boolean failed = true;
+    try {
+        boolean interrupted = false;
+        for (;;) {
+            final Node p = node.predecessor(); // 获取队列中当前 Node 的前驱
+            // 如果前驱是头节点，并且尝试获取锁成功
+            if (p == head && tryAcquire(arg)) {
+                setHead(node);
+                p.next = null; // help GC
+                failed = false;
+                return interrupted;
+            }
+            // 否则 park 当前线程并中断线程，取消获取锁资源
+            if (shouldParkAfterFailedAcquire(p, node) &&
+                parkAndCheckInterrupt())
+                interrupted = true;
+        }
+    } finally {
+        if (failed)
+            cancelAcquire(node);
+    }
+}
+```
+
+
+
+> 这篇[文章](https://mp.weixin.qq.com/s/hvku5GPxkfQ5GffLjiUAYw)中关于 AQS 节点切换图可以看看。
 
 <br>
 
 ### Condition
 
-> 一个 Condition 实例与一个锁绑定，要为一个特定的锁实例获得 Condition 实例，使用对应的 newCondition方法
+> 一个 Condition 实例与一个锁绑定，一个锁要得到 Condition 实例，需使用对应的 newCondition方法。
 
 ```java
 public interface Condition
@@ -340,8 +401,6 @@ void signal();
 // Wakes up all waiting threads.
 void signalAll();
 ```
-
-
 
 <br>
 
@@ -397,17 +456,17 @@ public static void unpark(Thread thread) {
 
 ### Lock
 
-> Lock 的实现类提供了比 synchronized 方法和 synchronized 块更具扩展性的锁操作。允许更灵活的结构，可能有不同的属性，可能支持多个相关的 Condition 对象。
+> Lock 的实现类提供了比 *synchronized 方法*和 *synchronized 块*更具扩展性的锁操作。Lock 允许更灵活的结构，可能有不同的属性，可能支持多个相关的 *Condition 对象*。
 > 
-> 锁是一种用于控制多个线程对共享资源的访问的工具。通常，锁提供对共享资源的排他性访问：一次只有一个线程可以获得锁，对共享资源的访问需要先获得锁。但也有些锁允许对共享资源的并发访问，例如 ReadWriteLock 的读锁。
+> 通常，锁提供对共享资源的排他性访问：一次只有一个线程可以获得锁，对共享资源的访问需要先获得锁。但也有些锁允许对共享资源的并发访问，例如 ReadWriteLock 的读锁。
 
 
 
-> 使用 synchronized 方法或 synchronized 代码块可以获取与每个对象相关的隐式监控锁，但锁的获取和释放操作都必须在 synchronized 块内进行。当获取多个锁时，它们必须以相反的顺序释放，并且所有锁必须在获取它们的同一词法范围内释放。
+> 使用 *synchronized 方法*或 *synchronized 代码块*可以获取与每个对象相关的*隐式监控锁*，但锁的获取和释放操作都必须在 synchronized 修饰范围内进行。当获取多个锁时，它们必须以相反的顺序释放，并且所有锁必须在获取它们的同一词法范围内释放。
 > 
-> 虽然 synchronized 方法和语句的范围机制使得监控锁编程的使用变得更加容易，并有助于避免许多涉及锁的常见编程错误，但在某些场合，需要以更灵活的方式使用锁。Lock 接口的实现允许在不同的范围内获取和释放一个锁，并允许以任何顺序获取和释放多个锁。
+> 虽然 *synchronized 方法*和语句的范围机制有助于避免许多涉及锁的常见编程错误。但在某些情况下，需要以更灵活的方式使用锁。*Lock 接口*的实现允许在不同的范围内获取和释放一个锁，并允许以任何顺序获取和释放多个锁。
 > 
-> 灵活性的增加，也带来了额外的负担。没有 synchronized 块状结构的约束，就没有 synchronized 方法和 synchronized 块自动释放锁的情况。
+> 灵活性的增加，也带来了额外的负担。没有 synchronized 块状结构的约束，就没有 synchronized 方法和 synchronized 块自动释放锁的情况，使用 Lock 需要手动的去释放锁。
 > 
 > ```java
 >  Lock l = ...;  
@@ -415,17 +474,17 @@ public static void unpark(Thread thread) {
 >  try {    
 >    // access the resource protected by this lock  
 >  } finally {    
->  	l.unlock();  // 因此需要注意手动释放锁资源
+>  	l.unlock();  // 需要手动释放锁资源
 >  }
 > ```
 > 
-> 
-> 
-> Lock 的实现提供了比使用同步方法和语句更多的功能，它提供了获取锁的非阻塞尝试 tryLock，获取可以中断的锁的尝试 lockInterruptibly，以及获取可以超时的锁的尝试 tryLock(long, TimeUnit)
+> Lock 提供了比使用同步方法和语句更多的功能：获取锁的非阻塞尝试 tryLock；获取可以中断的锁的尝试 lockInterruptibly；获取可以超时的锁的尝试 tryLock(long, TimeUnit)。
 
 ```java
 public interface Lock
 ```
+
+
 
 **内置方法**
 
@@ -439,8 +498,9 @@ void lockInterruptibly() throws InterruptedException;
 // Acquires the lock only if it is free at the time of invocation.
 boolean tryLock();
 
-// Acquires the lock if it is free within the given waiting time and the current thread 
-// has not been interrupted.
+// 在指定时间内尝试获取锁，超时则 interrupt
+// Acquires the lock if it is free within the given waiting time
+// and the current thread has not been interrupted.
 boolean tryLock(long time, TimeUnit unit) throws InterruptedException;
 
 // Releases the lock.
@@ -450,48 +510,47 @@ void unlock();
 Condition newCondition();
 ```
 
-
-
 <br>
 
 ### ReentrantLock
 
-> 一个可重入的互斥锁，其基本行为和语义与使用同步方法和语句获取锁相同，但扩展性更好。一个 ReentrantLock 被最后成功加锁且目前还没有解锁的线程所拥有。
-> 
-> 如果当前线程已拥有锁，该方法将立即返回。可以通过 isHeldByCurrentThread 和 getHoldCount 方法来检查当前线程是否持有锁资源。
-> 
-> 对于同一个线程，最多支持 2147483647 次锁的重用，超过此次数将会抛出 Error
+> 一个可重入的互斥锁，其基本行为和语义与使用 *synchronized 方法*和 *synchronized 块*获取锁相同，但扩展性更好。一个 ReentrantLock 被最后成功加锁且目前还没有解锁的线程所拥有。
+>
+> 如果当前锁未被任何线程拥有，执行 *lock 方法*将会成功获取到锁。如果当前线程已拥有锁，*lock 方法*将立即返回（锁的重入次数加 1）。可以通过 isHeldByCurrentThread 和 getHoldCount 方法来检查当前线程是否持有锁资源。
+>
+> 对于同一个线程，最多支持 2147483647 次（2^31 - 1）锁的重用，超过将会抛出 Error。
 
 > **构造函数**
-> 
-> 构造函数中接受一个公平性参数，可以为 true 或 false。true 表示获取的是公平锁，反之获取非公平锁。
-> 
-> 锁的公平性并不能保证线程调度的公平性，许多使用公平锁的线程可能会连续多次获得锁。tryLock 方法并不遵循公平性的规格。如果锁资源空闲，就尝试获取
+>
+> 构造函数中接受一个可选的 fairness 参数，可以为 true 或 false。true 表示获取的是公平锁，反之获取非公平锁。
+>
+> 锁的公平性并不能保证线程调度的公平性，许多使用公平锁的线程可能会连续多次获得锁。且需要注意，*tryLock 方法*并不遵循公平性的规格，如果锁资源空闲，就尝试获取。
+>
+> <sup>*</sup>此外，非公平锁的吞吐量是要高于公平锁的。
 
 > **实现**
 > 
-> 应该总是在 lock 方法之后立即跟着 try-finally 块以进行 unlock 操作。ReentrantLock 除了实现 Lock 接口的方法之外还额外定义了检查和监控 state 状态的 public 和 protected 方法
+> 应该总是在 *lock 方法*之后立即跟着 *try-finally 块*以进行 unlock 操作。ReentrantLock 除了实现 *Lock 接口*的方法之外还额外定义了检查和监控 state 状态的方法。
 
 > **序列化与反序列化**
 > 
-> 序列化后进行反序列化时，state 永远处于解锁状态
-
-<br>
+> 序列化后进行反序列化时，state 永远处于解锁状态（和 AQS 表现一致）。
 
 ```java
 public class ReentrantLock implements Lock, java.io.Serializable
 ```
 
+<br>
+
 #### 内部类
 
 ##### Sync
 
-> ReentrantLock 同步机制控制的基础，使用 AQS 的 state 属性来表示锁被持有的数量。
+> ReentrantLock 同步机制控制的基础，使用 AQS 的 state 属性来表示锁被持有的数量。子类分别是 FairSync 和 NonfairSync 用来实现公平和非公平锁。
 > 
-> 子类分别是 FairSync 和 NonfairSync 用来实现公平和非公平锁。
 
 ```java
-abstract static class Sync extends AbstractQueuedSynchronizer
+abstract static class Sync extends AbstractQueuedSynchronizer {}
 ```
 
 **内部属性/方法**
@@ -526,7 +585,8 @@ final boolean nonfairTryAcquire(int acquires) {
 // 尝试释放锁资源
 protected final boolean tryRelease(int releases) {
     int c = getState() - releases; // state 减一
-    if (Thread.currentThread() != getExclusiveOwnerThread()) // 检查锁是否被当前线程占有
+    // 检查锁是否被当前线程占有
+    if (Thread.currentThread() != getExclusiveOwnerThread())
         throw new IllegalMonitorStateException();
     boolean free = false;
     if (c == 0) { // state 减到 0 表示锁释放完毕
@@ -537,7 +597,7 @@ protected final boolean tryRelease(int releases) {
     return free;
 }
 
-// 定义和当前锁相关的 Condition
+// 获取和当前锁相关的 Condition
 final ConditionObject newCondition() {
     return new ConditionObject();
 }
@@ -545,15 +605,22 @@ final ConditionObject newCondition() {
 
 ##### NonfairSync
 
-> 非公平的 Sync 子类，不保证锁的获取顺序，并发情况下吞吐量更大
-> 
-> 
-> 
-> 非公平锁调用逻辑
-> NonfairSync#lock -\> AQS#acquire -\> NonfairSync#tryAcquire -\> Sync#nonfairTryAcquire
+> 非公平的 Sync 子类，不保证锁的获取顺序，并发情况下比公平锁吞吐量更大。
+>
+> **非公平锁调用逻辑**
+>
+> 1、ReentrantLock#lock
+>
+> 2、NonfairSync#lock
+>
+> 3、AQS#acquire -> if (!NonfairSync#tryAcquire && AQS#acquireQueued) -> 如果尝试获取锁失败 and 入队不成功，中断当前线程
+>
+> 4、NonfairSync#tryAcquire
+>
+> 5、Sync#nonfairTryAcquire
 
 ```java
-static final class NonfairSync extends Sync
+static final class NonfairSync extends Sync {}
 ```
 
 **内部方法**
@@ -565,7 +632,7 @@ final void lock() {
     if (compareAndSetState(0, 1)) // 锁获取成功
         setExclusiveOwnerThread(Thread.currentThread());
     else
-        acquire(1); //锁获取失败
+        acquire(1); // 锁获取失败，尝试自旋获取
 }
 ```
 
@@ -577,7 +644,7 @@ final void lock() {
 > 
 > 
 > 
-> 公平锁调用逻辑：
+> 公平锁调用逻辑
 > FairSync#lock -\> AQS#acquire -\> FairSync#tryAcquire
 
 ```java
@@ -613,8 +680,6 @@ protected final boolean tryAcquire(int acquires) {
     return false;
 }
 ```
-
-
 
 <br>
 
@@ -664,7 +729,13 @@ public final boolean hasQueuedThreads() {
 public boolean hasWaiters(Condition condition) {}
 ```
 
+<br>
 
+#### lock 与 tryLock
+
+* 同样是获取锁的方法。
+* lock 方法会遵循公平/非公平性原则，tryLock 则不遵循，只要锁空闲 tryLock 就会尝试去获取。
+* lock 方法获取不到锁时会进入等待队列；而 tryLock 先是尝试获取，获取成功则返回 true，获取失败则返回 false，不用进入等待队列。
 
 <br>
 
