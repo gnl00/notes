@@ -3711,7 +3711,7 @@ public class UserController {
 
 **依赖**
 
-首先在依赖中引入 `spring-boot-maven-plugin` 用于将 SpringBoot 项目打包成一个 jar 包。
+1、首先在依赖中引入 `spring-boot-maven-plugin` 用于将 SpringBoot 项目打包成一个 jar 包。
 
 ```xml
 <plugin>
@@ -3739,7 +3739,22 @@ public class UserController {
 > </plugin>
 > ```
 
-其次生成 docker 镜像需要的 `layers.idx` 文件，文件内容大概如下：
+2、其次需要在 spring-boot-maven-plugin 中添加配置
+
+```xml
+<plugin>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-maven-plugin</artifactId>
+    <configuration>
+        <layers>
+            <!-- 生成 layers.idx 文件，用于制作 docker 镜像 -->
+            <enabled>true</enabled>
+        </layers>
+    </configuration>
+</plugin>
+```
+
+该配置主要用于生成 docker 镜像需要的 `layers.idx` 文件，文件内容大概如下：
 
 ```
 - "dependencies":
@@ -3755,22 +3770,7 @@ public class UserController {
   - BOOT-INF/classes/a/b/C.class
 ```
 
-需要在 spring-boot-maven-plugin 中添加配置
-
-```xml
-<plugin>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-maven-plugin</artifactId>
-    <configuration>
-        <layers>
-            <!-- 生成 layers.idx 文件，用于制作 docker 镜像 -->
-            <enabled>true</enabled>
-        </layers>
-    </configuration>
-</plugin>
-```
-
-最后执行打包操作 `mvn clean package`，`layers.idx` 文件会自动生存并加入 jar 包中。
+3、最后执行打包操作 `mvn clean package`，`layers.idx` 文件会自动生存并加入 jar 包中。
 
 
 

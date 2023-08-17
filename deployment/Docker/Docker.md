@@ -30,6 +30,12 @@ systemctl stop docker
 
 
 
+### 非 root 用户启动
+
+* [manager docker as a non-root user](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
+
+
+
 ## 镜像启动
 
 
@@ -114,5 +120,4 @@ services:
       - "5601"
     image: "kibana:7.6.2"
 ```
-
 

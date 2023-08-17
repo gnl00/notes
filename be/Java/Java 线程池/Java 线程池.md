@@ -542,11 +542,11 @@ public class FutureTask<V> implements RunnableFuture<V>
 
 > **Overview**
 >
-> CompletableFuture 中可能会存在依赖于结果完成的动作，这些动作被保存在关联在一起的栈中。CompletableFuture 通过对结果字段的 CAS 操作来自动完成这一系列动作。
+> CompletableFuture 中可能会存在依赖于结果完成的动作，CompletableFuture 通过对结果字段的 CAS 操作来自动完成这一系列动作。
 >
 > 
 >
-> 返回的结果字段非空，说明 CompletableFuture 操作完成。CompletableFuture 使用一个 AltResult 来包装 null 值结果，同时也是使用 AltResult 来保存异常。使用单一字段能更加容易检测（或者触发）操作完成。
+> 返回的结果字段非空，说明 CompletableFuture 操作完成。CompletableFuture 使用一个 AltResult 来包装 null 值结果，同时也是使用 AltResult 来保存异常。
 
 
 
