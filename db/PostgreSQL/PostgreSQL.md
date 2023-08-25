@@ -13,9 +13,7 @@ docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=<your-pw> -d p
 
 <br>
 
-## 操作
-
-### 系统级命令
+## 数据库系统命令
 
 ```bash
 psql -U <username> -h <host> -d <dbname>
@@ -39,7 +37,7 @@ SELECT version(); # Show postgreSQL's version
 
 
 
-### 数据库操作
+## 数据库操作
 
 ```bash
 create database <dbname>
@@ -50,7 +48,9 @@ psql <dbname> # same as \c, connect databaes
 
 
 
-### 数据表操作
+## 数据表操作
+
+### 创建/删除
 
 创建/删除表的语句和 MySQL 一致：
 
@@ -95,41 +95,42 @@ INSERT INTO employees VALUES ('sales', 1, 5000);
 INSERT INTO employees VALUES ('sales', 4, 4800);
 ```
 
-<br>
 
-## 表特性
 
-### 表继承
+### 修改表
 
-直接上 SQL 代码：
+- 增加列
+- 移除列
+- 增加约束
+- 移除约束
+- 修改默认值
+- 修改列数据类型
+- 重命名列
+- 重命名表
 
-```sql
-CREATE TABLE cities (
-  name       text,
-  population real,
-  elevation  int     -- (in ft)
-);
 
-CREATE TABLE capitals (
-  state      char(2) UNIQUE NOT NULL
-) INHERITS (cities);
+
+## 数据操作
+
+### 从修改行中返回数据
+
+```postgresql
+CREATE TABLE users (firstname text, lastname text, id serial primary key);
+
+INSERT INTO users (firstname, lastname) VALUES ('Joe', 'Cool') RETURNING id;
+
+UPDATE products SET price = price * 1.10
+  WHERE price <= 99.99
+  RETURNING name, price AS new_price; -- RETURNING 的数据是被修改行的新内容
+  
+DELETE FROM products
+  WHERE obsoletion_date = 'today'
+  RETURNING *; -- RETURNING 的数据是被删除行的内容
 ```
 
-上面这段代码中 capitals 表继承 cities，同时还新增了一个 state 字段。
 
-如果执行：
 
-```sql
-select ... from cities;
-```
-
-会同时查询 cities 和 capitals 两个表。如果只想查询 cities 表，不查询它的子表，可以使用 ONLY 关键字。例如：
-
-```sql
-select ... from ONLY cities;
-```
-
-除了 Select，Update 和 Delete 关键字也都支持 ONLY。
+## 列特性
 
 
 
@@ -339,16 +340,84 @@ CREATE TABLE products (
 
 ### 系统列
 
-每一个表都拥有一些由系统隐式定义的系统列。
+每一个表都拥有一些由系统隐式定义的系统列。事实上用户不需要关心这些列，只需要知道它们存在即可。
 
-|              |                 |                                                              |
+| 列名         | 备注            | 描述                                                         |
 | ------------ | --------------- | ------------------------------------------------------------ |
-| oid/tableiod | table object id | 包含这一行的表的 OID,`tableoid`可以与`pg_class`的`oid`列进行连接来获得表的名称。 |
-| xmin         |                 |                                                              |
-| cmin         |                 |                                                              |
-| xmax         |                 |                                                              |
-| cmax         |                 |                                                              |
-| ctid         |                 |                                                              |
+| oid/tableiod | table object id | 包含这一行的表的 OID                                         |
+| xmin         |                 | 插入该行版本的事务身份（事务ID）                             |
+| xmax         |                 | 删除事务的身份（事务ID）                                     |
+| cmin         |                 | 插入事务中的命令标识符（从0开始）                            |
+| cmax         |                 | 删除事务中的命令标识符                                       |
+| ctid         |                 | 行版本在其表中的物理位置。尽管 ctid 可以被用来非常快速地定位行版本，但是一个行的 ctid 会在被更新或者被 `VACUUM FULL` 移动时改变。因此，`ctid` 不能作为一个长期行标识符。 |
+
+
+
+<br>
+
+## 表特性
+
+### 表继承
+
+直接上 SQL 代码：
+
+```sql
+CREATE TABLE cities (
+  name       text,
+  population real,
+  elevation  int     -- (in ft)
+);
+
+CREATE TABLE capitals (
+  state      char(2) UNIQUE NOT NULL
+) INHERITS (cities);
+```
+
+上面这段代码中 capitals 表继承 cities，同时还新增了一个 state 字段。
+
+如果执行：
+
+```sql
+select ... from cities;
+```
+
+会同时查询 cities 和 capitals 两个表。如果只想查询 cities 表，不查询它的子表，可以使用 ONLY 关键字。例如：
+
+```sql
+select ... from ONLY cities;
+```
+
+除了 Select，Update 和 Delete 关键字也都支持 ONLY。
+
+
+
+### 表分区
+
+表分区指的是将逻辑上的一个大表分成一些小的物理上的片。分区的好处：
+
+* 在某些情况下查询性能能够显著提升。
+* 当查询或更新访问单个分区中的某一部分数据时，可以通过使用该分区的顺序扫描来提高性能（索引是在整个表中的随机访问读取）。
+
+
+
+**PostgreSQL 分区形式**
+
+* 范围分区，表被根据一个关键列或一组列划分为“范围”，不同的分区的范围之间没有重叠。相邻分区可以共享一个边界值，范围上限被视为不包含的边界。
+* 列表分区，通过显式地列出每一个分区中出现的键值来划分表。
+* 哈希分区，通过为每个分区指定模数和余数来对表进行分区。
+
+
+
+**自定义分区创建**
+
+```postgresql
+CREATE TABLE measurement (
+    id int not null,
+    logdate date not null
+) PARTITION BY RANGE (logdate);
+```
+
+
 
 
 
