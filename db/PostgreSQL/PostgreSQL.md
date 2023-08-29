@@ -110,6 +110,82 @@ INSERT INTO employees VALUES ('sales', 4, 4800);
 
 
 
+## 数据类型
+
+### 几何类型
+
+| 类型    | 大小        | 描述                     | 备注                            |
+| ------- | ----------- | ------------------------ | ------------------------------- |
+| point   | 16 字节     | 平面上的点               | (x,y)                           |
+| line    | 32 字节     | 无限长的线               | {A,B,C}                         |
+| lseg    | 32 字节     | 有限线段                 | ((x1,y1),(x2,y2))，A 点到 B 点  |
+| box     | 32 字节     | 矩形框                   | ((x1,y1),(x2,y2))，斜对角线端点 |
+| path    | 16+16n 字节 | 封闭路径（类似于多边形） | ((x1,y1),...)                   |
+| path    | 16+16n 字节 | 开放路径                 | [(x1,y1),...]                   |
+| polygon | 40+16n 字节 | 多边形（类似于封闭路径） | ((x1,y1),...)                   |
+| circle  | 24 字节     | 圆                       | <(x,y),r>（中心点和半径）       |
+
+
+
+### 数组
+
+创建包含数组列的表
+
+```postgresql
+CREATE TABLE user_hobbies (
+  id serial not null,
+  name VARCHAR(50),
+  hobbies TEXT[]
+);
+
+-- 可以使用 array 关键字来表示数组
+INSERT INTO user_hobbies (name, hobbies)
+VALUES ('Tom', ARRAY['Football', 'Basketball']);
+
+-- 也可以使用 {}
+INSERT INTO user_hobbies (name, hobbies)
+VALUES ('Tom', "{'Football', 'Basketball'}");
+
+-- 查询操作
+SELECT
+    name,
+    hobbies
+FROM
+    user_hobbies;
+    
+-- PostgreSQL 中的数组下标是从 1 开始的
+SELECT
+  name,
+  hobbies[1]
+FROM
+  user_hobbies;
+  
+-- 使用 any() 过滤数组
+SELECT
+  name,
+  hobbies
+FROM
+  user_hobbies
+WHERE
+  'Football' = ANY (hobbies);
+  
+-- 更新数组中的元素
+UPDATE user_hobbies
+SET hobbies[2] = 'Baseball'
+WHERE ID = 1;
+
+-- 更新整个数组
+UPDATE user_hobbies
+SET hobbies = '{"Baseball"}'
+WHERE ID = 1*;
+```
+
+
+
+
+
+
+
 ## 数据操作
 
 ### 从修改行中返回数据
@@ -466,7 +542,7 @@ CREATE TABLE measurement (
   ```sql
   # rank 不需要显式的参数，因为它的行为完全决定于 OVER 子句。
   SELECT depname, empno, salary,
-  rank() OVER (PARTITION BY depname ORDER BY salary DESC) FROM empsalary;
+  rank() OVER (PARTITION BY depname ORDER BY salary DESC) FROM employees;
   ```
 
   输出结果如下：
@@ -493,10 +569,145 @@ CREATE TABLE measurement (
 
 
 
+## 索引
 
+### 索引类型
+
+#### B-tree 索引
+
+涉及到以下操作可以考虑使用 B-tree 索引：
+
+* `<` 、 `<=`  、 `=` 、 `>=`  、 `>`
+
+* BETWEEN 和 IN
+
+* 在索引列上的 IS NULL 或 IS NOT NULL 条件
+
+* LIKE 和 `~`
+
+  但是 B-tree 索引只使用下面的情况
+
+  ```postgresql
+  column_name LIKE 'foo%'
+  column_name LKE 'bar%'
+  column_name  ~ '^foo'
+  ```
+
+  而不适用于下面的情况：
+
+  ```postgresql
+  col LIKE '%bar'
+  ```
+
+
+
+#### 哈希索引
+
+每当索引列使用 `=` 运算符进行比较时，查询计划器将考虑使用哈希索引。
+
+创建哈希索引，需要指定 `USING HASH`：
+
+```postgresql
+CREATE INDEX index_name
+ON table_name USING HASH (indexed_column);
+```
+
+
+
+#### GIN 索引
+
+> 通用倒排索引，Generalized Inverted Index。
+
+正排索引查找时扫描表中每个文档，直到找出所有包含查询关键字的文档。倒排表以*字*或*词*为关键字作为索引，对应记录表中出现这个字或词的所有文档。由于每个字或词对应的文档数量是动态变化的，所以倒排表的建立和维护都较为复杂，但是在查询的时候效率高于正排表。
+
+
+
+#### BRIN 索引
+
+> 块范围索引，Block Range Indexes。
+
+
+
+#### GiST 索引
+
+GiST 索引不是单独一种索引类型，而是一种架构，可以在这种架构上实现很多不同的索引策略。
+
+GiST 代表广义搜索树。GiST 索引允许构建通用的树结构。GiST 索引可用于索引几何数据类型和全文搜索。
+
+
+
+#### SP-GiST 索引
+
+> SP-GiST 代表空间分区的 GiST。
+
+
+
+### 创建索引
+
+```postgresql
+CREATE [ UNIQUE ] INDEX [ [ IF NOT EXISTS ] index_name ] -- 自定义索引名称
+    ON table_name [ USING method ] -- method 是索引方法名称，包括 btree, hash, gist, spgist, gin, 和 brin。默认使用 btree。
+(
+    column_name [ ASC | DESC ] [ NULLS { FIRST | LAST } ] -- column_name 表示需要创建索引的列名
+    [, ...]
+);
+
+create index on table_name(colum_name);
+create index my_hash_idx on tb_test using hash(colum_name); -- 创建 hash 索引
+
+-- 多列索引，和 MySQL 一样遵循最左匹配原则
+CREATE INDEX index_name
+ON table_name(a, b, c);
+```
+
+
+
+### 部分索引
+
+> 按照条件创建索引
+
+```postgresql
+-- 对 customer 表中 active = 0 的列创建索引
+CREATE INDEX idx_customer_inactive
+ON customer(active)
+WHERE active = 0;
+```
+
+
+
+### 重建索引
+
+* 重建单个索引
+
+  ```postgresql
+  REINDEX INDEX index_name;
+  ```
+
+* 重建表中的所有索引
+
+  ```postgresql
+  REINDEX TABLE table_name;
+  ```
+
+* 重建数据库中的所有索引
+
+  ```postgresql
+  REINDEX DATABASE database_name;
+  ```
+
+* …
+
+
+
+## 执行分析
+
+> * 来自 [polardb 数据库内核月报](http://mysql.taobao.org/monthly/)：http://mysql.taobao.org/monthly/2018/11/06/
+> * https://www.modb.pro/db/101529
 
 
 
 ## 参考
 
 * http://postgres.cn/docs
+* https://www.sjkjc.com/postgresql
+* https://www.cnblogs.com/flying-tiger/p/6704931.html
