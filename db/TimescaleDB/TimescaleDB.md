@@ -183,7 +183,15 @@ SELECT set_chunk_time_interval(
 
 
 
-### 普通超表限制
+### 分布式超表
+
+> https://docs.timescale.com/self-hosted/latest/distributed-hypertables/
+
+
+
+### 超表限制
+
+#### 普通超表
 
 * 用作分区的时间维度（列）不允许为 NULL；
 * 唯一索引必须包含所有用作分区的列；
@@ -191,7 +199,7 @@ SELECT set_chunk_time_interval(
 
 
 
-### 分布式超表限制
+#### 分布式超表
 
 普通超级表中的限制同样适用于分布式超级表。此外，分布式超级表还有以下限制：
 
@@ -204,6 +212,14 @@ SELECT set_chunk_time_interval(
 > Time buckets enable you to aggregate data by time interval. For example, you can group data into 5-minute, 1-hour, and 3-day buckets to calculate summary values.
 
 [Time buckets](https://docs.timescale.com/use-timescale/latest/time-buckets/) 能以时间间隔的方式将数据聚合起来。例如，可以将 5 分钟、10 分钟、15 分钟这三个时间段的数据分成不同的时间桶，再进行统一的数据操作。和 PostgreSQL 中的 [date_bin](https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-BIN) 方法类似。
+
+
+
+## Schema 管理
+
+> A database schema defines how the tables and indexes in your database are organized. Using a schema that is appropriate for your workload can result in significant performance improvements.
+
+> https://docs.timescale.com/use-timescale/latest/schema-management/
 
 
 
@@ -229,27 +245,9 @@ Writing data to TimescaleDB works the same way as writing data to regular Postgr
 
 
 
-### 数据导入
-
-> https://docs.timescale.com/use-timescale/latest/ingest-data/
-
-
-
-### 数据迁移
-
-> https://docs.timescale.com/use-timescale/latest/migration/
-
-
-
-## Schema 管理
-
-> A database schema defines how the tables and indexes in your database are organized. Using a schema that is appropriate for your workload can result in significant performance improvements.
-
-> https://docs.timescale.com/use-timescale/latest/schema-management/
-
-
-
 ## 数据压缩
+
+> https://docs.timescale.com/use-timescale/latest/compression/
 
 ### Why
 
@@ -327,10 +325,6 @@ ALTER TABLE <TABLE_NAME> SET (timescaledb.compress=false);
 
 
 
-> https://docs.timescale.com/use-timescale/latest/compression/
-
-
-
 ### 压缩分段列
 
 开启数据压缩需要指定一个列来作为分段依据，最好是单值列。
@@ -379,6 +373,8 @@ ALTER TABLE  example
 
 
 ## 数据迁移/备份与恢复
+
+> https://docs.timescale.com/self-hosted/latest/migration/
 
 TimescaleDB 可以借助 PostgreSQL 提供的 [pg_dump](https://www.postgresql.org/docs/current/app-pgdump.html) 和 [pg_restore](https://www.postgresql.org/docs/current/app-pgrestore.html) 工具来完成数据迁移操作。
 
@@ -461,9 +457,56 @@ psql -d new_db -c "\COPY conditions FROM data.csv CSV"
 
 
 
+## 持续聚合
+
+> https://docs.timescale.com/use-timescale/latest/continuous-aggregates/
+
+在 TimescaleDB 中，有三种聚合方式：
+
+* 视图（Materialized View），标准的 PostgreSQL 方法，用来存储复杂查询的结果，并在后续的操作中重用。存储的结果不会自动刷新，需要手动再次执行视图 SQL 进行刷新。
+* 持续聚合（Continuous Aggregate），TimescaleDB 提供的方法，和视图的工作方式类似，但是可以在后台自动刷新，开销小于视图。持续聚合基于超表，可以像其他表格一样对其进行相应的操作，同样支持*数据压缩*和*数据整理*。
+* 实时聚合（Realtime Aggregate），TimescaleDB 提供的方法，类似持续聚合，但是时间上更加敏感，在聚合数据被写入之前就会对其进行相应的操作。
+
+
+
+时序数据通常增长很快，这意味着对大量的数据进行聚合操作会随着变得个很慢。为此，TimescaleDB 提供了一个持续聚合功能。
+
+如果对数据的采集非常频繁，比如一秒钟才存一次温度数据，且想要对一分钟或者一小时内的数据进行聚合操作，比如求一小时内温度的平均值。当你的数据量非常大的时候运行这条聚合 SQL 会非常慢，每次运行这条 SQL 数据库都需要进行全表扫描，再重新计算平均值。
+
+持续聚合是超表中的一个在后台自动刷新的功能，当你添加新数据或者修改老数据时，超表会在后台自动刷新你需要的温度平均值，不在需要你手动的去执行 SQL 语句。
+
+
+
+## 数据导入
+
+> https://docs.timescale.com/use-timescale/latest/ingest-data/
+
+
+
 ## 数据留存
 
 > https://docs.timescale.com/use-timescale/latest/data-retention/
+
+数据留存策略能通过删除旧数据，帮助你降低存储的花销。可以通过结合*数据留存*和*持续聚合*这两个功能来向下采集数据。
+
+> In time-series applications, data often becomes less useful as it gets older. If you don't need your historical data, you can delete it once it reaches a certain age.
+
+### 数据留存操作
+
+* [自动数据留存策略](https://docs.timescale.com/use-timescale/latest/data-retention/create-a-retention-policy/)
+* [手动删除 chunk](https://docs.timescale.com/use-timescale/latest/data-retention/manually-drop-chunks/)
+
+### 数据留存+持续聚合
+
+> Often, you want to keep summaries of your historical data, but you don't need the raw data. You can downsample your older data by [combining data retention with continuous aggregates](https://docs.timescale.com/use-timescale/latest/data-retention/data-retention-with-continuous-aggregates/).
+
+
+
+### Manage data by chunk
+
+> Timescale data retention works on chunks, not on rows. Deleting data row-by-row, for example with the PostgreSQL `DELETE` command, can be slow. But dropping data by the chunk is faster, because it deletes an entire file from disk. It doesn't need garbage collection and defragmentation.
+>
+> Whether you use a policy or manually drop chunks, Timescale drops data by the chunk. It only drops chunks where *all* the data is wihin the specified time range.
 
 
 
@@ -471,11 +514,33 @@ psql -d new_db -c "\COPY conditions FROM data.csv CSV"
 
 > https://docs.timescale.com/use-timescale/latest/data-tiering/
 
+> Save on storage costs by tiering data to a low-cost object-storage layer.
+
+> * [手动进行数据整理](https://docs.timescale.com/use-timescale/latest/data-tiering/tier-data-object-storage/#manually-tier-a-chunk)
+> * [添加自动数据整理策略](https://docs.timescale.com/use-timescale/latest/data-tiering/tier-data-object-storage/#automate-chunk-tiering-with-a-data-tiering-policy)
+> * [取消数据整理](https://docs.timescale.com/use-timescale/latest/data-tiering/untier-data/)
+
+
+
+## Hyperfunctions
+
+> https://docs.timescale.com/use-timescale/latest/hyperfunctions/
+
+> Hyperfunctions allow you to perform critical time-series queries quickly, analyze time-series data, and extract meaningful information.
+
+> 一些由 TimescaleDB 提供的方法集合，用来操作、分析和管理 TimescaleDB。
+
+
+
+## 多节点部署
+
+> https://docs.timescale.com/self-hosted/latest/multinode-timescaledb/
+
 
 
 ## 高可用和主从
 
-> https://docs.timescale.com/use-timescale/latest/ha-replicas/
+> https://docs.timescale.com/self-hosted/latest/replication-and-ha/configure-replication/
 
 
 
@@ -485,8 +550,7 @@ psql -d new_db -c "\COPY conditions FROM data.csv CSV"
 
 
 
-## 限制条件
+## 数据库监控/告警
 
-> https://docs.timescale.com/use-timescale/latest/limitations/
-
+> https://docs.timescale.com/use-timescale/latest/alerting/
 
