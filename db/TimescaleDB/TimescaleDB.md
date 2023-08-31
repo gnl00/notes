@@ -554,3 +554,10 @@ psql -d new_db -c "\COPY conditions FROM data.csv CSV"
 
 > https://docs.timescale.com/use-timescale/latest/alerting/
 
+
+
+
+
+## Tricky
+
+* 新旧数据查询频率，蛇形分表挺有意思：https://developer.aliyun.com/article/661638

@@ -14,38 +14,55 @@
 
 ## 架构
 
-K8s 一般都是以集群的形式出现的，一个 K8s 集群主要包括两部分：Master 节点和 Node 节点。前者又称为主节点；后者又被称为计算节点。一般来说都是单  Master，多个 Node。
+K8s 一般都是以集群的形式出现的，一个 K8s 集群主要包括两部分：Master 节点和 Node 节点。前者又称为主节点；后者又被称为计算节点。
 
 > K8s 架构可以看看这篇文章：http://docs.kubernetes.org.cn/251.html
 
 
 
-### 组成
+![architecture](./assets/architecture.png)
+
+
+
+### 节点
+
+![img](./assets/14791969222306.png)
 
 Master 节点包括以下内容：
 
 * API Server，整个 K8s 服务对外的接口，供客户端和其他组件调用。
 * Controller Manager，负责维护集群的状态，比如副本数量、故障检测、自动扩展、滚动更新等。
-* Scheduler，负责对集群内部的资源进行调度。
+* Scheduler，负责对集群内部的资源进行调度，按照调度策略将 Pod 调度到对应的机器上。
 * etcd，键值数据库，负责保存 K8s 集群的所有数据。
 
 
 
 Node 节点包括以下内容：
 
+![img](./assets/14791969311297.png)
+
 * Kubelet，负责维护 Node 状态并和 Master 节点通信。
 
-* Kube Proxy，负责实现集群网络服务。
+* Kube Proxy，负责实现集群网络服务，为 Service 提供 cluster 内部的服务发现和负载均衡。
 
-* Pod*，K8s 中部署的最小单位，可以包含一个或多个 Docker 容器。
+* Pod，K8s 中部署的最小单位，可以包含一个或多个 Docker 容器。
 
-  > 除了有容器之间紧密耦合的情况下，通常都一个 Pod 中只有一个容器，方便管理不同服务、并易于各自独立服务的扩展。
+  > 除非容器之间的服务紧密耦合，否则通常都是一个 Pod 中只有一个容器，方便管理不同服务、并易于各自独立服务的扩展。
 
 <br/>
 
 
 
-### K8s 集群
+除了以上核心组件还有其他插件：
+
+* CoreDNS，负责未整个集群提供 DNS 服务。
+* Ingress Controller，可以认为是类似 nginx 的代理服务，主要为 K8s 内的服务提供外网入口。
+* Prometheus，提供资源监控。
+* Federation，提供跨区可用的集群。
+
+
+
+### 集群
 
 K8s 的 Master 节点和多个 Node 工作节点组成 K8s 集群。
 
@@ -55,9 +72,7 @@ Master 负责集群的管理，协调集群中的所有行为/活动，例如应
 
 
 
-## 使用
-
-### 安装
+## 安装
 
 **前置**
 
@@ -96,7 +111,7 @@ minikube start
 
 
 
-### 上手
+## 上手
 
 > 这里有一个快速指南还不错：https://zhuanlan.zhihu.com/p/39937913
 
@@ -114,7 +129,7 @@ kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kube
 kubectl get deployments
 ```
 
-2.2、查看所有 pods
+2.2、查看所有 pod
 
 ```bash
 kubectl get pods
@@ -122,11 +137,11 @@ kubectl get pods
 
 > 使用 `kubectl get pods -A` 会把 K8s 系统级 Pods 也显示出来。
 
-3、将 K8s 内网的 Deployment 暴露给外网访问
+3、将 K8s 内网的服务暴露给外网访问
 
 > Pods that are running inside Kubernetes are running on a private, isolated network. By default they are visible from other pods and services within the same kubernetes cluster, but not outside that network. 
 
-运行在 K8s 内部的 Pods 是使用的是 K8s 私有的、与外部环境相互隔离的网络。默认情况下，Pods 的网络服务只对同一个 K8s 集群环境中的其他 Pods 可见，对外部环境不可见。
+运行在 K8s 内部的 Pod 是使用的是 K8s 私有的、与外部环境相互隔离的网络。默认情况下，Pod 的网络服务只对同一个 K8s 集群环境中的其他 Pod 可见，对外部环境不可见。
 
 因此我们需要使用 `kubectl` 命令来创建代理，将网络请求代理到 K8s 集群内部的、私有的网络里面。
 
@@ -170,67 +185,61 @@ curl http://localhost:8001/version
 
 Kubectl 命令管理工具常见的命令如下：
 
-- kubectl get <deployments | pods | services | rs>，列出资源；
-- kubectl describe <pods | nodes | services>，显示资源的详细信息；
-- kubectl logs，打印 pod 中的容器日志；
-- kubectl exec，运行 pod 中容器内部的命令。
+- `kubectl get <deployments | pods | services | rs>`，列出资源；
+- `kubectl describe <pods | nodes | services>`，显示资源的详细信息；
+- `kubectl logs`，打印 pod 中的容器日志；
+- `kubectl exec`，运行 pod 中容器内部的命令。
 
 <br/>
 
-## Pod
+
+
+### 什么是 Pod
 
 ![pods overview](https://d33wubrfki0l68.cloudfront.net/fe03f68d8ede9815184852ca2a4fd30325e5d15a/98064/docs/tutorials/kubernetes-basics/public/images/module_03_pods.svg)
 
-> Pods are the atomic unit on the Kubernetes platform.
+Pod 是 K8s 上的最小的可操作单元。当我们在 K8s 上创建 Deployment 的时候，Deployment 会创建具有一个或多个容器的 Pod。由此可以将 Deployment 看成是 Pod 的控制器/管理器，用来管理 Pod 的创建、扩展、销毁。
 
-Pod 是 K8s 上的最小的可操作单元。当我们在 K8s 上创建 Deployment 的时候，Deployment 会创建具有一个或多个容器的 Pod。
+Pod 是一个抽象（逻辑）概念，可以包括一个或者多个容器（Docker 容器或者其他容器），比如，一个 Pod 中可以有 Web 后端服务和前端服务。
 
-> A Pod is a Kubernetes abstraction that represents a group of one or more application containers (such as Docker), and some shared resources for those containers.
-
-Pod 是一个抽象（逻辑）概念，包含了一个或者多个容器（Docker 容器或者其他容器），同时还包含了容器之间共享资源。
-
-共享资源包括：
+同时还 Pod 包含了容器之间共享资源，共享资源包括：
 
 * 共享的存储，以 Volume 的形式表示；
 * 网络，同一个 Pod 中的容器 IP 地址相同，共享同一片端口区域；
 * 每个容器的运行信息，比如容器镜像版本、容器使用的端口等信息。
 
-> A Pod models an application-specific "logical host" and can contain different application containers which are relatively tightly coupled. 
-
-Pod 是一个逻辑上的主机，可以包含多个耦合的容器。比如，一个 Pod 中可以有 Web 后端服务和前端服务。
-
-每个 Pod 都会被绑定到 Node 节点上，直到被终止或删除。
+> Pod 是 K8s 集群中所有业务类型的基础，可以看作运行在 K8s 集群中的小机器人，不同类型的业务就需要不同类型的小机器人去执行。目前 K8s 中的业务主要可以分为长期伺服型（long-running）、批处理型（batch）、节点后台支撑型（node-daemon）和有状态应用型（stateful application）；分别对应的小机器人控制器为 Deployment、Job、DaemonSet 和 PetSet。
 
 
 
-## Node
+### Pod 如何运行
 
 ![node overview](https://d33wubrfki0l68.cloudfront.net/5cb72d407cbe2755e581b6de757e0d81760d5b86/a9df9/docs/tutorials/kubernetes-basics/public/images/module_03_nodes.svg)
 
-Pod 总是运行在 Node 上的。Node 是 K8s 上的*工作节点*，Node 可以是虚拟机或者物理机。Node 由 K8s 的控制面板（*Control Panel*）进行管理。
+Pod 总是运行在 Node 上的。每个 Pod 都会被绑定到 Node 节点上，直到被终止或删除。Node 是 K8s 上的*工作节点*，Node 可以是虚拟机或者物理机。Node 由 K8s 的控制面板（*Control Panel*）进行管理。
 
 > *Control Panel* 实际上就是 Master 节点。
 
-一个 Node 可以包含多个 Pod，K8s 通过 Master 自动管理和调度 Node 中的 Pod。
+一个 Node 可以包含多个 Pod，K8s 通过 Master 中的 Scheduler 组件来自动管理和调度 Node 中的 Pod。
 
 每个 Node 上至少运行以下内容：
 
 * Kubelet，管理 Master 和 Node 节点之间的通信；管理机器上运行的 Pod 和 Container 容器。
-* Container runtime，例如 Docker。
+* Container runtime，负责镜像管理以及 Pod 和容器的运行，例如 Docker。
+
+> Pod 是有生命周期的。当一个 Node 工作节点销毁时，节点上运行的 Pod 也会销毁。
 
 <br/>
 
-## Service
+## 服务访问暴露
 
 ![service](https://d33wubrfki0l68.cloudfront.net/cc38b0f3c0fd94e66495e3a4198f2096cdecd3d5/ace10/docs/tutorials/kubernetes-basics/public/images/module_04_services.svg)
 
-Pod 是有生命周期的。当一个 Node 工作节点销毁时，节点上运行的 Pod 也会销毁，ReplicationSet 会动态创建新的 Pod 来保持应用的运行，让集群回到正常的状态。
-
 > A Service in Kubernetes is an abstraction which defines a logical set of Pods and a policy by which to access them. 
 
-Service 是一个抽象的概念，它定义了 Pod 的逻辑分组和访问策略，能达到 Pod 解耦的目的。可以使用 YAML 或 JSON 来创建 Service。
+Service 是一个抽象的概念，它定义了 Pod 的逻辑分组和访问策略。尽管每个 Pod 都有唯一的 IP，但是没有 Service 的控制， Pod 的 IP 地址都不会从 K8s 内部暴露出去。
 
-尽管每个 Pod 都有唯一的 IP，但是没有 Service 的控制， Pod 的 IP 地址都不会从 K8s 内部暴露出去。可以指定不同的 type 字段，通过不同的方式将 Service  暴露出去：
+可以指定不同的 type 字段，通过不同的方式将内部服务暴露：
 
 * ClusterIP，默认值，IP 只暴露在集群内部。
 * NodePort，将 Node 中的对应端口暴露，外部可以通过 `<NodeIP>:<NodePort>` 来访问集群内的服务。
@@ -330,7 +339,7 @@ echo "NODE_PORT=$NODE_PORT"
 curl http://"$(minikube ip):$NODE_PORT"
 ```
 
-5、按理来说到这里就完了，但是在这里*踩 Minikube 的坑了*：通过 `minikube ip` 获取到 IP 后发现无法 ping 通该 IP。
+5、按理来说到这里就完了，但是在这里<mark>踩 Minikube 的坑</mark>：通过 `minikube ip` 获取到 IP 后发现无法 ping 通该 IP。
 
 查看 Minikube 文档，发现在 Minikube 中创建一个 service 并暴露网络的流程如下：
 
@@ -403,6 +412,8 @@ Labels:                 app=kubernetes-bootcamp
 kubectl get pods -l app=kubernetes-bootcamp
 # or
 kubectl get services -l app=kubernetes-bootcamp
+# or
+kubectl get pods -l 'environment in (production),tier in (frontend)'
 ```
 
 3、创建 Label
@@ -467,6 +478,38 @@ kubectl get pods -l version=v1
 > ```
 >
 > We see here that the application is up. This is because the Deployment is managing the application. To shut down the application, you would need to delete the Deployment as well.
+
+
+
+## RC/RS
+
+**复制控制器**（*Replication Controller*， RC）通过监控运行中的 Pod 来保证集群中运行指定数目的 Pod 副本。指定的数目可以是多个也可以是 1 个；少于指定数目，RC 就会启动运行新的 Pod 副本；多于指定数目，RC 就会销毁多余的 Pod 副本。
+
+> 即使在指定数目为 1 的情况下，通过 RC 运行 Pod 也比直接运行 Pod 更明智，因为 RC 也可以发挥它高可用的能力，保证永远有 1 个 Pod 在运行。
+
+**副本集**（Replica Set，RS）是新一代 RC，提供同样的高可用能力，但是 RS 能支持更多种类的匹配模式。RS 对象一般不单独使用，而是作为 Deployment 的理想状态参数使用。
+
+
+
+## Deployment
+
+Deployment 表示对 K8s 集群的一次更新操作。作用范围比 RS 更广，可以是创建一个新的服务，更新一个新的服务，也可以是滚动升级一个服务。
+
+> 滚动升级一个服务，实际是创建一个新的 RS，然后逐渐将新 RS 中副本数增加到理想状态，将旧 RS 中的副本数减小到 0 的复合操作；这样一个复合操作用一个 RS 是不太好描述的，所以用一个更通用的 Deployment 来描述。
+
+
+
+## Service
+
+RC、RS 和 Deployment 只是保证了支撑服务的微服务 Pod 的数量，但是没有解决如何访问这些服务的问题。一个 Pod 只是一个运行服务的实例，随时可能在一个节点上停止，在另一个节点以一个新的 IP 启动一个新的 Pod，因此不能以确定的 IP 和端口号提供服务。
+
+要稳定地提供服务需要服务发现和负载均衡能力，K8s 提供了 Service 对象。每个 Service 会对应一个集群内部有效的虚拟 IP，集群内部通过虚拟 IP 访问该 Service。
+
+
+
+## Label/Selector
+
+> https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 
 
 
@@ -801,13 +844,198 @@ kubectl rollout undo deployments/ndoe-hello --to-revision=1
 
 ## K8s 中的对象
 
-K8s 对象是 K8s 系统中的持久实体，K8s 使用这些实体来表示集群的状态。可以使用对象来描述：
+### 对象概念
+
+API 对象是 K8s 集群中的管理操作单元，K8s 集群系统每支持一项新功能，引入一项新技术，一定会新引入对应的 API 对象，支持对该功能的管理操作。例如副本集 *Replica Set* 对应的 API 对象是 RS。
+
+K8s 对象的表现行为是 *record of intent* 的，一旦创建了对象，K8s 系统就会确保对象存在。通过创建对象，可以告诉 K8s 系统你希望集群的工作负载是什么样的。比如：
 
 * 应用如何运行，在哪些节点上运行；
 * 应用可用资源；
 * 应用运行策略、重启策略、升级和容错策略。
 
-K8s 对象的表现行为是 *record of intent* 的，一旦创建了对象，K8s 系统就会确保对象存在。通过创建对象，可以告诉 K8s 系统你希望集群的工作负载是什么样的。
+
+
+每个 API 对象都有 3 大类属性：
+
+* 元数据 metadata；
+* 规范 spec；
+* 状态 status。
+
+元数据是用来标识 API 对象的，每个对象都至少有 3 个元数据：namespace，name 和 uid。除此以外还有各种各样的标签 labels 用来标识和匹配不同的对象，例如用户可以用标签 env 来标识区分不同的服务部署环境，分别用 env=dev、env=testing、env=production 来标识开发、测试、生产的不同服务。
+
+规范描述了用户期望 K8s 集群中的分布式系统达到的理想状态（*Desired State*），例如用户可以通过复制控制器 *Replication Controller* 设置期望的 Pod 副本数为 3。
+
+Status 描述了系统实际当前达到的状态，例如系统当前实际的 Pod 副本数为 2；那么复制控制器当前的程序逻辑就是自动启动新的 Pod，争取达到副本数为 3。
+
+K8s 中所有的配置都是通过 API 对象的 spec 去设置的，也就是用户通过配置系统的理想状态来改变系统。这是 K8s 重要设计理念之一，即所有的操作都是声明式（Declarative）的而不是命令式（Imperative）的。
+
+
+
+### 常见的对象
+
+* RC 是 K8s 集群中最早的保证 Pod 高可用的 API 对象。
+
+* RS，是新一代 RC。
+
+* Deployment
+
+* Namespace，名字空间，为 K8s 集群提供虚拟的隔离作用。K8s 集群初始有两个名字空间，分别是默认名字空间 default 和系统名字空间 kube-system，除此以外，还可以创建新的名字空间来满足开发/测试/部署需要。
+
+* Job，Job 是 K8s 用来控制批处理型任务的 API 对象。批处理业务与长期伺服业务的主要区别是批处理业务的运行有头有尾，而长期伺服业务在用户不停止的情况下永远运行；Job 管理的 Pod 根据用户的设置把任务成功完成就自动退出了。
+
+* DaemonSet，长期伺服型服务（后台支撑服务）集合，典型的后台支撑型服务包括，存储，日志和监控等。
+
+* PetSet，有状态服务集。
+
+  在云原生应用的体系里，有下面两组近义词；第一组是无状态（stateless）、牲畜（cattle）、无名（nameless）、可丢弃（disposable）；第二组是有状态（stateful）、宠物（pet）、有名（having name）、不可丢弃（non-disposable）。
+
+  RC/RS 主要是控制提供无状态服务的，其所控制的 Pod 的名字是随机设置的，一个 Pod 出故障了就被丢弃掉，在另一个地方重启一个新的 Pod，名字变了、名字和启动在哪儿都不重要，重要的只是 Pod 总数；而 PetSet 是用来控制有状态服务，PetSet 中的每个 Pod 的名字都是事先确定的，不能更改。
+
+  此外，对于 RC/RS 中的 Pod，一般不挂载存储或者挂载共享存储，保存的是所有 Pod 共享的状态；对于 PetSet 中的 Pod，每个 Pod 挂载自己独立的存储，如果一个 Pod 出现故障，从其他节点启动一个同样名字的 Pod，要挂载上原来 Pod 的存储继续以它的状态提供服务。
+
+  > **应用场景**：
+  >
+  > 1、适合于 PetSet 的业务包括数据库服务 MySQL/PostgreSQL，集群化管理服务 Zookeeper、etcd 等有状态服务。
+  >
+  > 2、PetSet 的另一种典型应用场景是作为一种比普通容器更稳定可靠的模拟虚拟机的机制。传统的虚拟机正是一种有状态的宠物，运维人员需要不断地维护它，容器刚开始流行时，我们用容器来模拟虚拟机使用，所有状态都保存在容器里，而这已被证明是非常不安全、不可靠的。使用 PetSet，Pod 仍然可以通过漂移到不同节点提供高可用，而存储也可以通过外挂的存储来提供高可靠性，PetSet 做的只是将确定的 Pod 与确定的存储关联起来保证状态的连续性。
+
+* Federation，集群联邦。
+
+  在云计算环境中，服务的作用距离范围从近到远一般可以有：同主机（Host，Node）、跨主机同可用区（Available Zone）、跨可用区同地区（Region）、跨地区同服务商（Cloud Service Provider）、跨云平台。
+
+  K8s 的设计定位是单一集群在同一个地域内，因为同一个地区的网络性能才能满足 K8s 的调度和计算存储连接要求。而联合集群服务就是为提供跨 Region 跨服务商 K8s 集群服务而设计的。
+
+* Volume，存储卷。K8s 集群中的存储卷跟 Docker 的存储卷有些类似，只不过 Docker 的存储卷作用范围为一个容器，而 K8s 的存储卷的生命周期和作用范围是一个 Pod。每个 Pod 中声明的存储卷由 Pod 中的所有容器共享。
+
+* Secret，密钥对象是用来保存和传递密码、密钥、认证凭证这些敏感信息的对象。
+
+  使用 Secret 的好处是可以避免把敏感信息明文写在配置文件里。在 K8s 集群中配置和使用服务不可避免的要用到各种敏感信息实现登录、认证等功能，例如访问 AWS 存储的用户名密码。为了避免将类似的敏感信息明文写在所有需要使用的配置文件中，可以将这些信息存入一个 Secret 对象，而在配置文件中通过 Secret 对象引用这些敏感信息。
+
+* …
+
+
+
+### 创建对象
+
+1、在创建 K8s 中的一个对象时，需要提供对象的 metadata 信息以及指定对象的 spec 信息。可以通过 `yaml` 文件来描述对象信息：
+
+```yaml
+apiVersion: apps/v1 # Which version of the Kubernetes API you're using to create this object
+kind: Deployment # What kind of object you want to create
+metadata: # Data that helps uniquely identify the object, including a name string, UID, and optional namespace
+  name: nginx-deployment
+spec: # What state you desire for the object
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template: # 创建副本的时候按照模板内描述的内容来创建
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+> The precise format of the object `spec` is different for every Kubernetes object, and contains nested fields specific to that object. The [Kubernetes API Reference](https://kubernetes.io/docs/reference/kubernetes-api/) can help you find the spec format for all of the objects you can create using Kubernetes.
+
+2、使用 kubectl 来创建对象
+
+```shell
+kubectl apply -f ./deployment.yaml
+```
+
+
+
+### 对象创建/管理方式
+
+> https://kubernetes.io/zh-cn/docs/tasks/manage-kubernetes-objects/
+
+| 创建/管理方式  | 适用对象     | 推荐场景 |
+| -------------- | ------------ | -------- |
+| 指令式         | 对象         | 开发     |
+| 指令式对象配置 | 独立文件     | 生产     |
+| 声明式对象配置 | 路径中的文件 | 生产     |
+
+> 对象管理应该自始至终都使用同一种方式，交叉使用产生的结果可能和预期会不一致。
+
+
+
+#### 指令方式
+
+```shell
+# 使用 kubectl 创建一个 live object
+kubectl create deployment nginx --image nginx
+```
+
+优点：
+
+* 单一动作；
+* 只需要一步操作就可以管理对象。
+
+缺点：
+
+* 后面的命令无法与前面的命令产生交互；
+* 不提供与更改相关的审计跟踪；
+* 不提供用以创建新对象的模板。
+
+
+
+#### 指令配置方式
+
+```shell
+kubectl create -f nginx.yaml # create
+
+kubectl replace -f nginx.yaml # update
+
+kubectl delete -f nginx.yaml -f redis.yaml # delete
+```
+
+优点：
+
+* 对象配置可以保存在远程；
+* 对象配置执行前可以进行推送前审查更改等流程；
+* 对象配置提供模板用以创建新对象。
+
+缺点：
+
+* 需要对配置文件结构有大致的了解；
+* 需要编写 yaml 文件。
+
+与声明式对象配置相比具有以下*优点*：
+
+* 更加易于学习和理解；
+* 随着 K8s 1.5 版本的到来，命令行配置变得更加成熟。
+
+与声明式对象配置相比具有以下*缺点*：
+
+* Imperative object configuration works best on files, not directories.
+* Updates to live objects must be reflected in configuration files, or they will be lost during the next replacement.
+
+
+
+#### 声明式配置
+
+> 了解即可…
+
+> When using declarative object configuration, a user operates on object configuration files stored locally, however the user does not define the operations to be taken on the files. Create, update, and delete operations are automatically detected per-object by `kubectl`. This enables working on directories, where different operations might be needed for different objects.
+
+```shell
+kubectl diff -f configs/
+kubectl apply -f configs/
+```
+
+支持目录递归：
+
+```shell
+kubectl diff -R -f configs/
+kubectl apply -R -f configs/
+```
 
 
 
@@ -914,9 +1142,25 @@ K8s 的配置、使用、集群管理方面基本上都是基于 yml 文件，�
 
 
 
+## 衍生产品
+
+* k0s: https://github.com/k0sproject/k0s，槽点：相比于 microk8s 和 k3s/k3d 体积稍大
+* microk8s: https://github.com/canonical/microk8s，槽点：通过 snap 独家分发
+* k3s: https://github.com/k3s-io/k3s/
+* k3d: https://github.com/k3d-io/k3d，在 Docker 容器中运行 k3s
+* minikube: https://github.com/kubernetes/minikube，槽点：不支持多节点
+
+
+
 ## K3S/K8s/K9S
 
 > https://juejin.cn/post/6955368911705473060
+
+
+
+## MICROK8S/K3s/Minikube
+
+> MicroK8s vs K3s vs minikube: https://microk8s.io/compare
 
 
 
