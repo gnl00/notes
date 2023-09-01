@@ -431,7 +431,7 @@ kubectl describe pods <your-pod-name>
 
 返回结果如下：
 
-```
+```shell
 Name:             kubernetes-bootcamp-855d5cc575-w7xxs
 Namespace:        default
 Priority:         0
@@ -1122,15 +1122,152 @@ kubectl create namespace quota-pod
 
 
 
+## Kubenetes Dashboard
+
+> 参考：https://docs.rancher.cn/docs/k3s/installation/kube-dashboard/_index
+
+1、下载 yaml 配置，https://github.com/kubernetes/dashboard/releases
+
+```shell
+# 以 2.7.0 为例
+curl -O https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+```
+
+2、运行创建 deployment
+
+```shell
+kubectl apply -f recommended.yaml
+# 也可以直接
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+```
+
+3、配置用户
+
+3.1、创建 `dashboard.admin-user.yml`
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+```
+
+3.2、创建 `dashboard.admin-user-role.yml`
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: admin-user
+    namespace: kubernetes-dashboard
+```
+
+4、部署 admin-user
+
+```shell
+kubectl create -f dashboard.admin-user.yml -f dashboard.admin-user-role.yml
+```
+
+5、获取 token
+
+```shell
+kubectl -n kubernetes-dashboard create token admin-user
+```
+
+6、开启代理
+
+> 参考：https://github.com/kubernetes/dashboard/blob/master/docs/user/accessing-dashboard/README.md#login-not-available
+
+从外部访问有以下几种方式
+
+> **方法一：端口转发**
+>
+> ```shell
+> # 监听 8080，并转发至 443
+> kubectl port-forward -n kubernetes-dashboard --address 0.0.0.0 service/kubernetes-dashboard 8080:443
+> ```
+>
+> * 访问地址：`https://<your-ip>:8080/`
+> * 使用 `admin-user/token` 登录
+>
+> <br>
+>
+> **方法二：NodePort**
+>
+> 编辑 kubernetes-dashboard 命名空间中的 kubernetes-dashboard 服务
+>
+> ```shell
+> kubectl -n kubernetes-dashboard edit service kubernetes-dashboard
+> ```
+>
+> ```yaml
+> apiVersion: v1
+> kind: Service
+> ...
+> ...
+>   ports:
+>   - nodePort: 30169
+>     port: 443
+>     protocol: TCP
+>     targetPort: 8443
+>   selector:
+>     k8s-app: kubernetes-dashboard
+>   sessionAffinity: None
+>   type: NodePort # 修改这一行即可，原为 ClusterIP
+> status:
+>   loadBalancer: {}
+> ```
+>
+> 重新查看 kubernetes-dashboard 服务的端口地址
+>
+> ```shell
+> kubectl -n kubernetes-dashboard get service kubernetes-dashboard
+> ```
+>
+> 显示大概如下：
+>
+> ```shell
+> > kubectl -n kubernetes-dashboard get service kubernetes-dashboard
+> NAME                   TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)         AGE
+> kubernetes-dashboard   NodePort   10.43.191.193   <none>        443:30511/TCP   32m
+> ```
+>
+> 现在就可以通过 `https://<your-server-ip>:30511/` 访问到控制台。
+
+
+
 ## Rancher
+
+> 参考：https://ranchermanager.docs.rancher.com/pages-for-subheaders/rancher-on-a-single-node-with-docker
 
 K8s 的配置、使用、集群管理方面基本上都是基于 yml 文件，并且字段对于开发人员来说比较难以理解。因此可以使用 Rancher 来管理 K8s 集群，进行项目部署等工作。
 
-> Rancher 和 K8s 有什么区别？参考：https://www.zhihu.com/question/309076492。
+> Rancher 和 K8s 有什么区别？
 >
-> rancher 和 K8s都是用来作为容器的调度与编排系统。但是 rancher 不仅能够管理应用容器，更重要的一点是能够管理 K8s 集群。Rancher 2.x 底层基于 K8s 调度引擎，通过 Rancher 的封装，用户可以在不熟悉 K8s 概念的情况下轻松的通过 rancher 来部署容器到 K8s 集群当中。
+> Rancher 和 K8s 都是用来作为容器的调度与编排系统。但是 Rancher 不仅能够管理应用容器，更重要的一点是能够管理 K8s 集群。Rancher 2.x 底层基于 K8s 调度引擎，通过 Rancher 的封装，用户可以在不熟悉 K8s 概念的情况下轻松的通过 Rancher 来部署容器到 K8s 集群当中。
 >
-> 为实现上述的功能，Rancher 自身提供了一套完整的用于管理 K8s 的组件，包括Rancher API Server, Cluster Controller, Cluster Agent, Node Agent 等等。组件相互协作使得 Rancher 能够掌控每个 K8s 集群，从而将多集群的管理和使用整合在统一的 Rancher 平台中。Rancher 增强了一些 K8s 的功能，并提供了面向用户友好的使用方式。
+> 为实现上述的功能，Rancher 自身提供了一套完整的用于管理 K8s 的组件，包括 Rancher API Server, Cluster Controller, Cluster Agent, Node Agent 等等。组件相互协作使得 Rancher 能够掌控每个 K8s 集群，从而将多集群的管理和使用整合在统一的 Rancher 平台中。Rancher 增强了一些 K8s 的功能，并提供了面向用户友好的使用方式。
+>
+> 参考：https://www.zhihu.com/question/309076492。
+
+1、通过 docker 启动
+
+```shell
+docker run -d --restart=unless-stopped \
+  -p 80:80 -p 443:443 \
+  --privileged \
+  rancher/rancher:latest
+```
+
+2、通过 `https://<host>:443` 访问
 
 
 
@@ -1164,6 +1301,88 @@ K8s 的配置、使用、集群管理方面基本上都是基于 yml 文件，�
 
 
 
+## K3s 部署
+
+> 记录安装多节点 Microk8s 的过程。
+
+### 虚拟机配置
+
+> 由于 Windows 下 WSL 系统的 ip 设置比较繁杂，选择 VMware 虚拟机来进行操作。
+
+1、分配虚拟机 IP。
+
+本次使用的系统是 ubuntu-server-22.04，安装过程中唯一需要注意的点就是为虚拟机分配 ip，以保证各个节点之间的通讯。首先查看本机的 IP：`ipconfig /all`
+
+```powershell
+PS C:\Users\Somebody> ipconfig
+Windows IP 配置
+以太网适配器 以太网:
+   连接特定的 DNS 后缀 . . . . . . . :
+   本地链接 IPv6 地址. . . . . . . . : fe80::2f6a:b646:500a:6e99%17
+   IPv4 地址 . . . . . . . . . . . . : 192.168.2.30
+   子网掩码  . . . . . . . . . . . . : 255.255.255.0
+   默认网关. . . . . . . . . . . . . : 192.168.2.1
+```
+
+2、在配置虚拟机的过程中会遇到类似下面这样一个界面：
+
+![img](./assets/2046382-20230103100708647-851538930.png)
+
+* subnet，子网，对着 Windows 下的默认网关修改，将最后一位改为 0/24
+* address，为此虚拟机分配的 IP，跟 Windows 保持在同一网段下。
+* gateway，网关，与 Windows 一致。
+* name server 和 search dominas 这两个和 dns 相关的按需填。
+
+2、修改网络适配器，选择桥接模式
+
+![image-20230901085208419](./assets/image-20230901085208419.png)
+
+3、接下来就可以启动虚拟机了。
+
+4、后续还想扩充其他节点的话可以使用 VMware 的克隆功能。选择对应的虚拟机，右键 => 管理 => 克隆。
+
+5、克隆后的虚拟机 IP 和 hostname 都和被克隆的虚拟机一致，需要做一些修改。
+
+5.1、修改主机名，编辑 `/etc/hostname`；
+
+5.2 修改 IP，编辑 `/etc/netplan`。
+
+保存，重启虚拟机。
+
+### 部署
+
+> 参考：https://github.com/k3s-io/k3s
+
+1、master 节点部署。
+
+```shell
+# 下载并安装
+curl -sfL https://get.k3s.io | sh -
+```
+
+```shell
+# 节点查询
+sudo kubectl get nodes
+```
+
+> `K3S_TOKEN` is created at `/var/lib/rancher/k3s/server/node-token` on your server.
+
+2、worker 节点部署。
+
+```shell
+export NODE_TOKEN=<your-node-token>
+curl -sfL https://get.k3s.io | K3S_URL=https://<your-server-ip>:6443 K3S_TOKEN=${NODE_TOKEN} sh -
+```
+
+3、或者手动配置 worker 节点。
+
+```shell
+export NODE_TOKEN=<your-node-token>
+sudo k3s agent --server https://<your-server-ip>:6443 --node-label worker --token ${NODE_TOKEN}
+```
+
+
+
 ## 参考
 
 ### 概念
@@ -1182,3 +1401,14 @@ K8s 的配置、使用、集群管理方面基本上都是基于 yml 文件，�
 ### 上手
 
 * https://zhuanlan.zhihu.com/p/39937913
+
+### VMware
+
+* https://www.cnblogs.com/yeyouqing/articles/17021253.html
+* https://blog.csdn.net/cal_room2032/article/details/124629068
+* https://developer.aliyun.com/article/12321
+
+### Dashboard
+
+* https://docs.rancher.cn/docs/k3s/installation/kube-dashboard/_index
+* https://www.ywbj.cc/?p=684
