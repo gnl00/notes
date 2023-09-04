@@ -1271,14 +1271,6 @@ docker run -d --restart=unless-stopped \
 
 
 
-## kubesphere
-
-> https://www.kubesphere.io/zh/
->
-> https://zhuanlan.zhihu.com/p/467174069
-
-
-
 ## 衍生产品
 
 * k0s: https://github.com/k0sproject/k0s，槽点：相比于 microk8s 和 k3s/k3d 体积稍大
@@ -1345,7 +1337,7 @@ Windows IP 配置
 
 5.1、修改主机名，编辑 `/etc/hostname`；
 
-5.2 修改 IP，编辑 `/etc/netplan`。
+5.2 修改 IP，编辑 `/etc/netplan/*.yaml`。
 
 保存，重启虚拟机。
 
