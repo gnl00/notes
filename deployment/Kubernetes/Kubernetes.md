@@ -10,9 +10,11 @@
 
 我们需要对容器内的应用服务进行编排、管理和调度，由此催生出 K8s。K8s 主要围绕 Pod 进行工作，Pod 是 K8s 中的最小调度单位，可以包含一个或多个容器。
 
-
+> [是否真的需要 K8s？](https://www.v2ex.com/t/780960)
 
 ## 架构
+
+> https://kubernetes.io/docs/concepts/overview/components/
 
 K8s 一般都是以集群的形式出现的，一个 K8s 集群主要包括：Master 节点（主节点）和 Node 节点（工作节点）。
 
@@ -119,6 +121,10 @@ kubectl 命令管理工具常见的命令如下：
 - `kubectl describe <pods | nodes | services>`，显示资源的详细信息；
 - `kubectl logs`，打印 pod 中的容器日志；
 - `kubectl exec`，运行 pod 中容器内部的命令。
+
+> 删除默认命名空间中所有状态为 `evicted` 的 pod：`kubectl delete pod --field-selector="status.phase==Failed"`，加上 `-A` 参数删除所有命名空间中状态为 `evicted` 的 pod。
+>
+> Link: https://gist.github.com/ipedrazas/9c622404fb41f2343a0db85b3821275d?permalink_comment_id=3417466#gistcomment-3417466
 
 <br/>
 
@@ -1112,7 +1118,135 @@ kubectl delete namespaces new-namespace
 
 ## Ingress
 
-> https://www.v2ex.com/t/968820 二楼回复解释得很清楚
+> 关于 ingress：https://www.v2ex.com/t/968820
+
+Ingress 可以将 K8s 集群中的 Serivce 通过 http/https 暴露到集群外部，提供给外部访问。访问的规则被定义在 Ingress 中。
+
+![image-20230906094111626](./assets/image-20230906094111626.png)
+
+Ingress 更像是一个接口，*Ingress Controller* 负责实现 Ingress，Controller 这个角色通常由 ingress-nginx 或者 traefik 扮演。
+
+
+
+### 最小化 Ingress 规则
+
+`minimal-ingress.yaml`：
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minimal-ingress
+spec:
+  # If the ingressClassName is omitted, a default Ingress class should be defined.
+  # https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
+  # ingressClassName: traefik
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix # 前缀匹配。此外还有  Exact 精确匹配 https://kubernetes.io/docs/concepts/services-networking/ingress/#examples
+        backend:
+          service:
+            name: test-svc
+            port:
+              number: 8080 # service 暴露的 port
+```
+
+每个 http 规则都包含了下列信息：
+
+* host，可选，如果指定了 host 所有定义的规则都会只对该 host 生效；否则对所有的 IP 都生效。
+* paths，所有匹配的路径请求会被 ingress 分发到对应的 service 服务上。
+* service 表示 ingress 收到请求后发送到的服务。
+* 此外还有一个 `defaultBackend` 配置用来指定某个服务处理未匹配到的请求。
+
+
+
+### 单 Service
+
+1、创建 `my-ingress.yaml`：
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: my-server-svc
+                port:
+                  number: 8080
+```
+
+2、查看 Ingress 信息
+
+```shell
+kubectl describe ingress my-ingress
+```
+
+可以看到输出信息大概如下：
+
+```shell
+Name:             my-ingress
+Labels:           <none>
+Namespace:        default
+Address:          192.168.111.11,192.168.111.12
+Ingress Class:    traefik
+Default backend:  <default>
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *
+              /   my-server-svc:8080 (10.42.1.15:8080,10.42.1.16:8080)
+Annotations:  field.cattle.io/publicEndpoints:
+                [{"addresses":["192.168.111.11","192.168.111.12"],"port":80,"protocol":"HTTP","serviceName":"default:my-server-svc","ingressName":"default...
+Events:       <none>
+```
+
+接下来就可以从 `AddressIP:80` 访问到 my-server-svc 服务。
+
+
+
+### 多 Service
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /foo
+            pathType: Prefix
+            backend:
+              service:
+                name: my-server-svc
+                port:
+                  number: 8080
+          - path: /bar
+            pathType: Prefix
+            backend:
+              service:
+                name: your-server-svc
+                port:
+                  number: 8888
+```
+
+
+
+### Ingress Controller
+
+要使用 Ingress 必须使用 *Ingress Controller* 来实现 Ingress，仅创建了 Ingress 规则是无效的。k3s 默认使用 traefik 来作为 controller 的默认实现。
+
+> 更多关于 [*Ingress Controller*](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
 
 
 
@@ -1383,6 +1517,15 @@ export NODE_TOKEN=<your-node-token>
 sudo k3s agent --server https://<your-server-ip>:6443 --node-label worker --token ${NODE_TOKEN}
 ```
 
+4、设置节点角色
+
+```shell
+kubectl label nodes k8s-node1 node-role.kubernetes.io/worker=worker
+
+node-role.kubernetes.io/worker = yes # worker 角色
+node-role.kubernetes.io/master = yes # master 角色
+```
+
 
 
 ### [安装 Rancher](#Rancher)
@@ -1450,7 +1593,7 @@ spec:
     app: my-server # 只对 label 为 my-server 的 pod 生效
   type: NodePort
   ports:
-    - name: my-server
+    - name: my-server # name of this port
       protocol: TCP
       port: 8080
       nodePort: 30080  # 提供给外部访问
