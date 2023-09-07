@@ -1244,7 +1244,9 @@ spec:
 
 ### Ingress Controller
 
-要使用 Ingress 必须使用 *Ingress Controller* 来实现 Ingress，仅创建了 Ingress 规则是无效的。k3s 默认使用 traefik 来作为 controller 的默认实现。
+要使用 Ingress 必须使用 *Ingress Controller* 来实现 Ingress，仅创建了 Ingress 规则是无效的。k3s 使用 traefik 来作为 controller 的默认实现。
+
+可以这么认为：上面的 Ingress 配置相当于 nginx.conf 配置；只有配置显然是无效的，因此还需要 nginx 本体，也就是 *ingress controller*。
 
 > 更多关于 [*Ingress Controller*](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
 
@@ -1591,15 +1593,32 @@ metadata:
 spec:
   selector:
     app: my-server # 只对 label 为 my-server 的 pod 生效
-  type: NodePort
   ports:
     - name: my-server # name of this port
       protocol: TCP
       port: 8080
-      nodePort: 30080  # 提供给外部访问
+      targetPort: 30080  # 提供给外部访问
 ```
 
-6、后续即可通过 `<node-ip>:30080` 访问到该服务。
+6、配置 Ingress，`my-server-ingress.yaml`：
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: my-server-svc
+                port:
+                  number: 8080
+```
 
 
 

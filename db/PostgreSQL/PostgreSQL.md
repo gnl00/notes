@@ -129,7 +129,7 @@ INSERT INTO employees VALUES ('sales', 4, 4800);
 
 ### 数组
 
-创建包含数组列的表
+#### 数组操作
 
 ```postgresql
 CREATE TABLE user_hobbies (
@@ -182,7 +182,18 @@ WHERE ID = 1*;
 
 
 
+#### 数组类型对照
 
+|         JAVA TYPE         | SUPPORTED BINARY POSTGRESQL TYPES | DEFAULT POSTGRESQL TYPE |
+| :-----------------------: | :-------------------------------: | :---------------------: |
+|   `short[] `, `Short[]`   |             `int2[]`              |        `int2[]`         |
+|   `int[] `, `Integer[]`   |             `int4[]`              |        `int4[]`         |
+|    `long[] `, `Long[]`    |             `int8[]`              |        `int8[]`         |
+|   `float[] `, `Float[]`   |            `float4[]`             |       `float4[]`        |
+|  `double[] `, `Double[]`  |            `float8[]`             |       `float8[]`        |
+| `boolean[] `, `Boolean[]` |             `bool[]`              |        `bool[]`         |
+|        `String[]`         |      `varchar[] `, `text[]`       |       `varchar[]`       |
+|        `byte[][]`         |             `bytea[]`             |        `bytea[]`        |
 
 
 
@@ -711,3 +722,7 @@ WHERE active = 0;
 * http://postgres.cn/docs
 * https://www.sjkjc.com/postgresql
 * https://www.cnblogs.com/flying-tiger/p/6704931.html
+
+**数组类型对应**
+
+* https://access.crunchydata.com/documentation/pgjdbc/42.3.2/arrays.html
