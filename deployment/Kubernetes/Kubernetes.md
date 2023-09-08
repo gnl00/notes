@@ -1124,11 +1124,15 @@ Ingress 可以将 K8s 集群中的 Serivce 通过 http/https 暴露到集群外�
 
 ![image-20230906094111626](./assets/image-20230906094111626.png)
 
-Ingress 更像是一个接口，*Ingress Controller* 负责实现 Ingress，Controller 这个角色通常由 ingress-nginx 或者 traefik 扮演。
+### Ingress Controller
+
+可以把 Ingress 看成接口，或者看成是一个规则集。仅仅有 Ingress 是不够的，还需要 *Ingress Controller* 来负责实现。可以
+
+把这样认为：Ingress 相当于 `nginx.conf`；*Ingress Controller* 相当于 nginx 本体。
 
 
 
-### 最小化 Ingress 规则
+### 最小化 Ingress
 
 `minimal-ingress.yaml`：
 
@@ -1140,7 +1144,7 @@ metadata:
 spec:
   # If the ingressClassName is omitted, a default Ingress class should be defined.
   # https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
-  # ingressClassName: traefik
+  # ingressClassName: traefik # 在有多个 ingress controller 的情况下才需要使用此字段
   rules:
   - http:
       paths:
@@ -1242,15 +1246,131 @@ spec:
 
 
 
-### Ingress Controller
+### 开启 traefik dashboard
 
-要使用 Ingress 必须使用 *Ingress Controller* 来实现 Ingress，仅创建了 Ingress 规则是无效的。k3s 使用 traefik 来作为 controller 的默认实现。
+1、[安装 traefik](https://github.com/traefik/traefik-helm-chart)
 
-可以这么认为：上面的 Ingress 配置相当于 nginx.conf 配置；只有配置显然是无效的，因此还需要 nginx 本体，也就是 *ingress controller*。
+2、进行端口转发
 
-> 更多关于 [*Ingress Controller*](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
+```shell
+kubectl get pods -A
+kubectl port-forward traefik-xxxx-xxx --address 0.0.0.0 9000:9000
+```
+
+3、访问 `https://<your-ip>:9000/dashboard/`
+
+> 不要忘记最后面的 `/`，它也是需要的。
+
+参考：https://github.com/traefik/traefik-helm-chart/issues/85
 
 
+
+### k3s 切换 ingress-nginx
+
+在 k3s 中默认使用 traefik 来作为 *Ingress Controller*，除此之外还有 ingress-nginx 等 controller。
+
+> 其他[*Ingress Controller*](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
+
+如果想要将 k3s 的 treafik 切换成 ingress-nginx，按照以下步骤进行：
+
+1、用`--disable traefik`启动 K3s server，然后部署你需要的 ingress。
+
+2、[可以使用 helm 或者 kubectl 来安装 ingress-nginx](https://docs.rancherdesktop.io/zh/how-to-guides/setup-NGINX-Ingress-Controller)：
+
+> 建议开全局代理
+
+```shell
+helm upgrade --install ingress-nginx ingress-nginx \
+  --repo https://kubernetes.github.io/ingress-nginx \
+  --namespace ingress-nginx --create-namespace
+```
+
+3、等待 ingress pod 运行并检查状态：
+
+```shell
+kubectl get pods --namespace=ingress-nginx
+```
+
+4、接下来就可以编写 ingress 然后愉快的使用了~
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: my-server-svc
+                port:
+                  number: 8080
+```
+
+5、如果只能通过内外访问，无法使用外部 IP 访问 *ingress controller*，可以尝试修改 ingress-nginx-controller 的 service 配置：
+
+```shell
+kubectl edit service/ingress-nginx-controller --namespace ingress-nginx
+```
+
+将 `spec.externalTrafficPolicy` 的值设置为 `Local`。
+
+> 上面的步骤是通过命令自动部署并运行 ingress-nginx，此外还可以通过手动的方式运行，可以参考：https://www.cnblogs.com/syushin/p/15271304.html
+
+<br>
+
+### 切换 controller 踩坑
+
+> Ingress 还支持 `spec.ingressClassName` 这个字段，网上很多资料都填得很随便 `nginx-example` 或者 `nginx-1`。我也尝试随便填了 `nginx-1`：
+>
+> ```yaml
+> apiVersion: networking.k8s.io/v1
+> kind: Ingress
+> metadata:
+>   name: my-ingress
+> spec:
+>   ingressClassName: nginx-1
+> ...
+> ```
+>
+> 一同操作后创建 `my-ingress`：
+>
+> ```shell
+> kubectl apply -f my-ingress.yaml
+> ```
+>
+> 发现 *ingress not work as I expected*，使用 `kubectl describe ingress my-ingress` 查看发现 `Address` 一栏为空，查询许久无果。:cry:
+>
+> 后面在查看 [`ingress-nginx-controller.yaml`](https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.2/deploy/static/provider/cloud/deploy.yaml) 的时候发现它的 IngressClass 配置如下：
+>
+> ```yaml
+> apiVersion: networking.k8s.io/v1
+> kind: IngressClass
+> metadata:
+>   name: nginx
+> ...
+> spec:
+>   controller: k8s.io/ingress-nginx
+> ```
+>
+> 注意看 `name: nginx`，随后尝试修改 `my-ingress.yaml`：
+>
+> ```yaml
+> spec:
+>   ingressClassName: nginx
+> ```
+>
+> 重新创建 ingress，*it works*！`Address` 通过设置的 ingress 规则现在能成的访问到指定的服务了。
+>
+> 因此，在未弄清 `ingressClassName` 字段的作用的情况下，还是留空使用默认的 *ingress controller* 为妙。
+
+
+
+<br>
 
 ## Kubenetes Dashboard
 
@@ -1321,6 +1441,13 @@ kubectl -n kubernetes-dashboard create token admin-user
 > **方法一：端口转发**
 >
 > ```shell
+> Get the Kubernetes Dashboard URL by running:
+>   export POD_NAME=$(kubectl get pods -n kubernetes-dashboard -l "app.kubernetes.io/name=kubernetes-dashboard,app.kubernetes.io/instance=kubernetes-dashboard" -o jsonpath="{.items[0].metadata.name}")
+>   echo https://127.0.0.1:8443/
+>   kubectl -n kubernetes-dashboard port-forward $POD_NAME 8443:8443
+> ```
+>
+> ```shell
 > # 监听 8080，并转发至 443
 > kubectl port-forward -n kubernetes-dashboard --address 0.0.0.0 service/kubernetes-dashboard 8080:443
 > ```
@@ -1371,6 +1498,8 @@ kubectl -n kubernetes-dashboard create token admin-user
 > ```
 >
 > 现在就可以通过 `https://<your-server-ip>:30511/` 访问到控制台。
+>
+> **方法三：Ingress**
 
 
 
@@ -1404,7 +1533,7 @@ docker run -d --restart=unless-stopped \
 ## 衍生产品
 
 * k0s: https://github.com/k0sproject/k0s，槽点：相比于 microk8s 和 k3s/k3d 体积稍大
-* microk8s: https://github.com/canonical/microk8s，槽点：通过 snap 独家分发
+* microk8s: https://github.com/canonical/microk8s，槽点：通过 snap 分发
 * k3s: https://github.com/k3s-io/k3s/
 * k3d: https://github.com/k3d-io/k3d，在 Docker 容器中运行 k3s
 * minikube: https://github.com/kubernetes/minikube，槽点：不支持多节点
@@ -1414,6 +1543,8 @@ docker run -d --restart=unless-stopped \
 ## K3S/K8s/K9S
 
 > https://juejin.cn/post/6955368911705473060
+
+> 搜索了一番暂时没有发现从 K3s 迁移/升级到 K8s 的案例。
 
 
 
@@ -1528,6 +1659,39 @@ node-role.kubernetes.io/worker = yes # worker 角色
 node-role.kubernetes.io/master = yes # master 角色
 ```
 
+### K3s 操作
+
+**停止**
+
+```shell
+/usr/local/bin/k3s-killall.sh
+```
+
+**卸载 Server**
+
+```shell
+/usr/local/bin/k3s-uninstall.sh
+```
+
+**卸载 Agent**
+
+```shell
+/usr/local/bin/k3s-agent-uninstall.sh
+```
+
+
+
+### 设置私有仓库地址
+
+编辑文件：`/etc/rancher/k3s/registries.yaml`
+
+```yaml
+mirrors:
+  192.168.2.203:5000:
+    endpoint:
+      - "192.168.2.203:5000"
+```
+
 
 
 ### [安装 Rancher](#Rancher)
@@ -1634,6 +1798,12 @@ spec:
 
 > https://helm.sh/zh/docs/
 
+> K3s 中使用 helm 报错：`Error: Kubernetes cluster unreachable: Get "http://localhost:8080/version": dial tcp 127.0.0.1:8080: connect: connection refused`。
+>
+> 解决办法：`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml`
+>
+> 参考：https://github.com/k3s-io/k3s/issues/1126
+
 
 
 ## 参考
@@ -1654,6 +1824,10 @@ spec:
 ### 上手
 
 * https://zhuanlan.zhihu.com/p/39937913
+
+### Ingress
+
+* 配置 ingress-nginx service：https://mmxblog.com/p-7005/Mmx.html
 
 ### VMware
 
