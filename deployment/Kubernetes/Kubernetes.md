@@ -1644,6 +1644,20 @@ kubectl label nodes <your-node-name> kubernetes.io/role=<node-role>
 
 
 
+### 使用 Docker 来作为运行时
+
+> 参考：https://docs.rancher.cn/docs/k3s/advanced/_index/#%E4%BD%BF%E7%94%A8-docker-%E4%BD%9C%E4%B8%BA%E5%AE%B9%E5%99%A8%E8%BF%90%E8%A1%8C%E6%97%B6
+
+```shell
+# 使用 containerd 安装命令
+curl -sfL https://get.k3s.io | sh -
+# 使用 docker 的安装命令
+curl -sfL https://get.k3s.io | sh -s - --docker
+# agent 同理，将 - 修改成 -s - --docker
+```
+
+
+
 ## 多节点部署
 
 > 记录多节点的安装过程。
