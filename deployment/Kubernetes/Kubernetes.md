@@ -14,13 +14,13 @@
 
 ## 架构
 
-> https://kubernetes.io/docs/concepts/overview/components/
-
-K8s 一般都是以集群的形式出现的，一个 K8s 集群主要包括：Master 节点（主节点）和 Node 节点（工作节点）。
+K8s 一般都是以集群的形式出现的，一个 K8s 集群主要包括：master 节点（主节点）和 node 节点（工作节点）。
 
 ![architecture](./assets/architecture.png)
 
-> K8s 架构：http://docs.kubernetes.org.cn/251.html
+> * K8s 组件：https://kubernetes.io/docs/concepts/overview/components/
+>
+> * K8s 架构：http://docs.kubernetes.org.cn/251.html
 
 
 
@@ -47,9 +47,9 @@ Node 节点包括以下内容：
 
 * Kubelet，负责维护 Node 状态并和 Master 节点通信。
 
-* *Kube Proxy*，负责实现集群网络服务，为 Service 提供 cluster 内部的服务发现和负载均衡。
+* Kube-Proxy，负责实现集群网络服务，为 Service 提供集群内部的服务发现和负载均衡。
 
-* Pod，K8s 中部署的最小单位，可以包含一个或多个 Docker 容器。
+* Pod，K8s 中部署的最小单位，可以包含一个或多个容器。
 
 > 除非容器之间的服务紧密耦合，否则通常都是一个 Pod 中只有一个容器，方便管理、并易于扩展。
 
@@ -60,7 +60,7 @@ Node 节点包括以下内容：
 除了以上核心组件还有其他插件：
 
 * CoreDNS，负责未整个集群提供 DNS 服务。
-* *Ingress Controller*，可以认为是类似 nginx 的代理服务，主要为 K8s 内的服务提供外网入口。
+* *Ingress Controller*，可以认为是类似 nginx 的代理服务，为 K8s 集群内的服务提供外网入口。
 * Prometheus，提供资源监控。
 * Federation，提供跨区可用的集群。
 
@@ -78,9 +78,9 @@ Master 负责集群的管理，协调集群中的所有行为/活动，例如应
 
 ## 单机部署
 
-使用 K8s 需要安装下面这些东西：
+使用单机 K8s 需要部署以下组件：
 
-* 先安装 Docker；
+* Docker；
 * K8s 的命令行客户端 kubectl；
 * K8s 运行环境，比如 minikube；
 
@@ -88,22 +88,9 @@ Master 负责集群的管理，协调集群中的所有行为/活动，例如应
 
 **开始**
 
-1、下载 kubectl
+1、[下载并安装 kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl)
 
-```bash
-curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.6.4/bin/linux/amd64/kubectl
-
-chmod +x kubectl
-```
-
-2、安装 minikube（以 Linux 为例）
-
-> 参考：https://minikube.sigs.K8s.io/docs/start/
-
-```bash
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
-```
+2、[安装 minikube](https://minikube.sigs.K8s.io/docs/start/)
 
 3、启动 minicube
 
@@ -113,7 +100,7 @@ minikube start
 
 
 
-**kubectl 常用命令**
+## kubectl
 
 kubectl 命令管理工具常见的命令如下：
 
@@ -121,10 +108,14 @@ kubectl 命令管理工具常见的命令如下：
 - `kubectl describe <pods | nodes | services>`，显示资源的详细信息；
 - `kubectl logs`，打印 pod 中的容器日志；
 - `kubectl exec`，运行 pod 中容器内部的命令。
+- `kubectl delete <pod|deployment|service|ingress|namspace> <name-to-delete>`
 
-> 删除默认命名空间中所有状态为 `evicted` 的 pod：`kubectl delete pod --field-selector="status.phase==Failed"`，加上 `-A` 参数删除所有命名空间中状态为 `evicted` 的 pod。
+> 删除指定状态的 pod：
 >
-> Link: https://gist.github.com/ipedrazas/9c622404fb41f2343a0db85b3821275d?permalink_comment_id=3417466#gistcomment-3417466
+> * `kubectl delete pod --field-selector="status.phase==Failed"` 删除默认命名空间中所有状态为 `evicted` 的 pod
+> * `kubectl delete pod -A --field-selector="status.phase==Failed"` 删除所有命名空间中状态为 `evicted` 的 pod
+>
+> 参考: https://gist.github.com/ipedrazas/9c622404fb41f2343a0db85b3821275d?permalink_comment_id=3417466#gistcomment-3417466
 
 <br/>
 
@@ -132,7 +123,11 @@ kubectl 命令管理工具常见的命令如下：
 
 > 这里有一个快速指南还不错：https://zhuanlan.zhihu.com/p/39937913
 
-1、使用 kubectl 创建 Deployment
+### 创建 Deployment
+
+0、镜像 kubernetes-bootcamp 能通过 http://localhost:8001/version 访问到它的版本信息
+
+1、使用 kubectl 拉取镜像并创建 Deployment
 
 ```bash
 kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1
@@ -150,17 +145,21 @@ kubectl get deployments
 
 ```bash
 kubectl get pods
+
+kubectl get pods -A # 显示 K8s 系统级别的 Pod
 ```
 
-> 使用 `kubectl get pods -A` 会把 K8s 系统级别的 Pod 也显示出来。
+Pod 已经部署好了，但是此时通过请求 http://localhost:8001/version 会发现无法访问到该容器。这是为什么？
 
-3、将 K8s 内网的服务暴露给外网访问
+因为：
 
 > Pods that are running inside Kubernetes are running on a private, isolated network. By default they are visible from other pods and services within the same kubernetes cluster, but not outside that network. 
 
-运行在 K8s 内部的 Pod 是使用的是 K8s 私有的、与外部环境相互隔离的网络。默认情况下，Pod 的网络服务只对同一个 K8s 集群环境中的其他 Pod 可见，对外部环境不可见。因此我们需要创建代理，将网络请求代理到 K8s 集群内部的、私有的网络里面。
+运行在 K8s 内部的 Pod 是使用的是 K8s 私有的、与外部环境相互隔离的网络。默认情况下，Pod 的网络服务只对同一个 K8s 集群环境中的其他 Pod 可见，对外部环境不可见。
 
-打开新的终端窗口，创建对 K8s 内部网络的代理。
+因此，我们需要使用代理，让外部的网络请能达到 K8s 集群内部的私有网络。
+
+3、打开新的终端窗口，创建对 K8s 内部网络的代理。
 
 ```bash
 kubectl proxy
@@ -168,7 +167,7 @@ kubectl proxy
 
 > In order for the new Deployment to be accessible without using the proxy, a Service is required.
 >
-> 后续讲到 Service 的时候会介绍别的办法来暴露服务。
+> 除了使用代理还可以使用 Service 来暴露服务，后续会介绍。
 
 4、访问测试
 
@@ -198,9 +197,9 @@ curl http://localhost:8001/version
 
 ### 什么是 Pod
 
-![pods overview](https://d33wubrfki0l68.cloudfront.net/fe03f68d8ede9815184852ca2a4fd30325e5d15a/98064/docs/tutorials/kubernetes-basics/public/images/module_03_pods.svg)
-
 Pod 是 K8s 上的最小的可操作单元。当我们在 K8s 上创建 Deployment 的时候，Deployment 会创建具有一个或多个容器的 Pod。由此可以将 Deployment 看成是 Pod 的控制器/管理器，用来管理 Pod 的创建、扩展、销毁。
+
+![pods overview](https://d33wubrfki0l68.cloudfront.net/fe03f68d8ede9815184852ca2a4fd30325e5d15a/98064/docs/tutorials/kubernetes-basics/public/images/module_03_pods.svg)
 
 Pod 是一个抽象（逻辑）概念，可以包括一个或者多个容器（Docker 容器或者其他容器），比如，一个 Pod 中可以有 Web 后端服务和前端服务。
 
@@ -993,7 +992,9 @@ kubectl create deployment nginx --image nginx
 ```shell
 kubectl create -f nginx.yaml # create
 
-kubectl replace -f nginx.yaml # update
+kubectl apply -f nginx.yaml # create|update
+
+kubectl replace -f nginx.yaml # replace
 
 kubectl delete -f nginx.yaml -f redis.yaml # delete
 ```
@@ -1045,9 +1046,9 @@ kubectl apply -R -f configs/
 
 当存在大量不同类型的应用时，可以使用 namespace 来区分；还能隔离资源的使用。在 K8s 中，相同 namespace 下的应用具有相同的资源访问控制策略。
 
+### 查看
 
-
-1、查看当前的 namespace
+查看当前的 namespace
 
 ```bash
 kubectl get namespace
@@ -1064,17 +1065,17 @@ kube-system            Active   29h
 kubernetes-dashboard   Active   29h
 ```
 
-可以看到 K8s 默认存在多个 namesapce，我们创建的应用若未指定 namespace，那就会被分配到 default 这个命名空间中。
+K8s 默认存在多个 namesapce，若未指定 namespace，就会被分配到 default 命名空间。
 
-2、创建 namespace
+### 创建 namespace
 
-2.1、命令行创建
+命令行创建
 
 ```
 kubectl create namespace new-namespace
 ```
 
-2.2、通过文件创建
+通过文件创建
 
 ```yaml
 apiVersion: v1
@@ -1083,7 +1084,7 @@ metadata:
   name: new-namespace
 ```
 
-3、删除 namespace
+### 删除 namespace
 
 ```
 kubectl delete namespaces new-namespace
@@ -1607,6 +1608,9 @@ node-role.kubernetes.io/master = yes # master 角色
 
 ```shell
 /usr/local/bin/k3s-killall.sh
+
+systemctl stop|restart|start|status k3s
+systemctl stop|restart|start|status k3s-agent
 ```
 
 **卸载 Server**
@@ -1624,6 +1628,8 @@ node-role.kubernetes.io/master = yes # master 角色
 
 
 ### 设置私有仓库地址
+
+> 每一个节点都需要设置
 
 编辑文件：`/etc/rancher/k3s/registries.yaml`
 
@@ -1793,7 +1799,7 @@ spec:
     - name: my-server # name of this port
       protocol: TCP
       port: 8080
-      targetPort: 30080  # 提供给外部访问
+      targetPort: 30080  # 提供给集群内部其他服务访问
 ```
 
 6、配置 Ingress，`my-server-ingress.yaml`：
