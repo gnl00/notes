@@ -1,8 +1,8 @@
-# MyBatis
+# mybatis-plus-generator
 
-## 代码生成器
 
-> 依赖 MyBatisPlus
+
+## MyBatis Plus 代码生成器
 
 **依赖**
 
@@ -110,3 +110,5 @@ public class CodeGenerator {
 <br>
 
 ## 参考
+
+* https://baomidou.com/
