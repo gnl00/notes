@@ -204,7 +204,7 @@ SqlSessionFactory 和 SqlSession 是 MyBatis 的核心接口。
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE configuration
         PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
-        "https://mybatis.org/dtd/mybatis-3-config.dtd">
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
 <configuration>
     <properties>
         <property name="username" value="root"/>

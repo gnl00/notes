@@ -398,15 +398,15 @@ public class TestConfig {
 
 ## AOP
 
-> AOP（Aspect Oriented Programming）面向切面编程，能够在不修改源代码的情况下添加新功能（通过代理方式），常用作异常处理和日志记录。两种实现：Spring AOP 和 AspectJ
+> AOP（*Aspect Oriented Programming*）面向切面编程，能够在不修改源代码的情况下添加新功能（通过动态代理），常用作异常处理和日志记录。有两种实现：Spring AOP 和 AspectJ。
 
 <br/>
 
-**<u>1 - 动态代理</u>**
+### 动态代理
 
 1、JDK 动态代理，要求目标对象（被代理对象）必须实现接口
 
-2、CGLib 动态代理，目标对象不需要实现接口，原理是**生成目标类的子类**。子类是增强过的，这个子类对象就是代理对象。所以使用 CGLib 生成动态代理，要求目标类必须能够被继承（不是 final 类）
+2、CGLib 动态代理，目标对象不需要实现接口，原理是**生成目标类的子类**，子类是增强过的。目标对象=被代理类，子类=代理类。所以使用 CGLib 生成动态代理，要求目标类必须能够被继承（不是 final 类）。
 
 
 
@@ -414,7 +414,7 @@ public class TestConfig {
 
 1）在目标类源代码不改变的情况下，增加功能
 
-2）减少代码的重复
+2）减少重复代码
 
 3）专注业务逻辑代码
 
@@ -424,7 +424,7 @@ public class TestConfig {
 
 <br/>
 
-**<u>2 - 关键字</u>**
+### 关键字
 
 1、**Aspect**，切面，给目标类增加的功能就是切面，如日志，事务，统计信息，参数检查等都是切面
 
@@ -432,7 +432,7 @@ public class TestConfig {
 
 2）切面的**三个关键要素**：
 
-① 切面的功能代码，切面干什么
+① 切面的功能，切面干什么
 
 ② 切面的执行位置（使用 PointCut 表示切面执行的位置）
 
@@ -462,7 +462,7 @@ public class TestConfig {
 
 <br/>
 
-**<u>3 - AOP 的实现</u>**
+### AOP 注解实现
 
 1、引入依赖
 
@@ -470,17 +470,17 @@ public class TestConfig {
 <dependency>
     <groupId>org.springframework</groupId>
     <artifactId>spring-aspects</artifactId>
-    <version>5.3.2</version>
+    <version>{latestVersion}</version>
     <scope>compile</scope>
 </dependency>
 ```
 
-2、开启注解支持`@EnableAspectJAutoProxy`
+2、开启注解支持 `@EnableAspectJAutoProxy`
 
 ```java
 /**
  * proxyTargetClass = true
- * 强制使用cglib动态代理
+ * 强制使用 cglib 动态代理
  */
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 @ComponentScan(basePackages = {"com.demo"})
@@ -489,30 +489,26 @@ public class SpringConfig {
 }
 ```
 
-3、编写切面类，**被切面类也要加入 IOC 容器中**
+3、目标类与切面类
+
+3.1、编写目标类，**并加入 IOC 容器中**
+
+3.2、编写切面类
 
 ```java
-/**
- * @Aspect 是AspectJ框架中的注解，表示当前类是切面类
- * @Component 需要将当前类放入容器中
- */
-@Aspect
+@Aspect // @Aspect 是 AspectJ 框架中的注解，表示当前类是切面类
 @Component
 public class MyAspect {
-
     /**
      * @Pointcut 管理和定义切入点。如果项目中存在多个切入点表达式是重复的，可以复用的，则可以使用@Pointcut
      * value 切入点表达式
      * 特点：
-     * 1. 当使用@Pointcut定义在一个方法上，此时这个方法的名称就是切入点表达式的别名
-     *    其他通知中，value属性就可以使用这个方法名称代替切入点表达式
+     * 1. 使用 @Pointcut 定义在一个方法上，方法的名称就是切入点表达式的别名
+     *    其他通知中，value 属性就可以使用这个方法名代替切入点表达式
      * 2. 无需参数，无需编写代码的空方法
-     *
      */
     @Pointcut(value = "execution(* com.demo.service.*..*(..))")
-    public int myPointcut(){
-        return 0;
-    }
+    public void myPointcut(){}
 
    /*
     * 切入点表达式写法
@@ -530,7 +526,6 @@ public class MyAspect {
     *       .. ：
     *           1、匹配任意多个参数
     *                   ("execution(public int com.demo.spring.caclculator.MyCalculatorImpl.*(..))")
-    *
     *
     * */
   
@@ -555,7 +550,6 @@ public class MyAspect {
         System.out.println("方法签名："+jp.getSignature());
         System.out.println("方法名："+jp.getSignature().getName());
         System.out.println("方法实参："+Arrays.toString(jp.getArgs()));
-
     }
 
     /** 
@@ -613,11 +607,8 @@ public class MyAspect {
 
         try {
             System.out.println("切面环绕通知 方法执行之前。。。做点什么");
-
             res = jp.proceed(args);
-
             res = "haaaaaa";
-
             System.out.println("切面环绕通知 方法执行之后。。。做点什么");
 
         } catch (Throwable throwable) {
@@ -661,7 +652,43 @@ public class MyAspect {
         System.out.println("切面通知 myAfter。。。 ");
     }
 }
+```
 
+
+
+### AOP XML 实现
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop" xsi:schemaLocation="
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd"> <!-- bean definitions here -->
+    <bean id="typeHandlerAspect" class="com.demo.aspect.TypeHandlerAspect" />
+
+    <aop:aspectj-autoproxy></aop:aspectj-autoproxy>
+    <aop:config>
+        <aop:aspect ref="typeHandlerAspect">
+            <aop:pointcut id="pointcut" expression="execution(* com.demo.utils.*.*(..))"/>
+            <aop:before method="testBefore" pointcut-ref="pointcut" />
+        </aop:aspect>
+    </aop:config>
+
+    <aop:config>
+        <aop:aspect ref="typeHandlerAspect">
+            <aop:pointcut id="pointcut2" expression="execution(* org.apache.ibatis.mapping.*.resolveTypeHandler(..))"/>
+            <aop:before method="testBefore" pointcut-ref="pointcut2" />
+        </aop:aspect>
+    </aop:config>
+</beans>
+```
+
+
+
+### 切面方法执行顺序
+
+```
 /**
  *   普通通知方法的执行顺序
  *       前置--后置--正常返回
@@ -674,7 +701,7 @@ public class MyAspect {
  *   环绕前置--普通前置--环绕正常/异常返回--环绕后置--普通后置--普通正常返回
  *
  * 若有多个切面通知同时作用，默认按照通知所在类的类名首字母排序执行，先执行后结束，后执行先结束。
- * 若想改变切面通知的执行顺序可以使用@Order(数值，数值越大优先级越高)
+ * 若想改变切面通知的执行顺序可以使用 @Order(数值，数值越大优先级越高)
 
  *
  * Spring 对通知方法的要求不严格，可以是任意修饰符，任意返回值的。
@@ -687,27 +714,29 @@ public class MyAspect {
 
 <br/>
 
-**<u>4 - 切面织入时期</u>**
+### 切面织入时期
 
-1、**编译器**织入（静态织入），即编译出来的 `class` 文件字节码就已经被织入
+1、**编译期**织入（静态织入），*Compile Time Weaving*，编译出来的 `class` 文件字节码就已经被织入
 
-2、**类装载期**织入
+2、**编译后**织入，*Post Compile Weaving*，增强已经编译出来的类，比如我们要增强第三方依赖中的某个类的某个方法
 
-3、**动态代理**织入，在**运行期间为目标类增强生成子类**的方式（Spring AOP 采用）
+3、**类装载期**织入，*Load Time Weaving*，在 JVM 进行类加载的时候进行织入
+
+4、**动态代理**织入，在**运行期间为目标类增强生成子类**的方式（Spring AOP 采用）
 
 动态织入又分为动静两种：
 
-1）静是织入过程只在第一次调用 target 时执行
+1）静是织入过程只在第一次调用目标方法时执行
 
-2）动指每次调用 target 都执行
+2）动指每次调用目标方法都执行
 
 
 
 <br/>
 
-**<u>5 - Spring AOP 和 AspectJ 的区别</u>**
+### Spring AOP VS AspectJ
 
-1、能力不同
+1、**能力不同**
 
 1）Spring AOP 提供一个简单 AOP 实现。**Spring AOP 只能应用于由 Spring 容器管理的 Bean**
 
@@ -715,7 +744,7 @@ public class MyAspect {
 
 <br/>
 
-2、织入时期不同
+2、**织入时期不同**
 
 1）Spring AOP 采用的是动态织入（运行时织入）
 
@@ -723,15 +752,15 @@ public class MyAspect {
 
 <br/>
 
-3、应用场景
+3、**应用场景**
 
 * **框架**
 
-  如果没有使用 Spring 框架，不能使用 Spring AOP。因为它无法管理任何超出 Spring 容器范围的 Bean。如果使用 Spring 框架，可以使用 Spring AOP
+  如果没有使用 Spring 框架，不能使用 Spring AOP。因为它无法管理任何超出 Spring IOC 容器范围的 Bean。
 
 * **灵活性**
 
-  Spring AOP 不是一个完整的 AOP 解决方案。如果希望得到更强大的 JoinPoint 支持，可以选择 AspectJ
+  Spring AOP 不是一个完整的 AOP 解决方案。如果希望得到更强大的 JoinPoint 支持，可以选择 AspectJ。
 
 * **性能**
 
@@ -749,7 +778,7 @@ public class MyAspect {
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | 在纯 Java 中实现                                             | 使用 Java 编程语言的扩展实现                                 |
 | 不需要单独的编译过程                                         | 除非设置 LTW，否则需要 AspectJ 编译器 (ajc)                  |
-| 只能使用运行时织入                                           | 运行时织入不可用。支持编译时、编译后和加载时织入             |
+| 只能使用运行时织入                                           | 支持编译时、编译后和加载时织入                               |
 | 功能不强-仅支持方法级编织                                    | 更强大 - 可以编织字段、方法、构造函数、静态初始值设定项、最终类/方法等 |
 | 只能在由 Spring 容器管理的 Bean 上实现                       | 可以在所有域对象上实现                                       |
 | 仅支持方法执行切入点                                         | 支持所有切入点                                               |
