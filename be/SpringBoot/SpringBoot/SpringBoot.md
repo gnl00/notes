@@ -202,6 +202,8 @@ public class MyArgument {
 
 ### 配置加载
 
+> [配置文件加载原理分析](https://www.jianshu.com/p/b60b20fe41ae)
+
 SpringBoot 支持多种配置方式：
 
 * @Configuration 配置类；
@@ -242,7 +244,7 @@ SpringBoot 支持多种配置方式：
 
 <br>
 
-配置文件加载顺序：
+**配置文件加载顺序**
 
 * 应用程序内的配置文件，如 `application.properties`
 * 应用程序内不同环境的配置文件，如`application-dev.properties`
@@ -271,7 +273,7 @@ SpringBoot 启动时，会从以下地方扫描配置文件：
 * 当前目录下的 config 目录
 * 当前 config 子目录中的直接子目录
 
-3、还可以通过 spring.config.location 指定配置文件存放路径
+3、还可以通过 `spring.config.location` 指定配置文件存放路径
 
 
 
@@ -375,18 +377,7 @@ starter 是一组依赖合集，包含自动配置模块内相关的依赖
   public class XXXProperties {
       private String info;
       private String version;
-      public String getInfo() {
-          return info;
-      }
-      public void setInfo(String info) {
-          this.info = info;
-      }
-      public String getVersion() {
-          return version;
-      }
-      public void setVersion(String version) {
-          this.version = version;
-      }
+      // getter and setter
   }
   
   public class XXXConfig {
@@ -397,21 +388,7 @@ starter 是一组依赖合集，包含自动配置模块内相关的依赖
       public XXXProperties getProps() {
           return props;
       }
-      public void setProps(XXXProperties props) {
-          this.props = props;
-      }
-      public String getInfo() {
-          return props.getInfo();
-      }
-      public void setInfo(String info) {
-          this.props.setInfo(info);
-      }
-      public String getVersion() {
-          return this.props.getVersion();
-      }
-      public void setVersion(String version) {
-          this.props.setVersion(version);
-      }
+      // getter and setter
   }
   
   @AutoConfiguration
@@ -425,9 +402,9 @@ starter 是一组依赖合集，包含自动配置模块内相关的依赖
       }
   }
   ```
-
   
-
+  
+  
 * 添加 `META-INF/spring.factories`
 
   ```

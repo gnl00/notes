@@ -86,6 +86,22 @@ ssh -T ssh://git@127.0.0.1:2200 # 假设将默认 22 端口修改成了 2200
 
 
 
+### GitLab 内存占用大
+
+编辑 `/etc/gitlab/gitlab.rb`，修改：
+
+* postgresql worker
+* puma worker and memory limit
+
+
+
+**参考**
+
+* https://docs.gitlab.com/ee/administration/operations/puma.html
+* https://developer.aliyun.com/article/760745
+
+
+
 ## 使用 GitLab CI
 
 

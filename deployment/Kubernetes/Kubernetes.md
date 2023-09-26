@@ -229,6 +229,24 @@ Pod 在 Node 上运行，每个 Pod 都会被绑定到 Node 节点上，直到�
 
 > Pod 是有生命周期的。当一个 Node 工作节点销毁时，节点上运行的 Pod 也会销毁。
 
+
+
+### Pod 重启
+
+1、`kubectl rollout restart`
+
+```shell
+kubectl rollout restart deployment <deployment_name> -n <namespace>
+```
+
+2、`kubectl scale`
+
+```shell
+kubectl scale deployment <deployment name> -n <namespace> --replicas=0
+
+kubectl scale deployment <deployment name> -n <namespace> --replicas=10
+```
+
 <br/>
 
 ## 服务访问暴露
@@ -1376,6 +1394,10 @@ kubectl edit service/ingress-nginx-controller --namespace ingress-nginx
 
 
 
+volume
+
+
+
 <br>
 
 ## Kubenetes Dashboard
@@ -1847,6 +1869,460 @@ spec:
 
 
 
+## Volume
+
+K8s 容器中的数据在磁盘上是临时存放的，并且每个 Pod 产生的数据是相互隔离的。此外如果 Pod 被销毁，那么 Pod 产生的数据也会跟着消失。
+
+K8s 使用 Volume 来解决这个问题。Volume 不是单独的对象，不能被独立创建，只能在 Pod 中定义。因此 Volume 的生命周期和 Pod 的生命周期是一致的。
+
+
+
+### Volume 的类型
+
+* emptyDir，一个空目录
+* hostPath，将主机的某个目录挂载到容器中
+* ConfigMap、Secret，特殊类型，将 K8s 的特定对象挂在到 Pod 中
+* PersistentVolume、PersistentVolunmeClaim，K8s 的持久化存储类型
+
+### EmptyDir
+
+
+
+### HostPath
+
+### PersistentVolume
+
+### PersistentVolumeClaim
+
+
+
+## 部署 MySQL
+
+### 使用 HostPath
+
+1、配置文件 `ms.yaml`
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: test
+spec:
+  selector:
+    app: mysql
+  clusterIP: None
+  ports:
+  - port: 3306
+---
+apiVersion: apps/v1 # Which version of the Kubernetes API you're using to create this object
+kind: StatefulSet # What kind of object you want to create
+metadata:
+  name: mysql
+  namespace: test
+spec: # What state you desire for the object
+  selector:
+    matchLabels:
+      app: mysql
+  replicas: 1
+  template: # 创建副本的时候按照模板内描述的内容来创建
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:latest
+        ports:
+          - containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: "123456"
+        volumeMounts:
+        - name: mysql-local
+          mountPath: /var/lib/mysql # 将容器内部的 /var/lib/mysql 路径挂载到主机上的 /data/mysql
+      volumes:
+      - name: mysql-local
+        hostPath:
+          path: /data/mysql
+```
+
+2、创建资源对象
+
+```shell
+kubectl create namespace test
+kubectl apply -f ms.yaml
+```
+
+3、创建完成连接到 MySQL 创建 user 数据库
+
+4、删除资源对象
+
+```shell
+kubectl delete -f ms.yaml
+```
+
+5、重新创建资源对象，并查询数据库
+
+```shell
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| goods              |
+| information_schema |
+| mysql              |
+| performance_schema |
+| sys                |
+| user               |
++--------------------+
+6 rows in set (0.00 sec)
+```
+
+可以看到，原先创建的 user 数据库依旧存在。
+
+> 需要**注意**
+>
+> HostPath 存储的内容与节点相关，所以它不适合像数据库这类的应用，如果数据库的 Pod 被调度到别的节点，那读取的内容就完全不一样了。
+
+---
+
+### 使用 PV/PVC
+
+如果要求 Pod 重新调度后仍然能使用之前读写过的数据，就只能使用网络存储了。网络存储种类非常多，且有不同的使用方法。通常，一个云服务提供商至少有块存储、文件存储、对象存储三种。
+
+K8s 抽象了 PV（PersistentVolume）和 PVC（PersistentVolumeClaim）这两个资源对象来解耦这个问题。
+
+* PV：描述的是持久化存储卷，定义一个持久化存储在宿主机上的目录，比如一个 NFS 的挂载目录。
+* PVC：描述的是 Pod 所希望使用的持久化存储的属性，比如，Volume 存储的大小、可读写权限等。
+
+**PV 制作方式**
+
+* 静态制作：管理员手动创建，一般用在数量 PV 数量较少的情况下。
+* 动态制作：大规模集群中可能会存在大量的 PV，此时就可以使用 StorageClass 来定义好 PV 的属性来动态创建 PV。
+
+> StorageClass：PV 是运维人员来创建的，开发操作 PVC，可是大规模集群中可能会有很多 PV，如果这些 PV 都需要运维手动来处理这也是一件很繁琐的事情，所以就有了动态供给概念，也就是 *Dynamic Provisioning*。而我们上面的创建的 PV 都是静态供给方式，也就是 *Static Provisioning*。而动态供给的关键就是 StorageClass，它的作用就是创建 PV 模板。
+
+**本地 PV 制作**
+
+1、在对应节点创建并挂载本地目录
+
+```shell
+mkdir -p /mnt/disks
+
+for vol in vol1 vol2 vol3; do
+    mkdir /mnt/disks/$vol
+    mount -t tmpfs $vol /mnt/disks/$vol
+done
+```
+
+2、创建 `mysql-pv.yaml`
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: mysql-sc
+  namespace: test
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer # 延迟 PVC 绑定，直到 pod 被调度
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  namespace: test
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain # PVC 被删除后，PV 的留存策略
+  storageClassName: mysql-sc
+  local: # 表示 pv 使用本地存储
+    path: /mnt/disks/vol1
+  # 使用 local pv 需要定义 nodeAffinity，k8s 需要根据 nodeAffinity 将 Pod 调度到有对应 local volume 的 node 上
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+            - ubt-srv-2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: test
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: mysql-sc
+  resources:
+    requests:
+      storage: 1Gi # 声明存储的大小
+  volumeName: mysql-pv # 绑定 PV
+```
+
+> Local PV 目前尚不支持 *Dynamic Provisioning*，无法在创建 PVC 的时候就自动创建出对应的 PV。
+
+3、创建资源对象
+
+```shell
+kubectl create namespace test
+
+kubectl apply -f mysql-pv.yaml
+# 查看资源信息
+kubectl get sc -n test
+kubectl get pv -n test
+kubectl get pvc -n test
+```
+
+4、使用 PVC
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: test
+spec:
+  selector:
+    app: mysql
+  clusterIP: None
+  ports:
+  - port: 3306
+---
+apiVersion: apps/v1 # Which version of the Kubernetes API you're using to create this object
+kind: StatefulSet # What kind of object you want to create
+metadata: # Data that helps uniquely identify the object, including a name string, UID, and optional namespace
+  name: mysql
+  namespace: test
+spec: # What state you desire for the object
+  selector:
+    matchLabels:
+      app: mysql
+  replicas: 1
+  template: # 创建副本的时候按照模板内描述的内容来创建
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: "123456"
+        volumeMounts:
+        - name: mysql-local-pvc
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-local-pvc
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+```
+
+5、查看对应节点下的挂载的目录信息
+
+```shell
+> df -h
+Filesystem                         Size  Used Avail Use% Mounted on
+vol1                               1.9G  188M  1.8G  10% /mnt/disks/vol1
+```
+
+删除并重新创建对应的资源对象可以发现数据依然能被完整保存。
+
+---
+
+### 设置时区
+
+```yaml
+spec: # What state you desire for the object
+  ...
+  template: # 创建副本的时候按照模板内描述的内容来创建
+    ...
+    spec:
+      containers:
+      - name: mysql
+        volumeMounts:
+        - name: localtime
+          readOnly: true
+          mountPath: /etc/localtime
+      volumes:
+      - name: localtime
+        hostPath:
+          type: File
+          path: /etc/localtime
+```
+
+
+
+---
+
+### 自定义配置文件
+
+通过创建 ConfigMap 并挂载到容器中，可自定义 MySQL 配置文件。
+
+1、创建 `mysql-cm.yaml`
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: test
+data:
+  my.cnf: | # | 符号被称为折叠标记，表示下方缩进的区块中包含多行文本数据
+    [mysqld]
+    default_storage_engine=innodb
+    lower_case_table_names=1
+```
+
+2、使用 ConfigMap
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+...
+spec:
+  containers:
+  - name: mysql
+    ...
+    volumeMounts:
+    - name: mysql-config
+      # /etc/my.cnf.d/my.cnf 只对特定的 MySQL 实例生效
+      # /etc/mysql/conf.d 存放 MySQL 的全局配置文件
+      mountPath: /etc/my.cnf.d/my.cnf
+      subPath: my.cnf
+  volumes:
+  - name: mysql-config
+    configMap:
+      name: mysql-config
+```
+
+3、进入容器内部
+
+```shell
+cat /etc/my.cnf.d/my.cnf
+```
+
+可以发现我们设置的配置生效了。
+
+---
+
+### 使用 Secret
+
+像是测试环境中直接将密码明文暴露的设置方法在生产环境中是不被允许的。在 K8s 中可以借助 `Secret` 来配置犹如密码等敏感信息。
+
+**Secret 的类型**
+
+| 内置类型                              | 用法                                     |
+| ------------------------------------- | ---------------------------------------- |
+| `Opaque`                              | 用户定义的任意数据                       |
+| `kubernetes.io/service-account-token` | 服务账号令牌                             |
+| `kubernetes.io/dockercfg`             | `~/.dockercfg` 文件的序列化形式          |
+| `kubernetes.io/dockerconfigjson`      | `~/.docker/config.json` 文件的序列化形式 |
+| `kubernetes.io/basic-auth`            | 用于基本身份认证的凭据                   |
+| `kubernetes.io/ssh-auth`              | 用于 SSH 身份认证的凭据                  |
+| `kubernetes.io/tls`                   | 用于 TLS 客户端或者服务器端的数据        |
+| `bootstrap.kubernetes.io/token`       | 启动引导令牌数据                         |
+
+如果 `type` 值为空字符串，则被视为 `Opaque` 类型。
+
+1、创建 `mysql-secret.yaml`
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: test
+type: Opaque
+data:
+  mysql-root-password: MTIzNDU2 # 经过 base64 加密后的密码
+```
+
+2、在容器配置中以变量引用的方式使用 Secret
+
+```yaml
+apiVersion: v1
+kind: StatefulSet
+spec:
+  ...
+  template:
+    ...
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:latest
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: mysql-root-password
+```
+
+
+
+---
+
+## 部署 PostgreSQL
+
+### 准备工作
+
+1、**仓库添加**
+
+```shell
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+helm repo update
+```
+
+2、**Release 拉取**
+
+```shell
+helm pull bitnami/postgresql
+```
+
+
+
+### 测试环境
+
+拉取成功后解压，编辑 `values.yaml`
+
+```yaml
+primary:
+  postgresql:
+    auth:
+      password: "123456" # 配置 postgres 用户的密码
+  service:
+    type: LoadBalancer # 修改此处成 LoadBalancer 或者 NodePort，暴露给外部访问，视情况而定
+```
+
+修改完成启动服务
+
+```shell
+kubectl create namespace pg
+
+helm install postgresql -n pg -f values.yaml bitnami/postgresql
+
+# 查看暴露的 IP 和端口
+kubectl get svc --namespace pg -w postgresql
+```
+
+自此，测试环境下应该就能正常访问了。
+
+
+
 ## 参考
 
 ### 概念
@@ -1887,3 +2363,10 @@ spec:
 
 * https://docs.rancher.cn/docs/k3s/installation/kube-dashboard/_index
 * https://www.ywbj.cc/?p=684
+
+### Volume
+
+* https://support.huaweicloud.com/basics-cce/kubernetes_0029.html
+* https://kubernetes.io/zh-cn/docs/tasks/run-application/run-single-instance-stateful-application/
+* https://kubernetes.io/zh-cn/docs/tasks/run-application/run-replicated-stateful-application/
+* StorageClass：https://www.cnblogs.com/rexcheny/p/10925464.html
