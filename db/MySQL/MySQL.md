@@ -1821,13 +1821,14 @@ flush privileges;
 在主库给从库分配一个连接主库的账号密码、账号名 backup，密码 123456
 
 ```shell
-GRANT REPLICATION SLAVE ON *.* to 'backup'@'%' identified by '123456';
+CREATE USER 'repl'@'%' IDENTIFIED BY '123456';
+GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
 ```
 
 3）查看 master 状态
 
 ```
-show master status；
+show master status;
 ```
 
 3-1）查看完整状态
@@ -1841,7 +1842,7 @@ show master status\G;
 从库使用主库分配的账号密码连接主库
 
 ```shell
-change master to master_host='121.43.124.80',master_user='backup',master_password='123456',master_log_file='mysql-bin.000001',master_log_pos=0,master_port=3306;
+change master to master_host='10.42.1.238',master_user='repl',master_password='123456',master_log_file='mysql-bin.000005',master_log_pos=0,master_port=3306;
 ```
 
 5）启动从库开始同步

@@ -2183,6 +2183,9 @@ data:
     [mysqld]
     default_storage_engine=innodb
     lower_case_table_names=1
+    character-set-server=utf8
+    default-time_zone='+8:00'
+    log_bin=/opt/mysql/log
 ```
 
 2、使用 ConfigMap
@@ -2269,6 +2272,268 @@ spec:
               secretKeyRef:
                 name: mysql-secret
                 key: mysql-root-password
+```
+
+---
+
+### 定期自动备份
+
+可以使用 K8s 的 CronJob 来实现数据库的定期自动备份。
+
+1、修改 Secret
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: test
+type: Opaque
+data:
+  mysql-root-password: MTIzNDU2 # 经过 base64 加密后的密码
+  mysql-username: cm9vdA==
+```
+
+2、编辑 ConfigMap
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-ext-config
+data:
+  mysql-host: 127.0.0.1
+```
+
+3、编辑 Cron 配置
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup
+  namespace: test
+spec:
+  schedule: "* * * * *"
+  #timeZone: "Etc/UTC"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: mysql-backup
+            image: mysql:latest
+            imagePullPolicy: IfNotPresent
+            env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-config
+                  key: mysql-username
+            - name: MYSQL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: mysql-ext-config
+                  key: mysql-host
+            - name: TZ
+              value: Asia/Shanghai
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -ex
+              mysqldump --host=$MYSQL_HOST --user=$MYSQL_USERNAME \
+              		--password=$MYSQL_ROOT_PASSWORD \
+              		--routines --all-databases --single-transaction \
+              		> /opt/mysql-all-db-backup-`date +"%Y%m%d"`.sql
+            volumeMounts:
+            - name: localtime
+              readOnly: true
+              mountPath: /etc/localtime
+            - name: mysql-config
+              mountPath: /etc/my.cnf.d/my.cnf
+              subPath: my.cnf
+            - name: mysql-config-ext
+          volumes:
+          - name: localtime
+            hostPath:
+              type: File
+              path: /etc/localtime
+```
+
+> `set -ex` 用于设置脚本的执行选项。其中，`-e` 选项表示一旦脚本中的任何命令执行失败，就立即终止脚本的执行，`-x` 选项用于在执行每个命令之前打印该命令及其参数。
+
+---
+
+### 主从复制架构
+
+0、Secret
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: dev
+type: Opaque
+data:
+  mysql-username: cm9vdA== # root
+  mysql-root-password: MTIzNDU2 # 经过 base64 加密后的密码
+```
+
+1、主
+
+```yaml
+apiVersion: apps/v1 # Which version of the Kubernetes API you're using to create this object
+kind: StatefulSet # What kind of object you want to create
+metadata:
+  name: mysql-master
+  namespace: dev
+spec: # What state you desire for the object
+  selector:
+    matchLabels:
+      app: mysql
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql-master
+        image: mysql:latest
+        ports:
+          - containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: mysql-root-password
+        volumeMounts:
+        - name: mysql-local
+          mountPath: /var/lib/mysql # 将容器内部的 /var/lib/mysql 路径挂载到主机上的 /data/mysql
+        - name: mysql-config
+          mountPath: /etc/my.cnf.d/my.cnf
+          subPath: my.cnf
+      volumes:
+      - name: mysql-local
+        hostPath:
+          path: /data/mysql
+      - name: mysql-config
+        configMap:
+          name: mysql-config-master
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config-master
+  namespace: dev
+data:
+  my.cnf: | # | 符号被称为折叠标记，表示下方缩进的区块中包含多行文本数据
+    [client]
+    default-character-set=utf8
+    [mysql]
+    default-character-set=utf8
+    [mysqld]
+    server_id=1
+    default_storage_engine=innodb
+    lower_case_table_names=1
+    default-time_zone='+8:00'
+    log_bin=/opt/mysql/log
+    skip-character-set-client-handshake
+    skip-name-resolve
+    read-only=0
+    replicate-ignore-db=mysql
+    replicate-ignore-db=sys
+    replicate-ignore-db=information_schema
+    replicate-ignore-db=performance_schema
+    binlog-do-db=db_user
+    binlog-do-db=db_goods
+```
+
+2、从
+
+```yaml
+apiVersion: apps/v1 # Which version of the Kubernetes API you're using to create this object
+kind: StatefulSet # What kind of object you want to create
+metadata:
+  name: mysql-slave
+  namespace: dev
+spec: # What state you desire for the object
+  selector:
+    matchLabels:
+      app: mysql
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql-slave
+        image: mysql:latest
+        ports:
+          - containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: mysql-root-password
+        volumeMounts:
+        - name: mysql-config
+          mountPath: /etc/my.cnf.d/my.cnf
+          subPath: my.cnf
+      volumes:
+      - name: mysql-config
+        configMap:
+          name: mysql-config-salve
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config-salve
+  namespace: dev
+data:
+  my.cnf: | # | 符号被称为折叠标记，表示下方缩进的区块中包含多行文本数据
+    [client]
+    default-character-set=utf8
+    [mysql]
+    default-character-set=utf8
+    [mysqld]
+    default_storage_engine=innodb
+    lower_case_table_names=1
+    default-time_zone='+8:00'
+    log_bin=/opt/mysql/log
+    skip-character-set-client-handshake
+    skip-name-resolve
+    read-only=1
+    replicate-ignore-db=mysql
+    replicate-ignore-db=sys
+    replicate-ignore-db=information_schema
+    replicate-ignore-db=performance_schema
+    binlog-do-db=db_user
+    binlog-do-db=db_goods
+```
+
+3、Service
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: dev
+spec:
+  selector:
+    app: mysql
+  clusterIP: None
+  ports:
+  - port: 3306
 ```
 
 
