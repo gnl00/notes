@@ -2,9 +2,9 @@
 
 ## GitLab 私服
 
-### 安装部署
+### Docker 部署
 
-> 使用 Docker 部署 GitLan 私服。
+> 使用 Docker 部署 GitLab 私服。
 
 1、[Ubuntu 安装 Docker](https://docs.docker.com/engine/install/ubuntu/)
 
@@ -33,12 +33,142 @@ docker run -d \
 获取 `root` 账号初始密码：
 
 ```shell
-docker exec **-it** gitlab grep 'Password:' /etc/gitlab/initial_root_password
+docker exec -it gitlab grep 'Password:' /etc/gitlab/initial_root_password
 ```
 
 接下来就可以使用 `<your-host>:<exposeIP>` 访问 GitLab。
 
 
+
+### K8s/K3s 部署
+
+1、PV/PVC
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gitlab-sc
+  namespace: dev
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer # 延迟 PVC 绑定，直到 pod 被调度
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: gitlab-pv
+  namespace: dev
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain # PVC 被删除后，PV 的留存策略
+  storageClassName: gitlab-sc
+  local: # 表示 pv 使用本地存储
+    path: /data/gitlab/data
+  # 使用 local pv 需要定义 nodeAffinity，k8s 需要根据 nodeAffinity 将 Pod 调度到有>对应 local volume 的 node 上
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+            - server2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitlab-pvc
+  namespace: dev
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: gitlab-sc
+  resources:
+    requests:
+      storage: 10Gi # 声明存储的大小
+  volumeName: gitlab-pv # 绑定 PV
+```
+
+2、StatefulSet/Service
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab
+  namespace: dev
+spec:
+  selector:
+    app: gitlab
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      nodePort: 30080
+    - name: ssh
+      port: 22
+      nodePort: 30022
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gitlab
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app: gitlab
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: gitlab
+    spec:
+      containers:
+        - name: gitlab
+          image: 192.168.2.221:30005/gitlab-ce:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+            - containerPort: 22
+          env:
+            - name: hostname
+              value: "192.168.2.222"
+            - name: shm-size
+              value: "256m"
+          volumeMounts:
+            - name: gitlab-config
+              mountPath: /etc/gitlab
+            - name: gitlab-logs
+              mountPath: /var/log/gitlab
+            - name: gitlab-pvc
+              mountPath: /var/opt/gitlab
+      volumes:
+        - name: gitlab-pvc
+          persistentVolumeClaim:
+            claimName: gitlab-pvc
+        - name: gitlab-config
+          hostPath:
+            path: /data/gitlab/config
+        - name: gitlab-logs
+          hostPath:
+            path: /data/gitlab/logs
+```
+
+3、获取 root 密码
+
+```shell
+kubectl exec -it pod/gitlab-0 -n dev -- grep
+'Password:' /etc/gitlab/initial_root_password
+```
+
+…
+
+---
 
 ### 自定义端口配置
 
@@ -57,6 +187,13 @@ editor /etc/gitlab/gitlab.rb # 如果是 docker 镜像内部
 > 如果只做 external_url 端口的修改，会发现无法访问 webui，因为 GitLab 容器内部的 nginx 会默认监听 external_url 的端口号，因此还需要进一步修改 nginx 监听的端口。
 
 3、修改 `nginx['listen_port']=80`
+
+4、全部配置完成后，在 GitLab 容器内部可以使用 `gitlab-ctl` 命令来操作 GitLab 实例。
+
+```shell
+gitlab-ctl reconfigure
+gitlab-ctl restart
+```
 
 
 
@@ -189,7 +326,7 @@ rbac:
       verbs: ["create", "patch", "delete"]
     - apiGroups: [""]
       resources: ["pods/attach"]
-      verbs: ["create", "patch", "delete"]
+      verbs: ["list", "get", "create", "patch", "delete", "update"]
     - apiGroups: [""]
       resources: ["pods"]
       verbs: ["get", "list", "watch", "create", "patch", "delete"]
