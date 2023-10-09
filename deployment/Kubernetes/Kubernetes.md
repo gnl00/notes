@@ -1863,7 +1863,11 @@ spec:
 
 > K3s 中使用 helm 报错：`Error: Kubernetes cluster unreachable: Get "http://localhost:8080/version": dial tcp 127.0.0.1:8080: connect: connection refused`。
 >
-> 解决办法：`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml`
+> 解决办法：
+>
+> ```shell
+> export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+> ```
 >
 > 参考：https://github.com/k3s-io/k3s/issues/1126
 
