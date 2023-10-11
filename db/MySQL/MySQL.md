@@ -1454,17 +1454,12 @@ MySQL 从 5.0.3 开始，InnoDB 存储引擎支持 XA 协议的分布式事务�
 
 ### 存储位置
 
-* 磁盘
+* 磁盘：从磁盘上读写数据，至少需要两次 IO 请求才能完成：一次读 IO，一次写 IO。而 IO 请求是比较耗时的操作，如果频繁的进行 IO 请求会影响数据库的性能。
 
-  从磁盘上读写数据，至少需要两次 IO 请求才能完成：一次是读 IO，另一次是写 IO。而 IO 请求是比较耗时的操作，如果频繁的进行 IO 请求会影响数据库的性能。
+* 寄存器：离 CPU 最近，从寄存器中读取数据是最快的。但是寄存器只能存储非常少量的数据，它主要是用来暂存指令和地址，而非存储大量用户数据的。
 
-* 寄存器
+* 内存：内存同样能满足快速读取和写入数据的需求，但是相对于磁盘来说，成本更贵。一般只存储一部分用户数据，而非全部数据。即使用户数据能刚好存储在内存，若是数据库出现故障或者重启，数据就会丢失。
 
-  离 CPU 最近，从寄存器中读取数据是最快的，但是寄存器只能存储非常少量的数据，设计它的目的主要是用来暂存指令和地址，并非存储大量用户数据的。
-
-* 内存
-
-  内存同样能满足快速读取和写入数据的需求，但是相对于磁盘来说，成本更加昂贵。一般只存储一部分用户数据，而非全部数据。此外，即使用户数据能刚好存储在内存，若是数据库出现故障或者重启，数据就会丢失。
 
 
 > 如何存储数据才能不会因为异常情况而丢数据，同时又能保证数据的读写速度？MySQL 的 InnoDB 存储引擎使用**数据页**来进行数据存储
@@ -1706,15 +1701,34 @@ InnoDB 支持的用户记录数据行格式为：
 
 由于文件头部在前面，会先被刷新到磁盘上。刷新页数据到磁盘时，假设刷新了一部分就出现异常。这时文件尾部的校验和还是一个旧值。数据库会去校验文件尾部的校验和，如果不等于文件头部的值，说明该数据页的数据是不完整的。
 
+<br>
 
+## 日志
+
+MySQL 中的日志分为以下几种
+
+| 日志类型                                | 日志信息                                      |
+| --------------------------------------- | --------------------------------------------- |
+| Error log 错误日志                      | 记录 MySQL 服务启动、运行或停止时的日志       |
+| General query log 通用查询日志          | 记录与客户端建立连接和进行语句收发记录        |
+| Binary log 二进制日志                   | 记录数据修改记录或主从复制数据记录            |
+| Relay log 中继日志                      | 从主从复制的主机接收到的数据修改记录          |
+| Slow query log 慢查询日志               | 记录查询时间超过 `long_query_time` 时间的记录 |
+| DDL log (metadata log) 数据查询语句日志 | 记录 DDL 语句元数据操作的信息                 |
+
+默认情况下除了错误日志，其他日志都是关闭状态。
+
+> https://juejin.cn/post/7072904284643262501
 
 <br>
 
 ## 主从配置
 
+### 配置
+
 **主库写入，从库读取**
 
-> 使用 Docker，MySQL 版本 5.7.28
+> 使用 Docker，MySQL 版本 8.X
 
 1、新建启动 master
 
@@ -1751,8 +1765,6 @@ read-only=0
 binlog-do-db=db_sync_1
 binlog-do-db=db_sync_2
 binlog-do-db=db_sync_3
-binlog-do-db=db_sync_4
-binlog-do-db=db_sync_5
 
 # 设置忽略同步的库
 replicate-ignore-db=mysql
@@ -1790,12 +1802,10 @@ server_id=2
 log-bin=mysql-bin
 # 设置从库只读
 read-only=1
-# 设置同步库
+# 设置同步库，如果不指定则同步全部数据库
 binlog-do-db=db_sync_1
 binlog-do-db=db_sync_2
 binlog-do-db=db_sync_3
-binlog-do-db=db_sync_4
-binlog-do-db=db_sync_5
 
 # 设置忽略同步库
 replicate-ignore-db=mysql
@@ -1810,7 +1820,7 @@ replicate-ignore-db=performance_schema
 
 访问账号 root，密码 123456
 
-```shell
+```sql
 grant all privileges on *.* to 'root'@'%' identified by '123456' with grant option;
 
 flush privileges;
@@ -1820,24 +1830,49 @@ flush privileges;
 
 在主库给从库分配一个连接主库的账号密码、账号名 backup，密码 123456
 
-```shell
-CREATE USER 'repl'@'%' IDENTIFIED BY '123456';
+```sql
+-- mysql 5
+CREATE USER 'repl'@'%'
+IDENTIFIED BY '123456';
+
 GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+-- 权限检查
+SHOW GRANTS FOR 'user-name'@'localhost';
 ```
+
+MySQL 8 更换了[身份验证插件](https://dev.mysql.com/doc/refman/8.0/en/authentication-plugins.html)，可能会报错：Authentication requires secure connection。
+
+解决办法：
+
+```sql
+-- 方法一：使用复制用户请求服务器公钥：
+mysql -u repl -p123456 -h 118.31.127.96 -P3307 --get-server-public-key
+
+-- 方法二：使用复制用户请求服务器公钥：
+mysql -u repl -p123456 -h 118.31.127.96 -P3307 --server-public-key-path=/mysqldata/my3308/data/public_key1.pem
+
+-- 方法三：避免使用插件 caching_sha2_password。
+CREATE USER 'repl'@'%' IDENTIFIED WITH 'mysql_native_password' BY 'XXXX'; 
+```
+
+> Ref:
+>
+> * https://stackoverflow.com/questions/69936021/error-002061-authentication-plugin-caching-sha2-password-reported-error-aut
+> * https://www.modb.pro/db/29919
 
 3）查看 master 状态
 
-```
+```sql
 show master status;
 ```
 
 3-1）查看完整状态
 
-```shell
+```sql
 show master status\G;
 ```
 
-```shell
+```sql
 mysql> show master status;
 +---------------+----------+--------------+------------------+-------------------+
 | File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
@@ -1851,7 +1886,7 @@ mysql> show master status;
 
 从库使用主库分配的账号密码连接主库
 
-```shell
+```sql
 change master to 
 master_host='10.42.1.178',
 master_port=3306,
@@ -1863,17 +1898,19 @@ master_log_pos=157; # 需要和 master status 中的 position 一致
 
 5）启动从库开始同步
 
-```shell
+> 启动之前要确保需要同步的数据库已经在从库中被创建好。
+
+```sql
 start slave;
 ```
 
  6）查看从库状态
 
-```shell
+```sql
 show slave status\G;
 ```
 
-```shell
+```sql
 mysql> show slave status\G
 *************************** 1. row ***************************
                Slave_IO_State: Waiting for source to send event
@@ -1939,7 +1976,54 @@ Master_SSL_Verify_Server_Cert: No
 1 row in set, 1 warning (0.00 sec)
 ```
 
-使用 MyCat 或者在项目中引入 Sharding-JDBC 依赖让项目读取到主从数据库
+7）从主库开始复制
+
+如果发生以下错误：
+
+```sql
+Last_SQL_Error: Error executing row event: 'Unknown database 'xxx''
+```
+
+这是因为主从库的数据不一致，需要初始化从库（将主库的数据全量备份并恢复到从库）。
+
+首先锁定主库，不允许写操作：
+
+```sql
+mysql> FLUSH TABLES WITH READ LOCK;
+```
+
+查看主库状态：
+
+```sql
+mysql> show master status;
+```
+
+此操作会生成 binlog 文件，记录 File 和 Position 的值，并将备份文件发送到从库恢复数据。
+
+取消主库锁定
+
+```sql
+mysql> UNLOCK TABLES;
+```
+
+主库和从库的数据一致，并且后对主库执行的新增/修改/删除操作也会即使同步到从库上。
+
+---
+
+### 原理
+
+1、主库 log dump 线程生成 binlog，并负责将 binlog 发送到从库
+
+2、从库有两个线程 I/O 线程和 SQL 线程。I/O 线程请求主库的 binlog，并将获取到的 binlog 日志写到 relaylog （中继日志）中。SQL 线程负责读取 relay log 中的内容并在从库上重放日志上的操作，从而保证主从数据库中数据的最终一致。
+
+> 同步流程、同步策略（同步复制、半同步复制、异步复制）。参考：
+>
+> * https://cloud.tencent.com/developer/article/1837795
+> * 
+
+---
+
+使用 MyCat 或者在项目中引入 Sharding-JDBC 依赖让 Java 项目读取主从数据库
 
 ```xml
 <!-- https://mvnrepository.com/artifact/io.shardingjdbc/sharding-jdbc-core -->
@@ -1949,8 +2033,6 @@ Master_SSL_Verify_Server_Cert: No
     <version>2.0.3</version>
 </dependency>
 ```
-
-
 
 <br>
 

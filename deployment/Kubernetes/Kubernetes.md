@@ -2540,7 +2540,214 @@ spec:
   - port: 3306
 ```
 
+4、服务部署完毕进行配置
 
+4.1、主从都要开启 root 账户允许远程访问
+
+```sql
+grant all privileges on *.* to 'root'@'%' identified by '123456' with grant option;
+
+flush privileges;
+```
+
+4.2、主库添加主从复制账户
+
+```sql
+CREATE USER 'repl'@'%' IDENTIFIED BY '123456';
+GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+```
+
+4.3、查看主库状态（从库连接的时候需要用到同步的 File 和同步的 Position 信息）
+
+```sql
+mysql> show master status;
++---------------+----------+--------------+------------------+-------------------+
+| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++---------------+----------+--------------+------------------+-------------------+
+| binlog.000007 |      157 |              |                  |                   |
++---------------+----------+--------------+------------------+-------------------+
+1 row in set (0.00 sec)
+```
+
+4.3、从库连接主库
+
+```sql
+change master to 
+master_host='<master-host>',
+master_port=3306,
+master_user='repl',
+master_password='123456',
+master_log_file='binlog.000007', # 需要和 master status 中的文件名一致
+master_log_pos=157; # 需要和 master status 中的 position 一致
+```
+
+4.4、从库开启同步
+
+```sql
+start slave;
+
+-- 此外还有以下命令
+stop slave;
+reset slave;
+```
+
+4.5、查看从库状态
+
+```sql
+mysql> show slave status\G
+*************************** 1. row ***************************
+               Slave_IO_State: Waiting for source to send event
+                  Master_Host: 10.42.1.178
+                  Master_User: repl
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: binlog.000007
+          Read_Master_Log_Pos: 766
+               Relay_Log_File: mysql-slave-0-relay-bin.000002
+                Relay_Log_Pos: 323
+        Relay_Master_Log_File: binlog.000007
+             Slave_IO_Running: Yes -- 关注
+            Slave_SQL_Running: Yes -- 关注
+              Replicate_Do_DB:
+          Replicate_Ignore_DB:
+           Replicate_Do_Table:
+       Replicate_Ignore_Table:
+      Replicate_Wild_Do_Table:
+  Replicate_Wild_Ignore_Table:
+                   Last_Errno: 0
+                   Last_Error:
+                 Skip_Counter: 0
+          Exec_Master_Log_Pos: 766
+              Relay_Log_Space: 541
+              Until_Condition: None
+               Until_Log_File:
+                Until_Log_Pos: 0
+           Master_SSL_Allowed: No
+           Master_SSL_CA_File:
+           Master_SSL_CA_Path:
+              Master_SSL_Cert:
+            Master_SSL_Cipher:
+               Master_SSL_Key:
+        Seconds_Behind_Master: 0
+Master_SSL_Verify_Server_Cert: No
+                Last_IO_Errno: 0
+                Last_IO_Error:
+               Last_SQL_Errno: 0
+               Last_SQL_Error:
+  Replicate_Ignore_Server_Ids:
+             Master_Server_Id: 1
+                  Master_UUID: c6d6274f-5c35-11ee-91a0-2a660ebe931b
+             Master_Info_File: mysql.slave_master_info
+                    SQL_Delay: 0
+          SQL_Remaining_Delay: NULL
+      Slave_SQL_Running_State: Replica has read all relay log; waiting for more updates -- 关注
+           Master_Retry_Count: 10
+                  Master_Bind:
+      Last_IO_Error_Timestamp:
+     Last_SQL_Error_Timestamp:
+               Master_SSL_Crl:
+           Master_SSL_Crlpath:
+           Retrieved_Gtid_Set:
+            Executed_Gtid_Set:
+                Auto_Position: 0
+         Replicate_Rewrite_DB:
+                 Channel_Name:
+           Master_TLS_Version:
+       Master_public_key_path:
+        Get_master_public_key: 0
+            Network_Namespace:
+1 row in set, 1 warning (0.00 sec)
+```
+
+主要关注这几个线程和状态：Slave_IO_State、Slave_IO_Running、Slave_SQL_Running、Slave_SQL_Running_State 和 Last_IO_Error。
+
+5、如果主从复制过程中出现异常，一般会显示在 Last_IO_Error 字段，或者也可以查看日志表的记录
+
+```sql
+select* from performance_schema.replication_applier_status_by_worker\G -- 或者其他类似的表，如果状态异常 MySQL 会在 Slave_IO_State 或者 Slave_SQL_Running_State 中给出提示。
+```
+
+6、检查账户是否有某种权限
+
+```sql
+select * from mysql.user where User='username';
+
+mysql> select * from mysql.user where User='repl'\G
+*************************** 1. row ***************************
+                    Host: %
+                    User: repl
+             Select_priv: N
+             Insert_priv: N
+             Update_priv: N
+             Delete_priv: N
+             Create_priv: N
+               Drop_priv: N
+             Reload_priv: N
+           Shutdown_priv: N
+            Process_priv: N
+               File_priv: N
+              Grant_priv: N
+         References_priv: N
+              Index_priv: N
+              Alter_priv: N
+            Show_db_priv: N
+              Super_priv: N
+   Create_tmp_table_priv: N
+        Lock_tables_priv: N
+            Execute_priv: N
+         Repl_slave_priv: Y
+        Repl_client_priv: N
+        Create_view_priv: N
+          Show_view_priv: N
+     Create_routine_priv: N
+      Alter_routine_priv: N
+        Create_user_priv: N
+              Event_priv: N
+            Trigger_priv: N
+  Create_tablespace_priv: N
+                ssl_type:
+              ssl_cipher: 0x
+             x509_issuer: 0x
+            x509_subject: 0x
+           max_questions: 0
+             max_updates: 0
+         max_connections: 0
+    max_user_connections: 0
+                  plugin: caching_sha2_password
+   authentication_string: $A$005$
+                                 j}e! _A|lO.9j\qdmwgjpkRYRy/3USOLMjb1OCVds4g1KT8H.ZYLcF0rt3
+        password_expired: N
+   password_last_changed: 2023-09-27 09:49:01
+       password_lifetime: NULL
+          account_locked: N
+        Create_role_priv: N
+          Drop_role_priv: N
+  Password_reuse_history: NULL
+     Password_reuse_time: NULL
+Password_require_current: NULL
+         User_attributes: NULL
+1 row in set (0.00 sec)
+```
+
+可以看到 `Repl_slave_priv: Y` 说明 repl 用户拥有主从复制的权限。
+
+### 报错
+
+1、`Authentication requires secure connection`
+
+```sql
+Last_IO_Error: Error connecting to source 'repl@10.42.1.217:3306'. This was attempt 1/10, with a delay of 60 seconds between attempts. Message: Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
+```
+
+是因为MySQL 8 以上版本更换了[身份验证插件](https://dev.mysql.com/doc/refman/8.0/en/caching-sha2-pluggable-authentication.html) caching_sha2_password，使用复制用户请求服务器公钥：
+
+```sql
+mysql -u repl -p123456 -h 118.31.127.96 -P3307 --get-server-public-key
+```
+
+2、`Error executing row event: 'Unknown database 'xxx''`
+
+在开启主从复制之前需要先将主库数据全量备份，并恢复到从库，主从复制前保证主从库的数据一致。
 
 ---
 

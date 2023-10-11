@@ -255,9 +255,7 @@ Writing data to TimescaleDB works the same way as writing data to regular Postgr
 
 ### When
 
-> When new data is added to your database, it is in the form of uncompressed rows. Timescale uses a built-in job scheduler to convert this data to the form of compressed columns. When you enable compression, the data in your hypertable is compressed chunk by chunk. 
-
-
+> When new data is added to your database, it is in the form of uncompressed rows. Timescale uses a built-in job scheduler to convert this data to the form of compressed columns. **When you enable compression**, the data in your hypertable is compressed chunk by chunk. 
 
 ### Benefits
 
@@ -428,7 +426,7 @@ grep -v _timescaledb_internal > schema.sql
 
 ```postgresql
 psql -d old_db \
--c "\COPY (SELECT * FROM conditions) TO data.csv DELIMITER ',' CSV"
+-c "\COPY (SELECT * FROM table_name) TO data_name.csv DELIMITER ',' CSV"
 ```
 
 
@@ -450,7 +448,7 @@ psql -d new_db -c "SELECT create_hypertable('<table-name>', '<time-colum>')"
 3、恢复数据
 
 ```postgresql
-psql -d new_db -c "\COPY conditions FROM data.csv CSV"
+psql -d new_db -c "\COPY table_name FROM data_name.csv CSV"
 ```
 
 > When you create the new hypertable with the `create_hypertable` command, you do not need to use the same parameters as existed in the old database. This can provide a good opportunity for you to re-organize your hypertables if you need to. For example, you can change the partitioning key, the number of partitions, or the chunk interval sizes.
@@ -554,10 +552,3 @@ psql -d new_db -c "\COPY conditions FROM data.csv CSV"
 
 > https://docs.timescale.com/use-timescale/latest/alerting/
 
-
-
-
-
-## Tricky
-
-* 新旧数据查询频率，蛇形分表挺有意思：https://developer.aliyun.com/article/661638
