@@ -717,6 +717,475 @@ WHERE active = 0;
 
 
 
+## 高可用架构
+
+### 主从流复制
+
+…
+
+### 主从流复制 + Replication Manager
+
+> 简称 *repmgr*。
+
+#### repmgr 配置
+
+1、首先查看 repmgr 与 PostgreSQL 的[版本对应关系](https://www.repmgr.org/docs/current/install-requirements.html)，并[安装](https://www.repmgr.org/docs/current/installation-packages.html#INSTALLATION-PACKAGES-DEBIAN)。
+
+此处以 pg-15 为例：
+
+```shell
+sudo apt install postgresql-15
+
+sudo apt install install postgresql-15-repmgr
+```
+
+2、修改 `/etc/postgresql/15/main/postgresql.conf` 和 `/etc/postgresql/15/main/pg_hba.conf`，允许外部 IP 访问。并重启服务。
+
+3、主节点  `/etc/postgresql/15/main/postgresql.conf` 配置修改
+
+```text
+# Enable replication connections; set this value to at least one more
+# than the number of standbys which will connect to this server
+# (note that repmgr will execute "pg_basebackup" in WAL streaming mode,
+# which requires two free WAL senders).
+#
+# See: https://www.postgresql.org/docs/current/runtime-config-replication.html#GUC-MAX-WAL-SENDERS
+
+max_wal_senders = 10
+
+# If using replication slots, set this value to at least one more
+# than the number of standbys which will connect to this server.
+# Note that repmgr will only make use of replication slots if
+# "use_replication_slots" is set to "true" in "repmgr.conf".
+# (If you are not intending to use replication slots, this value
+# can be set to "0").
+#
+# See: https://www.postgresql.org/docs/current/runtime-config-replication.html#GUC-MAX-REPLICATION-SLOTS
+
+max_replication_slots = 10
+
+# Ensure WAL files contain enough information to enable read-only queries
+# on the standby.
+#
+#  PostgreSQL 9.5 and earlier: one of 'hot_standby' or 'logical'
+#  PostgreSQL 9.6 and later: one of 'replica' or 'logical'
+#    ('hot_standby' will still be accepted as an alias for 'replica')
+#
+# See: https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-WAL-LEVEL
+
+wal_level = 'hot_standby'
+
+# Enable read-only queries on a standby
+# (Note: this will be ignored on a primary but we recommend including
+# it anyway, in case the primary later becomes a standby)
+#
+# See: https://www.postgresql.org/docs/current/runtime-config-replication.html#GUC-HOT-STANDBY
+
+hot_standby = on
+
+# Enable WAL file archiving
+#
+# See: https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-ARCHIVE-MODE
+
+archive_mode = on
+
+# Set archive command to a dummy command; this can later be changed without
+# needing to restart the PostgreSQL instance.
+#
+# See: https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-ARCHIVE-COMMAND
+
+archive_command = '/bin/true'
+```
+
+4、为 repmgr 创建装用的用户，以及专用的数据库来保存高可用架构数据
+
+```shell
+createuser -s repmgr
+
+createdb repmgr -O repmgr
+```
+
+5、编辑 `/etc/postgresql/15/main/pg_hba.conf`，为 repmgr 用户添加访问权限
+
+```text
+local repmgr repmgr trust
+host repmgr repmgr 127.0.0.1/32 trust
+host repmgr repmgr 0.0.0.0/0 trust
+```
+
+> 上述配置是在测试环境下的，如果生产环境配置最好限制可远程访问的 IP 段，例如 `192.168.1.0/24`。
+
+6、在主节点下创建 `repmgr.conf` 配置 `/etc/repmgr.conf`
+
+```
+node_id=1
+node_name='node1'
+conninfo='host=192.168.111.12 user=repmgr dbname=repmgr connect_timeout=2'
+data_directory='/var/lib/postgresql/15/main'
+```
+
+> `repmgr.conf` should ***not*** be stored inside the PostgreSQL data directory, as it could be overwritten when setting up or reinitialising the PostgreSQL server. 
+
+7、主节点注册到 repmgr
+
+```shell
+$ repmgr -f /etc/repmgr.conf primary register
+INFO: connecting to primary database...
+NOTICE: attempting to install extension "repmgr"
+NOTICE: "repmgr" extension successfully installed
+NOTICE: primary node record (ID: 1) registered
+
+# 检查节点信息
+$ repmgr -f /etc/repmgr.conf cluster show
+```
+
+9、从节点准备
+
+9.1、安装 PG-15 和 postgresql-15-repmgr
+
+9.2、停止 PG-15，编辑 `postgresql.conf` 开启远程监听，编辑 `pg_hba.conf` 允许用于远程访问
+
+9.3、将数据目录 `/var/lib/postgresql/15/main` 备份到  `/var/lib/postgresql/15/backup` ，新建 main 文件夹，存放从主节点 clone 的数据。注意新建的 main 文件夹的用户和用户组设置为 `postgres`
+
+> **Note**
+>
+> On the standby, do ***not*** create a PostgreSQL instance (i.e. do not execute initdb or any database creation scripts provided by packages), but do ensure the destination data directory (and any other directories which you want PostgreSQL to use) exist and are owned by the `postgres` system user. Permissions must be set to `0700` (`drwx------`).
+>
+> **Because**
+>
+> repmgr will place a copy of the primary's database files in this directory. It will however refuse to run if a PostgreSQL instance has already been created there.
+
+使用 psql 命令检查从节点是否可访问到主节点
+
+```shell
+ psql 'host=<node1-host> user=repmgr dbname=repmgr connect_timeout=2'
+```
+
+9.4、创建配置 `/etc/repmgr.conf`
+
+```
+node_id=2
+node_name='node2'
+conninfo='host=192.168.111.12 user=repmgr dbname=repmgr connect_timeout=2'
+data_directory='/var/lib/postgresql/15/main'
+```
+
+9.5、使用 `--dry-run` 参数检查是否可以从主节点复制
+
+```shell
+$ repmgr -h <node1-host> -U repmgr -d repmgr -f /etc/repmgr.conf standby clone --dry-run
+
+NOTICE: destination directory "/var/lib/postgresql/15/main" provided
+INFO: connecting to source node
+DETAIL: connection string is: host=192.168.111.12 user=repmgr dbname=repmgr
+DETAIL: current installation size is 37 MB
+INFO: "repmgr" extension is installed in database "repmgr"
+INFO: replication slot usage not requested;  no replication slot will be set up for this standby
+INFO: parameter "max_wal_senders" set to 10
+NOTICE: checking for available walsenders on the source node (2 required)
+INFO: sufficient walsenders available on the source node
+DETAIL: 2 required, 10 available
+NOTICE: checking replication connections can be made to the source server (2 required)
+INFO: required number of replication connections could be made to the source server
+DETAIL: 2 replication connections required
+WARNING: data checksums are not enabled and "wal_log_hints" is "off"
+DETAIL: pg_rewind requires "wal_log_hints" to be enabled
+NOTICE: standby will attach to upstream node 1
+HINT: consider using the -c/--fast-checkpoint option
+INFO: would execute:
+  pg_basebackup -l "repmgr base backup"  -D /var/lib/postgresql/15/main -h 192.168.111.12 -p 5432 -U repmgr -X stream
+INFO: all prerequisites for "standby clone" are met
+```
+
+> 可能会提示：`no pg_hba.conf entry for replication connection from host ...`，配置 `pg_hba.conf`：
+>
+> ```text
+> host replication all 0.0.0.0/0 trust
+> ```
+>
+> 同样的，生产环境下注意缩小 IP 访问范围。
+
+9.6、如果上述步骤无误，则直接从主节点克隆数据
+
+```shell
+$ repmgr -h 192.168.111.12 -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
+
+NOTICE: destination directory "/var/lib/postgresql/15/main" provided
+INFO: connecting to source node
+DETAIL: connection string is: host=192.168.111.12 user=repmgr dbname=repmgr
+DETAIL: current installation size is 37 MB
+INFO: replication slot usage not requested;  no replication slot will be set up for this standby
+NOTICE: checking for available walsenders on the source node (2 required)
+NOTICE: checking replication connections can be made to the source server (2 required)
+WARNING: data checksums are not enabled and "wal_log_hints" is "off"
+DETAIL: pg_rewind requires "wal_log_hints" to be enabled
+INFO: creating directory "/var/lib/postgresql/15/main"...
+NOTICE: starting backup (using pg_basebackup)...
+HINT: this may take some time; consider using the -c/--fast-checkpoint option
+INFO: executing:
+  pg_basebackup -l "repmgr base backup"  -D /var/lib/postgresql/15/main -h 192.168.111.12 -p 5432 -U repmgr -X stream
+could not change directory to "/home/gnl": Permission denied
+NOTICE: standby clone (using pg_basebackup) complete
+NOTICE: you can now start your PostgreSQL server
+HINT: for example: pg_ctl -D /var/lib/postgresql/15/main start
+HINT: after starting the server, you need to register this standby with "repmgr standby register"
+postgres@ubt-srv-1:/home/gnl$ cat /etc/repmgr.conf
+node_id=2
+node_name='node2'
+conninfo='host=192.168.111.11 user=repmgr dbname=repmgr connect_timeout=2'
+data_directory='/var/lib/postgresql/15/main'
+```
+
+> 可以看到熟悉的 `pg_basebackup` 命令，实际上 repmgr 底层就是使用 `pg_basebackup` 命令来帮助从节点克隆数据的。
+
+9.7、编辑 repmgr 用户远程访问权限
+
+> 主从节点切换会使用到
+
+```shell
+local repmgr repmgr trust
+host repmgr repmgr 127.0.0.1/32 trust
+host repmgr repmgr 0.0.0.0/0 trust
+```
+
+9.8、启动从节点上的 PG
+
+10、主从节点状态查询
+
+启动完成后在主节点查询
+
+```postgresql
+postgres=# \x
+Expanded display is on.
+postgres=# SELECT * FROM pg_stat_replication;
+-[ RECORD 1 ]----+------------------------------
+pid              | 6011
+usesysid         | 16388
+usename          | repmgr
+application_name | node2
+client_addr      | 192.168.111.11
+client_hostname  |
+client_port      | 56912
+backend_start    | 2023-10-16 14:02:30.04542+08
+backend_xmin     |
+state            | streaming
+sent_lsn         | 0/B000368
+write_lsn        | 0/B000368
+flush_lsn        | 0/B000368
+replay_lsn       | 0/B000368
+write_lag        |
+flush_lag        |
+replay_lag       |
+sync_priority    | 0
+sync_state       | async
+reply_time       | 2023-10-16 14:03:05.786353+08
+```
+
+可以看到有一个 node2 节点已经连接上来了。
+
+在从库查询 wal receiver 状态：
+
+```postgresql
+SELECT * FROM pg_stat_wal_receiver;
+postgres=# sELECT * FROM pg_stat_wal_receiver;
+
+-[ RECORD 1 ]---------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+pid                   | 21444
+status                | streaming
+receive_start_lsn     | 0/B000000
+receive_start_tli     | 1
+written_lsn           | 0/B000368
+flushed_lsn           | 0/B000368
+received_tli          | 1
+last_msg_send_time    | 2023-10-16 14:04:35.904542+08
+last_msg_receipt_time | 2023-10-16 14:04:35.880378+08
+latest_end_lsn        | 0/B000368
+latest_end_time       | 2023-10-16 14:02:30.053889+08
+slot_name             |
+sender_host           | 192.168.111.12
+sender_port           | 5432
+conninfo              | user=repmgr passfile=/var/lib/postgresql/.pgpass 
+```
+
+11、将从节点注册到 repmgr 上
+
+```shell
+$ repmgr -f /etc/repmgr.conf standby register --force
+
+INFO: connecting to local node "node2" (ID: 2)
+INFO: connecting to primary database
+WARNING: --upstream-node-id not supplied, assuming upstream node is primary (node ID: 1)
+INFO: standby registration complete
+NOTICE: standby node "node2" (ID: 2) successfully registered
+```
+
+12、检查集群状态
+
+主节点或者从节点
+
+```shell
+$ repmgr -f /etc/repmgr.conf cluster show
+
+ ID | Name  | Role    | Status    | Upstream | Location | Priority | Timeline | Connection string
+----+-------+---------+-----------+----------+----------+----------+----------+-----------------------------------------------------------------
+ 1  | node1 | primary | * running |          | default  | 100      | 1        | host=192.168.111.12 user=repmgr dbname=repmgr connect_timeout=2
+ 2  | node2 | standby |   running | node1    | default  | 100      | 1        | host=192.168.111.11 user=repmgr dbname=repmgr connect_timeout=2
+```
+
+可以看到现在我们的集群中有两个节点了。
+
+---
+
+#### 主从切换
+
+14、编辑 `/etc/repmgr.conf`，添加配置
+
+```text
+service_start_command='sudo pg_ctlcluster 15 main start'
+service_stop_command='sudo pg_ctlcluster 15 main stop'
+service_restart_command='sudo pg_ctlcluster 15 main restart'
+service_reload_command  = 'sudo pg_ctlcluster 15 main reload'
+```
+
+为 postgres 用户添加权限，`sudo vim /etc/sudoers`
+
+```text
+Defaults:postgres !requiretty
+postgres ALL= NOPASSWD: /usr/bin/pg_ctlcluster 15 main start
+postgres ALL= NOPASSWD: /usr/bin/pg_ctlcluster 15 main stop
+postgres ALL= NOPASSWD: /usr/bin/pg_ctlcluster 15 main restart
+postgres ALL= NOPASSWD: /usr/bin/pg_ctlcluster 15 main reload
+```
+
+停止所有的 PG 实例，该用 `pg_ctlcluster` 来启动。
+
+15、主从节点无密码 SSH 连接配置
+
+> root 和 postgres 用户都需要设置，主从节点需要双向配置（主节点 SSH 无密码连接从节点，从节点 SSH 无密码连接主节点）
+
+15.1、生成 SSH
+
+```shell
+# root
+ssh-keygen -t rsa
+cd /root/.ssh
+cat id_dsa.pub >> root_authorized_keys
+
+# postgres
+ssh-keygen -t rsa
+cd /var/lib/postgresql/.ssh
+cat id_dsa.pub >> pg_authorized_keys
+```
+
+
+
+15.2、传输到服务器上（传输到需要无密码登录的机器上）
+
+```shell
+scp /root/.ssh/root_authorized_keys user@server_addr:/home/user
+
+# 目标服务器
+mv /home/user/root_authorized_keys /root/.ssh/authorized_keys
+mv /home/user/pg_authorized_keys /var/lib/postgresql/.ssh/authorized_keys
+```
+
+> 如果知道 root/postgres 账号密码
+>
+> ```shell
+> ssh-keygen -t rsa
+> ssh-copy-id user@server_address 
+> # 会传输保存到到对应账户的 `~/.ssh/authorized_keys` 中。
+> ```
+
+
+
+15.3、配置服务器 SSH 允许无密码登录
+
+```shell
+sudo vim /etc/ssh/sshd_config 
+```
+
+修改
+
+```text
+PasswordAuthentication no
+```
+
+15.4、重启 SSH 服务
+
+```shell
+sudo systemctl restart sshd
+```
+
+15.5、登录测试
+
+```shell
+ssh user@server_address 
+```
+
+如果有两台服务器192.168.111.11 和 192.168.111.12，两台服务器都需要能成功执行以下命令
+
+```shell
+# 192.168.111.11
+root:~ ssh root@192.168.111.12
+postgres:~ ssh postgres@192.168.111.12
+
+# 192.168.111.12
+root:~ ssh root@192.168.111.11
+postgres:~ ssh postgres@192.168.111.11
+```
+
+无需密码证明配置成功。
+
+16、修改 repmgr 配置
+
+```
+service_start_command='sudo pg_ctlcluster 15 main start'
+service_stop_command='sudo pg_ctlcluster 15 main stop'
+service_restart_command='sudo pg_ctlcluster 15 main restart'
+service_reload_command  = 'sudo pg_ctlcluster 15 main reload'
+```
+
+17、停止 PG node1，模拟宕机
+
+18、node2 迁移为 primary
+
+```shell
+repmgr -f /etc/repmgr.conf standby switchover
+```
+
+19、重新启动 node1
+
+…
+
+```shell
+$ repmgr -f /etc/repmgr.conf cluster show
+ ID | Name  | Role    | Status               | Upstream | Location | Priority | Timeline | Connection string
+----+-------+---------+----------------------+----------+----------+----------+----------+-----------------------------------------------------------------
+ 1  | node1 | primary | ! running as standby |          | default  | 100      | 2        | host=192.168.111.12 user=repmgr dbname=repmgr connect_timeout=2
+ 2  | node2 | primary | * running            |          | default  | 100      | 2        | host=192.168.111.11 user=repmgr dbname=repmgr connect_timeout=2
+```
+
+出现 `primary | ! running as standby` 则需要将 node1 以 standby 的身份重新加入集群
+
+```
+repmgr -f /etc/repmgr.conf standby register --force
+```
+
+…
+
+---
+
+#### 完善 repmgr 配置
+
+```
+failover=automatic
+```
+
+
+
+---
+
 ## 参考
 
 * http://postgres.cn/docs
