@@ -719,11 +719,9 @@ WHERE active = 0;
 
 ## 高可用架构
 
-### 主从流复制
+### PG 安装
 
-#### 安装
-
-> Docker/K8s 环境下部署不好控制，选择直接安装再服务器上。
+> Docker/K8s 环境下部署不好控制，选择直接安装在服务器上。
 
 1、[Ubuntu install](https://www.postgresql.org/download/linux/ubuntu/)
 
@@ -741,10 +739,12 @@ sudo -u postgres psql
 * pg 命令行工具：`/usr/lib/postgresql/16/bin`
 
 > 可能会遇到 `/var/lib/postgresql/` 目录下 *operation not permitted* 的问题，解决方法：
+>
 > * 一次性修改：`chown -R postgres:postgres /var/lib/postgresql/`
 > * 先修改 owner：`chown -R postgres /var/lib/postgresql/`，再修改 group：`chown -R postgres /var/lib/postgresql/`
 
 4、创建用户
+
 ```postgresql
 CREATE USER root superuser login PASSWORD '123456';
 ```
@@ -752,10 +752,12 @@ CREATE USER root superuser login PASSWORD '123456';
 5、开启远程访问
 
 5.1、修改 pg_hba.conf
+
 ```text
 # TYPE DATABASE USER ADDRESS METHOD
 host all all 0.0.0.0/0 trust
 ```
+
 > trust 表示不需要密码，如果需要密码则改为 md5
 
 5.2、修改 postgresql.conf
@@ -765,6 +767,7 @@ listen_addresses = '*'
 ```
 
 5.3、重启服务
+
 ```shell
 sudo service postgresql restart
 # or
@@ -776,6 +779,7 @@ sudo systemctl restart postgresql
 > 现在就可以通过远程访问数据库了
 
 6、创建测试数据
+
 ```postgresql
 CREATE DATABASE test OWNER root;
 
@@ -794,7 +798,9 @@ insert into myuser (name, age) values ('wangwu', 22);
 
 ---
 
-#### 主从复制部署
+### 主从流复制
+
+#### 配置
 
 7、主节点创建同步账号
 
@@ -813,17 +819,22 @@ host all repl 0.0.0.0/0 trust
 ```text
 listen_addresses = '*'
 wal_level = replica
-archive_mode = off
-max_wal_senders = 32
-wal_sender_timeout = 60s
-wal_keep_segments = 64
-
+archive_mode = on
+#archive_command = '/bin/true'
+archive_command = '{ sleep 5; true; }' # 9.5 后淘汰，或许可以尝试不填写？
+max_wal_senders = 10
 max_replication_slots = 10 # (修改) 设置支持的复制槽数量
 max_slot_wal_keep_size = 1GB # (修改) 设置复制槽保留的 wal 最大值,默认单位是 M
-
 hot_standby = on
-hot_standby_feedback = on # 如果有错误的数据复制向主进行反馈
-# synchronous_commit = on  # 开启同步复制
+
+#wal_sender_timeout = 60s
+#wal_keep_segments = 64
+#hot_standby_feedback = on # 如果有错误的数据复制向主进行反馈
+#synchronous_commit = on  # 开启同步复制
+
+#log_truncate_on_rotation = 'on' # 日志滚动
+#log_rotation_age = '1d'
+#log_rotation_size = 0
 ```
 
 10、重启主节点
@@ -1013,9 +1024,9 @@ postgres=# select pg_is_in_recovery();
 
 ---
 
-### 主从流复制 + Replication Manager
+### 主从流复制 + repmgr
 
-> 简称 *repmgr*。
+> *Replication Manager* 简称 repmgr。
 
 #### repmgr 配置
 
@@ -1059,7 +1070,8 @@ archive_mode = on
 #
 # See: https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-ARCHIVE-COMMAND
 
-archive_command = '/bin/true'
+#archive_command = '/bin/true'
+archive_command = '{ sleep 5; true; }'
 
 # Enable replication connections; set this value to at least one more
 # than the number of standbys which will connect to this server
@@ -1328,7 +1340,7 @@ $ repmgr -f /etc/repmgr.conf cluster show
 
 ---
 
-#### 主从切换
+#### 主从切换（手动）
 
 > **repmgr 集群正确的启动方式**
 >
@@ -1470,30 +1482,7 @@ INFO: sleeping 2 of maximum 30 seconds waiting for standby to flush received WAL
 INFO: sleeping 3 of maximum 30 seconds waiting for standby to flush received WAL to disk
 INFO: sleeping 4 of maximum 30 seconds waiting for standby to flush received WAL to disk
 INFO: sleeping 5 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 6 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 7 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 8 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 9 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 10 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 11 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 12 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 13 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 14 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 15 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 16 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 17 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 18 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 19 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 20 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 21 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 22 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 23 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 24 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 25 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 26 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 27 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 28 of maximum 30 seconds waiting for standby to flush received WAL to disk
-INFO: sleeping 29 of maximum 30 seconds waiting for standby to flush received WAL to disk
+...
 INFO: sleeping 30 of maximum 30 seconds waiting for standby to flush received WAL to disk
 WARNING: local node "node2" is behind shutdown primary "node1"
 DETAIL: local node last receive LSN is 0/5BA0000, primary shutdown checkpoint LSN is 0/6000028
@@ -1560,7 +1549,7 @@ repmgr -f /etc/repmgr.conf standby register --force
 
 ---
 
-#### 自动切换
+#### 自动切换 repmgrd
 
 > 上面展示的主从切换需要人为干预，通常情况下我们不一定能在主节点宕机的第一时间就感知到，并完成迅速切换，此时就需要配置自动切换。
 
@@ -1568,18 +1557,15 @@ repmgr -f /etc/repmgr.conf standby register --force
 
 21、在每个节点上创建 repmgrd 的 systemd 配置文件 `/etc/systemd/system/repmgrd.service`
 
-> 有两个位置需要注意：
+> 有两个位置需要注意 ExecStart 中定义的 repmgrd 命令的位置，repmgr 配置文件的位置，pid 文件的位置
 >
-> * PIDFile 的位置
-> * REPMGRDCONF 的位置
-> * ExecStart 中定义的 repmgrd 命令的位置
 
 ```
 [Unit]
-Description=repmgrd
-After=syslog.target
+Description=repmgrd.service
+#After=syslog.target
 After=network.target
-After=pgserver.service
+#After=pgserver.service
 
 [Service]
 Type=forking
@@ -1587,20 +1573,12 @@ Type=forking
 User=postgres
 Group=postgres
 
-# PID file
-PIDFile=/var/lib/postgresql/repmgrd.pid
-
-# Location of repmgr conf file:
-Environment=REPMGRDCONF=/etc/repmgr.conf
-Environment=PIDFILE=/var/lib/postgresql/repmgrd.pid
-
 # Where to send early-startup messages from the server
 # This is normally controlled by the global default set by systemd
 # StandardOutput=syslog
-ExecStart=/usr/bin/repmgrd -f ${REPMGRDCONF} -p ${PIDFILE} -d --verbose
-ExecStop=/usr/bin/kill -TERM $MAINPID
-ExecReload=/usr/bin/kill -HUP $MAINPID
-
+ExecStart=/usr/bin/repmgrd -f /etc/repmgr.conf -p /tmp/repmgrd.pid -d --verbose
+ExecStop=/usr/bin/kill `cat /tmp/repmgrd.pid`
+PrivateTmp=false
 # Give a reasonable amount of time for the server to start up/shut down
 TimeoutSec=300
 
@@ -1608,21 +1586,23 @@ TimeoutSec=300
 WantedBy=multi-user.target
 ```
 
-22、
-
-22.1、修改 `postgresql.conf`
+22、修改 `postgresql.conf`
 
 ```
 shared_preload_libraries = 'repmgr'
 ```
 
-22.2 修改 `repmgr.conf`
+修改 `repmgr.conf`
 
 ```
 failover='automatic'
 
 promote_command='/usr/bin/repmgr standby promote -f /etc/repmgr.conf --log-to-file'
 follow_command='/usr/bin/repmgr standby follow -f /etc/repmgr.conf --log-to-file --upstream-node-id=%n'
+
+repmgrd_service_start_command = 'repmgrd --daemonize=true'
+repmgrd_service_stop_command = 'kill `cat /tmp/repmgrd.pid`'
+repmgrd_pid_file='/tmp/repmgrd.pid'
 ```
 
 
@@ -1634,15 +1614,11 @@ follow_command='/usr/bin/repmgr standby follow -f /etc/repmgr.conf --log-to-file
 # enable 表示开启开机自启
 systemctl enable repmgrd --now
 # 启动 repmgrd
-repmgrd -d
-
-postgres$ repmgrd -d
-[2023-10-17 14:25:09] [NOTICE] repmgrd (repmgrd 5.4dev) starting up
-[2023-10-17 14:25:09] [INFO] connecting to database "host=172.24.246.73 user=repmgr dbname=repmgr connect_timeout=2"
-postgres@vm01:/home/ubuntu$ INFO:  set_repmgrd_pid(): provided pidfile is /tmp/repmgrd.pid
-[2023-10-17 14:25:09] [NOTICE] starting monitoring of node "node1" (ID: 1)
-[2023-10-17 14:25:09] [INFO] "connection_check_type" set to "ping"
-[2023-10-17 14:25:09] [INFO] monitoring connection to upstream node "node2" (ID: 2)
+systemctl start repmgrd
+# 检查启动状态
+repmgrd -v
+# 或者
+ps f u postgres
 ```
 
 24、查看当前集群状态
@@ -1702,7 +1678,7 @@ node1 的状态变成 failed
 repmgr -f /etc/repmgr.conf node rejoin -d'host=172.24.246.161 port=5432 user=repmgr dbname=repmgr connect_timeout=2'
 ```
 
-重新启动 node1
+27、重新启动 node1
 
 ![image-20231017163516599](./assets/image-20231017163516599.png)
 
@@ -1714,11 +1690,500 @@ repmgr -f /etc/repmgr.conf node rejoin -d'host=172.24.246.161 port=5432 user=rep
 
 ---
 
+#### repmgrd + witness
+
+**什么是 witness**
+
+witness 服务是独立于集群的一个 PostgreSQL 实例，在出现故障转移的情况下，它可以当作目击者来证明是由于网络问题导致 primary 节点不可用还是 primary 本身出现故障导致的不可用。
+
+> 作为 primary 出故障的目击证人
+
+**使用场景**
+
+一主一从部署，且主从节点位于不同的位置（数据中心）。在主节点相邻的位置创建 witness 节点，如果主节点变得不可用，是否应该让从节点提升未主节点？
+
+* 如果从节点同时无法连接主节点和 witness，说明是网络原因导致的的故障，从节点不会被提升；
+* 如果从节点无法连接主节点，但是可以连接 witness，说明是主节点自身原因导致的不可用，从节点会被提升为新的主节点。
+
+在更为复杂的情况下，比如说有多个数据中心，应该确保只允许和主节点处于同一位置的节点被提升为新的主节点，[参考连接](https://www.repmgr.org/docs/current/repmgrd-network-split.html)。
+
+> 只有在启动了 repmgrd 的情况下，witness 服务才有效。
+
+**创建 witness 节点**
+
+> witness 实例不能与主节点部署在同一台物理机上。
+
+> 一个 PostgreSQL 实例只能作为一个集群的 witness 节点来使用，不能作为多个 witness 节点。
+
+0、创建 repmgr 用户，创建 repmgr 数据库
+
+1、配置 `repmgr.conf`
+
+```
+node_id=100
+node_name='witness100'
+conninfo='host=<witness-host> user=repmgr dbname=repmgr connect_timeout=2'
+data_directory='/var/lib/postgresql/15/main'
+```
+
+3、修改 `pg_hba.conf`
+
+修改 `postgresql.conf`，允许远程访问
+
+6、启动 PostgreSQL 实例，以 primary 的身份加入**自己的集群**
+
+```shell
+repmgr primary register
+```
+
+![image-20231018103016642](./assets/image-20231018103016642.png)
+
+7、启动 repmgrd
+
+```shell
+repmgrd -d
+```
+
+8、以 witness 身份注册到**主从复制集群**
+
+```shell
+repmgr witness register --force -h <primary-host>
+```
+
+![image-20231018103045843](./assets/image-20231018103045843.png)
+
+部署完成。
+
+…
+
+---
+
+#### 完整 postgresql.conf
+
+```
+listen_addresses = '*'
+wal_level = replica
+archive_mode = on
+#archive_command = '/bin/true'
+archive_command = '{ sleep 5; true; }'
+max_wal_senders = 10
+max_replication_slots = 10 # (修改) 设置支持的复制槽数量
+max_slot_wal_keep_size = 1GB # (修改) 设置复制槽保留的 wal 最大值,默认单位是 M
+hot_standby = on
+
+shared_preload_libraries = 'repmgr'
+```
+
+…
+
+#### 完整 pg_hba.conf
+
+```
+host replication all 0.0.0.0/0 trust
+local repmgr repmgr trust
+host repmgr repmgr 127.0.0.1/32 trust
+host repmgr repmgr 0.0.0.0/0 trust
+host all all 0.0.0.0/0 trust
+```
+
+…
+
+#### 完整 repmgr.conf
+
+```
+node_id=1
+node_name='node1'
+conninfo='host=<node-host> user=repmgr dbname=repmgr connect_timeout=2'
+data_directory='/var/lib/postgresql/15/main'
+
+failover='automatic'
+promote_command='/usr/bin/repmgr standby promote -f /etc/repmgr.conf --log-to-file'
+follow_command='/usr/bin/repmgr standby follow -f /etc/repmgr.conf --log-to-file --upstream-node-id=%n'
+
+service_start_command='pg_ctlcluster 15 main start'
+service_stop_command='pg_ctlcluster 15 main stop'
+service_restart_command='pg_ctlcluster 15 main restart'
+service_reload_command  = 'pg_ctlcluster 15 main reload'
+
+repmgrd_service_start_command = 'repmgrd --daemonize=true'
+repmgrd_service_stop_command = 'kill `cat /tmp/repmgrd.pid`'
+repmgrd_pid_file='/tmp/repmgrd.pid'
+```
+
+…
+
+---
+
 #### 总结
 
 主从流复制 + repmgr 的方式带来了两点优化：0、借助 repmgr 命令能很直观的看到集群的状态；1、从节点配置更加方便，直接 clone 主节点的数据即可；2、借助 repmgrd 能实现自动故障转移。
 
 需要注意：1、出故障的节点在恢复之后仍然需要人为的 rejoin 和 restart；2、检查好 repmgrd 的状态，否则无法实现自动故障转移。
+
+此外自动故障转移可能会出现“脑裂”的情况，此时就需要人为干预，越早调整越好。
+
+---
+
+### 主从流复制 + repmgr + keepalive
+
+…
+
+---
+
+### Patroni
+
+Patroni 是一个不同于 repmgr 的 PostgreSQL 高可用方案。关于 Patroni 和 repmgr 的对比，优缺点网络上已经存在很多资源了，此处不列举。
+
+#### 集群部署
+
+> 测试机为 Ubuntu
+>
+> * PostgreSQL/Patroni: 192.168.111.21/192.168.111.22/192.168.111.23
+> * etcd: 192.168.111.20
+
+1、部署 etcd 用于存储集群元数据
+
+> 目前仅部署一个服务用作测试，一般来说生产环境下需要部署三个 etcd 服务。
+
+```shell
+apt install etcd -y
+```
+
+2、修改配置 `/etc/default/etcd`
+
+> 本机 IP 为 192.168.111.20
+
+```shell
+ETCD_NAME="etcd0"
+ETCD_DATA_DIR="/var/lib/etcd/default"
+ETCD_LISTEN_PEER_URLS="http://192.168.111.20:2380"
+ETCD_LISTEN_CLIENT_URLS="http://localhost:2379,http://192.168.111.20:2379"
+
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://192.168.111.20:2380"
+ETCD_INITIAL_CLUSTER="etcd0=http://192.168.111.20:2380"
+
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_INITIAL_CLUSTER_TOKEN="cluster1"
+
+ETCD_ADVERTISE_CLIENT_URLS="http://192.168.111.20:2379"
+```
+
+启动 etcd
+
+```shell
+systemctl start etcd
+# 允许开机自启
+systemctl enable etcd
+```
+
+3、安装 Patroni
+
+> Ubuntu 自带 python3，如果没有需要先安装
+>
+> ```shell
+> apt install python3
+> ```
+
+```shell
+apt-get install python3-psycopg2 # install python3 psycopg2 module on Debian/Ubuntu
+
+apt install python3-pip
+
+# 最好开启代理，否则 pip 可能比较慢
+pip install --upgrade pip
+pip install --upgrade setuptools
+pip install patroni[etcd]
+```
+
+
+
+4、创建 `/etc/patroni.yml`
+
+> 有几个需要修改的地方：
+>
+> * restapi.connect_address
+> * etcd.host
+> * postgresql.connect_address
+> * postgresql.data_dir
+> * postgresql.bin_dir
+
+```yaml
+scope: pgsql
+namespace: /service/
+name: pg1
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 192.168.111.21:8008
+
+etcd:
+  host: 192.168.111.20:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    master_start_timeout: 300
+    synchronous_mode: false
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        listen_addresses: "0.0.0.0"
+        port: 5432
+        wal_level: logical
+        hot_standby: "on"
+        wal_keep_segments: 100
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_log_hints: "on"
+
+  initdb:
+  - encoding: UTF-8
+  - data-checksums
+
+  pg_hba:
+  - host replication repl 0.0.0.0/0 trust
+  - host all all 0.0.0.0/0 trust
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: 192.168.111.21:5432
+  data_dir: /var/lib/postgresql/15/main # main 目录需要为空，且用户和用户组为 postgres
+  bin_dir: /usr/lib/postgresql/15/bin
+
+  authentication:
+    superuser:
+      username: postgres
+      password: "postgres"
+    replication:
+      username: repl
+      password: "123456"
+
+  basebackup:
+    max-rate: 100M
+    checkpoint: fast
+
+tags:
+    nofailover: false
+    noloadbalance: false
+    clonefrom: false
+    nosync: false
+```
+
+> 其他几个节点的 patroni 配置也是差不多的，需要修改几个地方：
+>
+> * name
+> * restapi.connect_address
+> * postgresql.connect_address
+
+5、创建 `/etc/systemd/system/patroni.service`
+
+```shell
+[Unit]
+Description=patroni.service
+After=syslog.target network.target
+ 
+[Service]
+Type=simple
+User=postgres
+Group=postgres
+#StandardOutput=syslog
+ExecStart=/usr/local/bin/patroni /etc/patroni.yml
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=process
+TimeoutSec=30
+Restart=no
+ 
+[Install]
+WantedBy=multi-user.target
+```
+
+6、设置 patroni 自启动
+
+```shell
+# root
+systemctl enable patroni
+```
+
+配置 postgres 免密 sudo 权限
+
+> 免密的前提是执行命令前要加上 `sudo` 前缀
+
+```shell
+vim /etc/sudoers
+# or
+sudo visudo
+```
+
+添加
+
+```
+postgres ALL=(ALL) NOPASSWD: ALL
+```
+
+7、启动 patroni
+
+7.1、启动前的准备
+
+```shell
+root:~$ systemctl status postgresql # 确保 pg 处于停止状态下
+# 备份原来的数据目录
+root:~$ cd /var/lib/postgresql/15
+root:~$ mv main backup/
+root:~$ sudo su -- postgres
+# postgres
+postgres:~$ mkdir main
+# 注意 postgres 用户对 main 文件夹的权限应该是 0700 或者 0750
+postgres:~$ chmod 0750 main
+```
+
+7.2、启动 patroni
+
+```shell
+# postgres 用户
+# 注意：需要加上 sudo
+postgres@ubt1:~$ sudo systemctl start patroni
+postgres@ubt1:~$ sudo systemctl status patroni
+● patroni.service
+     Loaded: loaded (/etc/systemd/system/patroni.service; enabled; vendor preset: enabled)
+     Active: active (running) since Wed 2023-10-18 16:14:53 CST; 3s ago
+   Main PID: 6939 (patroni)
+      Tasks: 12 (limit: 2231)
+     Memory: 89.3M
+        CPU: 911ms
+     CGroup: /system.slice/patroni.service
+             ├─6939 /usr/bin/python3 /usr/local/bin/patroni /etc/patroni.yml
+             ├─6974 /usr/lib/postgresql/15/bin/postgres -D /var/lib/postgresql/15/main --config-file=/var/lib/postgresql/15/main/postgresql.conf --listen_addresses=0.0.0.0 --port=5432 --c>
+             ├─6976 "postgres: pgsql: checkpointer " "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ">
+             ├─6977 "postgres: pgsql: background writer " "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "">
+             ├─6982 "postgres: pgsql: walwriter " "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ">
+             ├─6983 "postgres: pgsql: autovacuum launcher " "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" >
+             ├─6984 "postgres: pgsql: logical replication launcher " "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" >
+             └─6987 "postgres: pgsql: postgres postgres 127.0.0.1(51908) idle" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "">
+
+Oct 18 16:14:54 ubt1 patroni[6978]: 2023-10-18 16:14:54.872 CST [6978] LOG:  database system was shut down at 2023-10-18 16:14:54 CST
+Oct 18 16:14:54 ubt1 patroni[6975]: localhost:5432 - rejecting connections
+Oct 18 16:14:54 ubt1 patroni[6981]: 2023-10-18 16:14:54.875 CST [6981] FATAL:  the database system is starting up
+Oct 18 16:14:54 ubt1 patroni[6980]: localhost:5432 - rejecting connections
+Oct 18 16:14:54 ubt1 patroni[6974]: 2023-10-18 16:14:54.878 CST [6974] LOG:  database system is ready to accept connections
+Oct 18 16:14:55 ubt1 patroni[6985]: localhost:5432 - accepting connections
+Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,887 INFO: establishing a new patroni connection to the postgres cluster
+Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,891 INFO: running post_bootstrap
+Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,905 WARNING: Could not activate Linux watchdog device: Can't open watchdog device: [Errno 2] No such file or directory: '/dev/watch>
+Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,910 INFO: initialized a new cluster
+```
+
+8、查看集群状态
+
+```shell
+postgres@ubt1:~$ patronictl -c /etc/patroni.yml list
++ Cluster: pgsql (7291209041344875305) ------+----+-----------+
+| Member | Host           | Role   | State   | TL | Lag in MB |
++--------+----------------+--------+---------+----+-----------+
+| pg1    | 192.168.111.21 | Leader | running |  1 |           |
++--------+----------------+--------+---------+----+-----------+
+```
+
+9、将 patroni 配置设置到全局环境变量
+
+```shell
+vim ~postgres/.bash_profile
+# 添加
+export PATRONICTL_CONFIG_FILE=/etc/patroni.yml
+source ~postgres/.bash_profile
+# 测试
+patronictl list
+```
+
+10、重复前面的步骤，添加其他节点
+
+> 其他几个节点的 `patroni.yml` 配置也是差不多的，需要修改几个地方：
+>
+> * name
+> * restapi.connect_address
+> * postgresql.connect_address
+
+部署完成，查看集群状态
+
+```shell
+postgres@ubt1:~$ patronictl list
++ Cluster: pgsql (7291209041344875305) -------+----+-----------+
+| Member | Host           | Role    | State   | TL | Lag in MB |
++--------+----------------+---------+---------+----+-----------+
+| pg1    | 192.168.111.21 | Leader  | running |  1 |           |
+| pg2    | 192.168.111.22 | Replica | running |  1 |        15 |
+| pg3    | 192.168.111.23 | Replica | running |  1 |         0 |
++--------+----------------+---------+---------+----+-----------+
+```
+
+…
+
+---
+
+#### 故障转移
+
+1、关掉 Leader 前集群状态
+
+```shell
+postgres@ubt2:~/15$ patronictl list
++ Cluster: pgsql (7291209041344875305) -------+----+-----------+
+| Member | Host           | Role    | State   | TL | Lag in MB |
++--------+----------------+---------+---------+----+-----------+
+| pg1    | 192.168.111.21 | Leader  | running |  1 |           |
+| pg2    | 192.168.111.22 | Replica | running |  1 |        15 |
+| pg3    | 192.168.111.23 | Replica | running |  1 |         0 |
++--------+----------------+---------+---------+----+-----------+
+```
+
+2、手动停止 Leader 观察其他节点状态
+
+```shell
+postgres@ubt2:~/15$ patronictl list
++ Cluster: pgsql (7291209041344875305) -------+----+-----------+
+| Member | Host           | Role    | State   | TL | Lag in MB |
++--------+----------------+---------+---------+----+-----------+
+| pg1    | 192.168.111.21 | Replica | stopped |    |   unknown |
+| pg2    | 192.168.111.22 | Replica | running |  1 |        31 |
+| pg3    | 192.168.111.23 | Leader  | running |  2 |           |
++--------+----------------+---------+---------+----+-----------+
+```
+
+Patroni 自带故障转移，可以看到 Leader 节点从 pg1 变成了 pg3。
+
+3、重新启动 pg1
+
+```shell
+postgres@ubt2:~/15$ patronictl list
++ Cluster: pgsql (7291209041344875305) -------+----+-----------+
+| Member | Host           | Role    | State   | TL | Lag in MB |
++--------+----------------+---------+---------+----+-----------+
+| pg1    | 192.168.111.21 | Replica | running |  1 |        16 |
+| pg2    | 192.168.111.22 | Replica | running |  1 |        31 |
+| pg3    | 192.168.111.23 | Leader  | running |  2 |           |
++--------+----------------+---------+---------+----+-----------+
+```
+
+pg1 作为 Replica 重新加入节点。
+
+…
+
+---
+
+
+
+#### 总结
+
+|          | Patroni                                                      | repmgr                                                       |
+| -------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 安装     | 较复杂，需要 pip 辅助安装，还需要安装额外的 etcd 工具管理集群数据 | 简单，直接 apt 从源安装                                      |
+| 部署     | 简单，配置文件只需要小修改即可用于其他节点，启动 Patroni 自动加入集群 | 相对 Patroni 来说复杂点，配置小修改即可复用，但还是需要手动加入集群 |
+| 故障转移 | 自动切换，无需干预，方便                                     | 需要配置 repmgrd，主节点恢复之后还需要人为 rejoin，相对 Patroni 复杂。 |
+| …        | …                                                            | …                                                            |
+
+…
 
 ---
 
@@ -1740,3 +2205,13 @@ repmgr -f /etc/repmgr.conf node rejoin -d'host=172.24.246.161 port=5432 user=rep
 * https://blog.frognew.com/2021/11/repmgr-postgresql-ha.html
 * https://blog.51cto.com/u_10930585/5805207
 * https://www.modb.pro/db/15359
+
+**etcd**
+
+* https://docs.openstack.org/install-guide/environment-etcd-ubuntu.html
+
+**Patroni**
+
+* https://github.com/ChenHuajun/blog_xqhx/tree/main/2020
+* https://patroni.readthedocs.io/en/latest/README.html#running-and-configuring
+* patroni 配置：https://github.com/zalando/patroni/tree/master
