@@ -2,14 +2,18 @@
 
 
 
-## 安装
+## 启动
 
-### 使用 Docker
+**使用 Docker**
 
 ```bash
 docker pull postgres
 docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=<your-pw> -d postgres
 ```
+
+…
+
+---
 
 <br>
 
@@ -35,7 +39,9 @@ psql -U <username> -h <host> -d <dbname>
 SELECT version(); # Show postgreSQL's version
 ```
 
+…
 
+---
 
 ## 数据库操作
 
@@ -46,7 +52,9 @@ drop database <dbname> # can not drop your current db
 psql <dbname> # same as \c, connect databaes
 ```
 
+…
 
+---
 
 ## 数据表操作
 
@@ -108,7 +116,9 @@ INSERT INTO employees VALUES ('sales', 4, 4800);
 - 重命名列
 - 重命名表
 
+…
 
+---
 
 ## 数据类型
 
@@ -195,7 +205,9 @@ WHERE ID = 1*;
 |        `String[]`         |      `varchar[] `, `text[]`       |       `varchar[]`       |
 |        `byte[][]`         |             `bytea[]`             |        `bytea[]`        |
 
+…
 
+---
 
 ## 数据操作
 
@@ -215,7 +227,9 @@ DELETE FROM products
   RETURNING *; -- RETURNING 的数据是被删除行的内容
 ```
 
+…
 
+---
 
 ## 列特性
 
@@ -438,7 +452,9 @@ CREATE TABLE products (
 | cmax         |                 | 删除事务中的命令标识符                                       |
 | ctid         |                 | 行版本在其表中的物理位置。尽管 ctid 可以被用来非常快速地定位行版本，但是一个行的 ctid 会在被更新或者被 `VACUUM FULL` 移动时改变。因此，`ctid` 不能作为一个长期行标识符。 |
 
+…
 
+---
 
 <br>
 
@@ -504,9 +520,9 @@ CREATE TABLE measurement (
 ) PARTITION BY RANGE (logdate);
 ```
 
+…
 
-
-
+---
 
 <br>
 
@@ -578,7 +594,7 @@ CREATE TABLE measurement (
 
 * …
 
-
+---
 
 ## 索引
 
@@ -651,7 +667,9 @@ GiST 代表广义搜索树。GiST 索引允许构建通用的树结构。GiST �
 
 > SP-GiST 代表空间分区的 GiST。
 
+…
 
+---
 
 ### 创建索引
 
@@ -708,18 +726,22 @@ WHERE active = 0;
 
 * …
 
-
+---
 
 ## 执行分析
 
 > * 来自 [polardb 数据库内核月报](http://mysql.taobao.org/monthly/)：http://mysql.taobao.org/monthly/2018/11/06/
 > * https://www.modb.pro/db/101529
 
+…
 
+---
 
-## 高可用架构
+<br>
 
-### PG 安装
+# PG 高可用架构
+
+## PG 安装
 
 > Docker/K8s 环境下部署不好控制，选择直接安装在服务器上。
 
@@ -798,9 +820,9 @@ insert into myuser (name, age) values ('wangwu', 22);
 
 ---
 
-### 主从流复制
+## 主从流复制
 
-#### 配置
+### 配置
 
 7、主节点创建同步账号
 
@@ -1018,17 +1040,19 @@ postgres=# select pg_is_in_recovery();
 
 ---
 
-#### 总结
+### 总结
 
 主从流复制不需要借助其他第三方工具，直接配置即可。但是配置稍繁琐，而且如果主节点宕机了从节点不会自动切换，需要手动切换。
 
 ---
 
-### 主从流复制 + repmgr
+<br>
+
+## 主从流复制 + repmgr
 
 > *Replication Manager* 简称 repmgr。
 
-#### repmgr 配置
+### repmgr 配置
 
 1、首先查看 repmgr 与 PostgreSQL 的[版本对应关系](https://www.repmgr.org/docs/current/install-requirements.html)，并[安装](https://www.repmgr.org/docs/current/installation-packages.html#INSTALLATION-PACKAGES-DEBIAN)。
 
@@ -1039,6 +1063,9 @@ sudo apt install postgresql-15
 
 curl https://dl.enterprisedb.com/default/release/get/deb | sudo bash
 sudo apt install install postgresql-15-repmgr
+
+# 注意：安装完成第一件事是取消 postgresql 开机自启
+systemctl disable postgresql
 ```
 
 2、修改 `/etc/postgresql/15/main/postgresql.conf` 和 `/etc/postgresql/15/main/pg_hba.conf`，允许外部 IP 访问。并重启服务。
@@ -1340,7 +1367,7 @@ $ repmgr -f /etc/repmgr.conf cluster show
 
 ---
 
-#### 主从切换（手动）
+### 主从切换（手动）
 
 > **repmgr 集群正确的启动方式**
 >
@@ -1549,7 +1576,7 @@ repmgr -f /etc/repmgr.conf standby register --force
 
 ---
 
-#### 自动切换 repmgrd
+### 自动切换 repmgrd
 
 > 上面展示的主从切换需要人为干预，通常情况下我们不一定能在主节点宕机的第一时间就感知到，并完成迅速切换，此时就需要配置自动切换。
 
@@ -1560,7 +1587,7 @@ repmgr -f /etc/repmgr.conf standby register --force
 > 有两个位置需要注意 ExecStart 中定义的 repmgrd 命令的位置，repmgr 配置文件的位置，pid 文件的位置
 >
 
-```
+```shell
 [Unit]
 Description=repmgrd.service
 #After=syslog.target
@@ -1690,7 +1717,7 @@ repmgr -f /etc/repmgr.conf node rejoin -d'host=172.24.246.161 port=5432 user=rep
 
 ---
 
-#### repmgrd + witness
+### repmgrd + witness
 
 **什么是 witness**
 
@@ -1758,7 +1785,7 @@ repmgr witness register --force -h <primary-host>
 
 ---
 
-#### 完整 postgresql.conf
+### 完整 postgresql.conf
 
 ```
 listen_addresses = '*'
@@ -1776,7 +1803,7 @@ shared_preload_libraries = 'repmgr'
 
 …
 
-#### 完整 pg_hba.conf
+### 完整 pg_hba.conf
 
 ```
 host replication all 0.0.0.0/0 trust
@@ -1788,7 +1815,7 @@ host all all 0.0.0.0/0 trust
 
 …
 
-#### 完整 repmgr.conf
+### 完整 repmgr.conf
 
 ```
 node_id=1
@@ -1814,7 +1841,7 @@ repmgrd_pid_file='/tmp/repmgrd.pid'
 
 ---
 
-#### 总结
+### 总结
 
 主从流复制 + repmgr 的方式带来了两点优化：0、借助 repmgr 命令能很直观的看到集群的状态；1、从节点配置更加方便，直接 clone 主节点的数据即可；2、借助 repmgrd 能实现自动故障转移。
 
@@ -1824,17 +1851,23 @@ repmgrd_pid_file='/tmp/repmgrd.pid'
 
 ---
 
-### 主从流复制 + repmgr + keepalive
+<br>
+
+## 主从流复制 + repmgr + keepalive
+
+> [可参考](https://vlambda.com/wz_7iAykuog2O0.html)
 
 …
 
 ---
 
-### Patroni
+<br>
+
+## Patroni
 
 Patroni 是一个不同于 repmgr 的 PostgreSQL 高可用方案。关于 Patroni 和 repmgr 的对比，优缺点网络上已经存在很多资源了，此处不列举。
 
-#### 集群部署
+### 集群部署
 
 > 测试机为 Ubuntu
 >
@@ -1893,6 +1926,9 @@ apt install python3-pip
 pip install --upgrade pip
 pip install --upgrade setuptools
 pip install patroni[etcd]
+
+# 注意：需要取消 postgresql 开机自启
+systemctl disable postgresql
 ```
 
 
@@ -1923,10 +1959,10 @@ bootstrap:
   dcs:
     ttl: 30
     loop_wait: 10
-    retry_timeout: 10
+    retry_timeout: 10 # timeout for DCS and PostgreSQL operation retries (in seconds). 
     maximum_lag_on_failover: 1048576
-    master_start_timeout: 300
-    synchronous_mode: false
+    primary_start_timeout: 300
+    synchronous_mode: false # turns on synchronous replication mode
     postgresql:
       use_pg_rewind: true
       use_slots: true
@@ -1939,19 +1975,20 @@ bootstrap:
         max_wal_senders: 10
         max_replication_slots: 10
         wal_log_hints: "on"
+        # shared_preload_libraries: ['pg_stat_statements']
+      pg_hba:
+      - host replication repl 0.0.0.0/0 trust
+      - host all all 0.0.0.0/0 trust
 
   initdb:
   - encoding: UTF-8
   - data-checksums
 
-  pg_hba:
-  - host replication repl 0.0.0.0/0 trust
-  - host all all 0.0.0.0/0 trust
-
 postgresql:
   listen: 0.0.0.0:5432
   connect_address: 192.168.111.21:5432
   data_dir: /var/lib/postgresql/15/main # main 目录需要为空，且用户和用户组为 postgres
+  #config_dir: /etc/postgresql/15/main/ # defaults to the data directory
   bin_dir: /usr/lib/postgresql/15/bin
 
   authentication:
@@ -2123,7 +2160,7 @@ postgres@ubt1:~$ patronictl list
 
 ---
 
-#### 故障转移
+### 故障转移
 
 1、关掉 Leader 前集群状态
 
@@ -2155,6 +2192,7 @@ Patroni 自带故障转移，可以看到 Leader 节点从 pg1 变成了 pg3。
 
 3、重新启动 pg1
 
+
 ```shell
 postgres@ubt2:~/15$ patronictl list
 + Cluster: pgsql (7291209041344875305) -------+----+-----------+
@@ -2172,16 +2210,609 @@ pg1 作为 Replica 重新加入节点。
 
 ---
 
+### 防止脑裂
 
+**两种办法**
 
-#### 总结
+* watchdog：利用 Linux 下的 watchdog 来监控 patroni 进程的运行，当 watchdog 接收不到 patroni 进程的心跳时触发 Linux 重启
+* 同步复制：如果启用了 PostgreSQL 集群同步复制模式，主库在没有收到同步备库的响应时会阻塞写入。同步复制的办法即保证了不会出现双主，也不会发生*双写*，采用这种方法最为安全可靠。代价是同步复制相对于异步复制会降低一点性能。
+
+…
+
+---
+
+#### watchdog 配置
+
+1、编辑 `/etc/systemd/system/patroni.service`
+
+```shell
+[Unit]
+Description=patroni.service
+After=syslog.target network.target
+ 
+[Service]
+Type=simple
+User=postgres
+Group=postgres
+#StandardOutput=syslog
+ExecStartPre=-/usr/bin/sudo /sbin/modprobe softdog # 添加 1
+ExecStartPre=-/usr/bin/sudo /bin/chown postgres /dev/watchdog # 添加 2
+ExecStart=/usr/local/bin/patroni /etc/patroni.yml
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=process
+TimeoutSec=30
+Restart=no
+ 
+[Install]
+WantedBy=multi-user.target
+```
+
+> 也可以不编辑该文件，[参考官方文档](https://patroni.readthedocs.io/en/latest/watchdog.html)：
+>
+> ```shell
+> # root
+> modprobe softdog
+> # Replace postgres with the user you will be running patroni under
+> chown postgres /dev/watchdog
+> ```
+
+2、编辑 `patroni.yml`，添加内容
+
+```yaml
+watchdog:
+  mode: automatic # Allowed values: off, automatic, required
+  device: /dev/watchdog
+  safety_margin: 5
+```
+
+> `safety_margin`：watchdog 持有一个 leader key 且带有过期时间。如果 leader 节点异常，watchdog 超过 5s 未收到 leader patroni 的心跳，watchdog 会在 leader key 过期前 5s 重启 leader 节点。重启如果在 5s 内完成，leader 节点有机会再次获得 leader 身份，否则备库会通过选举成为新的 leader。
+
+3、重启 patroni
+
+```shell
+# root
+systemctl enable patroni
+# postgres
+sudo systemctl restart patroni
+```
+
+…
+
+> 这种方法比较依赖于 watchdog 本身的可靠性。从生产实践上来说应对绝大部分场景都是足够的，但重启机器的做法可能有点太过暴力了，很多时候它可能并不是我们所期望的行为。
+
+…
+
+---
+
+#### 同步复制配置
+
+1、编辑 `/etc/patroni.yml`
+
+```yaml
+synchronous_mode: true
+```
+
+对于正在运行中的 patroni 进程，可以通过命令修改
+
+```shell
+patronictl edit-config -c /etc/patroni.yml -s 'synchronous_mode=true'
+```
+
+> 在同步复制模式下，只有同步备库具有被提升为主库的资格。如果同步备库临时不可用，Patroni 会把主库的复制模式降级成了异步复制，确保服务不中断。效果类似于 MySQL 的半同步复制，但是相比 MySQL 使用固定的超时时间控制复制降级，这种方式更加智能，同时还能防止脑裂。
+>
+> 如果主库被降级为异步复制，由于没有同步备库作为候选主库 failover 不会被触发，也就不会出现“双主”。如果主库没有被降级为异步复制，那么即使同步备库被提升为主库出现“双主”，由于旧主处于同步复制模式，收不到同步备库的响应数据无法被写入，也不会出现“双写”。
+
+Patroni 通过动态调整 PostgreSQL 参数 `synchronous_standby_names` 控制同步异步复制的切换。并且 Patroni 会把同步的状态记录到 etcd 中，确保同步状态在 Patroni 集群中的一致性。
+
+可以在 etcd 中查看到同步模式下集群的元数据：
+
+```shell
+etcdctl get /service/pgsql/sync
+
+{"leader":"pg1","sync_standby":"pg2"} # 正常的同步模式
+
+{"leader":"pg1","sync_standby":null} # 备库故障导致主库临时降级为异步复制
+```
+
+> 注意：key 不一定是 `/service/pgsql/sync` ，psql 就是 `/etc/patroni.yml` 中的 scope 值。也可以通过 `patronictl -c /etc/patroni.yml list` 查看
+>
+> ```shell
+> + Cluster: pgsql (7291209041344875305) -------+----+-----------+
+> | Member | Host           | Role    | State   | TL | Lag in MB |
+> +--------+----------------+---------+---------+----+-----------+
+> | pg1    | 192.168.111.21 | Replica | running |  1 |        16 |
+> | pg2    | 192.168.111.22 | Replica | running |  1 |        31 |
+> | pg3    | 192.168.111.23 | Leader  | running |  2 |           |
+> +--------+----------------+---------+---------+----+-----------+
+> ```
+>
+> 即为集群的名字。
+
+> 如果集群中包含 3 个以上的节点，可以考虑采取更严格的同步策略，禁止 Patroni 把同步模式降级为异步。这样可以确保任何写入的数据至少存在于 2 个以上的节点。对数据安全要求极高的业务可以采用这种方式。
+>
+> ```yaml
+> synchronous_mode_strict: true
+> ```
+>
+> 如果集群包含异地的灾备节点，可以根据需要配置该节点为不参与选主，不参与负载均衡，也不作为同步备库。
+>
+> ```yaml
+> tags:
+>     nofailover: true
+>     noloadbalance: true
+>     clonefrom: false
+>     nosync: true
+> ```
+
+…
+
+---
+
+### etcd 高可用
+
+> 由于 PostgreSQL 集群的元数据是保存在 etcd 中的，Patroni 需要通过访问 etcd 来确认自己的身份。当无法访问 etcd 的时候，如果本机的是主库，Patroni 会将本机降级为备库。如果集群中所有 Patroni 节点都无法访问 etcd，集群中将全部都是备库，业务无法写入数据。这需要保证 etcd 集群的高可用。
+
+为了预防 etcd 集群故障带来的严重影响，可以考虑为 Patroni 连接 etcd 异常时设置一个比较大的 `retry_timeout` 参数，比如 10000 天
+
+```yaml
+retry_timeout: 864000000
+```
+
+…
+
+---
+
+### patronictl 命令
+
+**Patroni 常用命令**
+
+*  `patronictl -c /etc/patroni.yml list`
+
+* `patronictl -c /etc/patroni.yml show-config`
+
+* …
+
+**修改 PostgreSQL 参数**
+
+```shell
+patronictl -c /etc/patroni.yml edit-config -p 'max_connections=300'
+```
+
+> 修改最大连接数后需要重启才能生效
+
+…
+
+---
+
+### 客户端连接
+
+PostgreSQL 集群的高可用是动态的，主节点会根据故障转移变化，因此客户端在连接时也需要能动态的访问到新的主节点上。常用的方法有：
+
+* 多主机 URL
+* VIP（*Virtual IP*）
+* haproxy
+
+…
+
+---
+
+#### 多主机 URL
+
+JDBC 原生支持多主机 URL，并且功能较为全面，支持自动 failover，读写分离和负载均衡。可以通过连接参数配置不同的连接策略。
+
+1、连接主节点（可写节点），当出现“双主”甚至“多主”的时候连接第一个发现的可用主节点
+
+```
+jdbc:postgresql://192.168.111.21:5432,192.168.111.22:5432,192.168.111.23:5432/postgres?targetServerType=primary
+```
+
+2、优先连接备节点，无可用备节点时连接主节点，有多个可用备节点时随机连接其中一个
+
+```
+jdbc:postgresql://192.168.111.21:5432,192.168.111.22:5432,192.168.111.23:5432/postgres?targetServerType=preferSecondary&loadBalanceHosts=true
+```
+
+3、随机连接任意一个可用的节点
+
+```
+jdbc:postgresql://192.168.111.21:5432,192.168.111.22:5432,192.168.111.23:5432/postgres?targetServerType=any&loadBalanceHosts=true
+```
+
+…
+
+---
+
+#### 回调脚本实现 VIP 漂移
+
+> 可以通过 Patroni 的回调脚本实现 VIP 的漂移
+
+多主机URL的方式部署简单，但是不是每种语言的驱动都支持。而且如果数据库出现意外的“双主”，配置多主机 URL 的客户端在多个主上同时写入的概率比较高。如果客户端通过 VIP 的方式访问则在 VIP 上又多了一层防护（这种风险一般在数据库的 HA 架构有缺陷时发生。如果我们配置的是 Patroni 的同步模式，基本上没有这个担忧）。
+
+Patroni 支持用户配置在特定事件发生时触发回调脚本。因此我们可以配置一个回调脚本，在主备切换后动态加载 VIP。
+
+1、准备 Patroni 回调脚本 `/var/lib/postgresql/loadvip.sh`
+
+> 需要提前安装 arping，`apt install arping`
+
+```shell
+#!/bin/bash
+
+VIP=192.168.111.30 # 固定 VIP
+GATEWAY=192.168.111.2 # VIP 网关
+DEV=ens1 # 不一定叫 eth1，绑定当前机器已存在的网卡，多添加一个 IP
+
+action=$1
+role=$2
+cluster=$3
+
+log()
+{
+  echo "loadvip: $*" | logger
+}
+
+load_vip()
+{
+ip a|grep -w ${DEV}|grep -w ${VIP} >/dev/null
+if [ $? -eq 0 ] ;then
+  log "vip exists, skip load vip"
+else
+  sudo ip addr add ${VIP}/32 dev ${DEV} >/dev/null
+  rc=$?
+  if [ $rc -ne 0 ] ;then
+    log "fail to add vip ${VIP} at dev ${DEV} rc=$rc"
+    exit 1
+  fi
+
+  log "added vip ${VIP} at dev ${DEV}"
+
+  sudo arping -U -I ${DEV} -s ${VIP} ${GATEWAY} -c 5 >/dev/null
+  rc=$?
+  if [ $rc -ne 0 ] ;then
+    log "fail to call arping to gateway ${GATEWAY} rc=$rc"
+    exit 1
+  fi
+  
+  log "called arping to gateway ${GATEWAY}"
+fi
+}
+
+unload_vip()
+{
+ip a|grep -w ${DEV}|grep -w ${VIP} >/dev/null
+if [ $? -eq 0 ] ;then
+  sudo ip addr del ${VIP}/32 dev ${DEV} >/dev/null
+  rc=$?
+  if [ $rc -ne 0 ] ;then
+    log "fail to delete vip ${VIP} at dev ${DEV} rc=$rc"
+    exit 1
+  fi
+
+  log "deleted vip ${VIP} at dev ${DEV}"
+else
+  log "vip not exists, skip delete vip"
+fi
+}
+
+log "loadvip start args:'$*'"
+
+case $action in
+  on_start|on_restart|on_role_change)
+    case $role in
+      master)
+        load_vip
+        ;;
+      replica)
+        unload_vip
+        ;;
+      *)
+        log "wrong role '$role'"
+        exit 1
+        ;;
+    esac
+    ;;
+  *)
+    log "wrong action '$action'"
+    exit 1
+    ;;
+esac
+```
+
+> 所有节点都添加
+
+2、修改 `/etc/patroni.yml`
+
+```yaml
+postgresql:
+...
+  callbacks:
+    on_start: /bin/bash /var/lib/postgresql/loadvip.sh
+    on_restart: /bin/bash /var/lib/postgresql/loadvip.sh
+    on_role_change: /bin/bash /var/lib/postgresql/loadvip.sh
+```
+
+> 所有节点都修改
+
+3、重载 Patroni 配置
+
+```shell
+patronictl -c /etc/patroni.yml reload pgsql
+```
+
+> pgsql 表示集群名
+
+4、执行 switchover
+
+```shell
+postgres@ubt3:~/15$ patronictl -c /etc/patroni.yml switchover pgsql
+Current cluster topology
++ Cluster: pgsql (7291209041344875305) --+-----------+----+-----------+
+| Member | Host           | Role         | State     | TL | Lag in MB |
++--------+----------------+--------------+-----------+----+-----------+
+| pg1    | 192.168.111.21 | Sync Standby | streaming |  8 |         0 |
+| pg2    | 192.168.111.22 | Leader       | running   |  8 |           |
+| pg3    | 192.168.111.23 | Replica      | streaming |  8 |         0 |
++--------+----------------+--------------+-----------+----+-----------+
+Primary [pg2]:
+Candidate ['pg1', 'pg3'] []: pg1 # Candidate 必须是 Standby
+When should the switchover take place (e.g. 2023-10-19T15:16 )  [now]: now
+Are you sure you want to switchover cluster pgsql, demoting current leader pg2? [y/N]: y
+2023-10-19 14:16:33.43225 Successfully switched over to "pg1"
++ Cluster: pgsql (7291209041344875305) ---------+----+-----------+
+| Member | Host           | Role    | State     | TL | Lag in MB |
++--------+----------------+---------+-----------+----+-----------+
+| pg1    | 192.168.111.21 | Leader  | running   |  8 |           |
+| pg2    | 192.168.111.22 | Replica | stopped   |    |   unknown |
+| pg3    | 192.168.111.23 | Replica | streaming |  8 |         0 |
++--------+----------------+---------+-----------+----+-----------+
+```
+
+5、查看 VIP 漂移情况
+
+```shell
+# root
+tail -f -n 100 /var/log/syslog # 当前系统为 Ubuntu，其他系统日志文件名可能不太一样
+```
+
+```shell
+Oct 19 06:24:42 ubt1 postgres: loadvip: loadvip start args:'on_role_change master pgsql'
+Oct 19 06:24:42 ubt1 patroni[10287]: 2023-10-19 14:24:42.311 CST [10287] LOG:  selected new timeline ID: 10
+Oct 19 06:24:42 ubt1 postgres: loadvip: added vip 192.168.111.30 at dev eth1
+```
+
+通过 Leader 节点的日志我们可以看到，在执行 switchover 之后，VIP 漂移到了Leader 节点。
+
+…
+
+---
+
+#### [keepalived 实现 VIP 漂移](https://github.com/ChenHuajun/blog_xqhx/blob/main/2020/2020-09-07-%E5%9F%BA%E4%BA%8EPatroni%E7%9A%84PostgreSQL%E9%AB%98%E5%8F%AF%E7%94%A8%E7%8E%AF%E5%A2%83%E9%83%A8%E7%BD%B2.md#73-vip%E9%80%9A%E8%BF%87keepalived%E5%AE%9E%E7%8E%B0vip%E6%BC%82%E7%A7%BB)
+
+Patroni 提供了一系列 [REST API](https://patroni.readthedocs.io/en/latest/rest_api.html)，其中有可用于检查节点角色健康状态的 API。可使用 REST API 搭配 keepalived 动态的在主备库上绑定 VIP。
+
+1、安装 keepalived
+
+```shell
+apt install -y keepalived
+```
+
+2、编辑 keepalived 配置文件 `/etc/keepalived/keepalived.conf`
+
+> 下面的例子表示备节点故障时则将只读 VIP 绑在主节点上。
+
+```
+global_defs {
+    router_id LVS_DEVEL
+}
+vrrp_script check_leader {
+    script "/usr/bin/curl -s http://127.0.0.1:8008/leader -v 2>&1|grep '200 OK' >/dev/null"
+    interval 2
+    weight 10
+}
+vrrp_script check_replica {
+    script "/usr/bin/curl -s http://127.0.0.1:8008/replica -v 2>&1|grep '200 OK' >/dev/null"
+    interval 2
+    weight 5
+}
+vrrp_script check_can_read {
+    script "/usr/bin/curl -s http://127.0.0.1:8008/read-only -v 2>&1|grep '200 OK' >/dev/null"
+    interval 2
+    weight 10
+}
+vrrp_instance VI_1 {
+    state BACKUP
+    interface eth1
+    virtual_router_id 21
+    priority 100
+    advert_int 1
+    track_script {
+        check_can_read
+        check_replica
+    }
+    virtual_ipaddress {
+       192.168.111.31
+    }
+}
+```
+
+> 有两个地方需要注意：
+>
+> * `interface` 绑定自己机器上的网卡接口
+> * `virtual_router_id` 虚拟路由 ID，最好在同一个子网下唯一
+> * `virtual_ipaddress` 绑定的 VIP
+
+3、启动 keepalived
+
+```shell
+systemctl start keepalived
+
+# 如果有必要，开机自启
+systemctl enable keepalived
+```
+
+…
+
+> 在网络抖动或其它临时故障时 keepalived 管理的 VIP 容易飘，更推荐使用 Patroni 回调脚本动态绑定读写 VIP。
+
+…
+
+---
+
+#### [haproxy](https://github.com/ChenHuajun/blog_xqhx/blob/main/2020/2020-09-07-%E5%9F%BA%E4%BA%8EPatroni%E7%9A%84PostgreSQL%E9%AB%98%E5%8F%AF%E7%94%A8%E7%8E%AF%E5%A2%83%E9%83%A8%E7%BD%B2.md#74-haproxy)
+
+haproxy 本身会占用一定的资源，且需要配合 keepalived 来使用。
+
+…
+
+---
+
+### REST API
+
+在 Patroni 配置中设置的 [REST API](https://patroni.readthedocs.io/en/latest/rest_api.html) 可以通过 `curl -s http://<ip>:<port>/patroni` 等接口来访问。
+
+…
+
+---
+
+### 级联复制
+
+通常集群中所有的备库都从主库复制数据，但是特定的场景下我们可能需要部署级联复制。基于 Patroni 搭建的集群支持 2 种形式的级联复制。
+
+* 节点之间级联复制
+* 集群之间级联复制
+
+…
+
+#### 节点间级联复制
+
+指定某个备库优先从指定成员而不是 Leader 节点复制数据
+
+```yaml
+tags:
+    replicatefrom: pg2
+```
+
+> `replicatefrom` 只对节点处于 Replica 角色时有效，并不影响该节点参与 Leader 选举。当 `replicatefrom` 指定的复制源节点故障时，Patroni 会自动切换到 Leader 节点进行复制。
+
+…
+
+#### 集群间级联复制
+
+还可以创建一个只读的备集群，从另一个指定的 PostgreSQL 实例复制数据。这可以用于创建跨数据中心的灾备集群。
+
+1、初始创建一个备集群，可以在 Patroni 配置文件 `/etc/patroni.yml` 中加入以下配置
+
+```yaml
+bootstrap:
+  dcs:
+    standby_cluster:
+      host: 192.168.111.30 # 上游复制源的主机号，可以使用 VIP 避免主集群主备切换时影响备集群
+      port: 5432 # 上游复制源的端口号
+      primary_slot_name: slot1 # 可选的
+      create_replica_methods:
+      - basebackup
+```
+
+如果配置了复制槽，需要同时在主集群上配置持久 slot。
+
+```yaml
+slots:
+  slot1:
+    type: physical
+```
+
+对于已配置好的级联集群，可以使用 `patronictl edit-config` 命令动态修改 `standby_cluster`
+
+```yaml
+standby_cluster:
+  host: 192.168.111.21
+  port: 5432
+  primary_slot_name: slot1
+  create_replica_methods:
+  - basebackup
+```
+
+添加 standby_cluster 将主机群变成备集群；删除 standby_cluster 将备集群变成主机群。
+
+…
+
+---
+
+### 总结
 
 |          | Patroni                                                      | repmgr                                                       |
 | -------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | 安装     | 较复杂，需要 pip 辅助安装，还需要安装额外的 etcd 工具管理集群数据 | 简单，直接 apt 从源安装                                      |
 | 部署     | 简单，配置文件只需要小修改即可用于其他节点，启动 Patroni 自动加入集群 | 相对 Patroni 来说复杂点，配置小修改即可复用，但还是需要手动加入集群 |
 | 故障转移 | 自动切换，无需干预，方便                                     | 需要配置 repmgrd，主节点恢复之后还需要人为 rejoin，相对 Patroni 复杂。 |
+| 脑裂     | 两种办法来避免 watchdog 或者同步复制， 同步复制基本上可以达到目的 | 可以配置 witness 节点来预防双主产生，如果脑裂需要手动 pg_rewind，越早干预越好 |
 | …        | …                                                            | …                                                            |
+
+…
+
+---
+
+## TimescaleDB
+
+> 以 Ubuntu 为例
+
+1、安装
+
+```shell
+echo "deb https://packagecloud.io/timescale/timescaledb/ubuntu/ $(lsb_release -c -s) main" | sudo tee /etc/apt/sources.list.d/timescaledb.list
+
+wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | sudo apt-key add -
+
+apt update
+
+apt install timescaledb-2-postgresql-15
+```
+
+> If you want to install a specific version of TimescaleDB, you can specify the version like this
+>
+> ```shell
+> apt install timescaledb-2-postgresql-12='2.6.0*' timescaledb-2-loader-postgresql-12='2.6.0*'
+> ```
+
+2、手动调整 PostgreSQL 配置，以让 TimescaleDB 达到最佳运行状态
+
+[参考官方配置](https://docs.timescale.com/self-hosted/latest/configuration/about-configuration/)
+
+
+
+3、查看安装情况
+
+```postgresql
+postgres=# SELECT * FROM pg_available_extensions;
+-- or
+postgres=# SELECT * FROM pg_available_extensions WHERE name='timescaledb';
+```
+
+4、启用插件
+
+```postgresql
+postgres=# CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+postgres=# CREATE EXTENSION IF NOT EXISTS timescaledb_toolkit CASCADE;
+-- 查看插件启用情况
+postgres=# \x
+Expanded display is on.
+postgres=# \dx
+List of installed extensions
+-[ RECORD 1 ]--------------------------------------------------------------------------------------
+Name        | plpgsql
+Version     | 1.0
+Schema      | pg_catalog
+Description | PL/pgSQL procedural language
+-[ RECORD 2 ]--------------------------------------------------------------------------------------
+Name        | timescaledb
+Version     | 2.12.1
+Schema      | public
+Description | Enables scalable inserts and complex queries for time-series data (Community Edition)
+-[ RECORD 3 ]--------------------------------------------------------------------------------------
+Name        | timescaledb_toolkit
+Version     | 1.17.0
+Schema      | public
+Description | Library of analytical hyperfunctions, time-series pipelining, and other SQL utilities
+```
 
 …
 
@@ -2215,3 +2846,8 @@ pg1 作为 Replica 重新加入节点。
 * https://github.com/ChenHuajun/blog_xqhx/tree/main/2020
 * https://patroni.readthedocs.io/en/latest/README.html#running-and-configuring
 * patroni 配置：https://github.com/zalando/patroni/tree/master
+
+**TimescaleDB**
+
+* https://docs.timescale.com/self-hosted/latest/install/installation-linux/
+* https://severalnines.com/blog/how-enable-timescaledb-existing-postgresql-database/
