@@ -252,24 +252,30 @@ Writing data to TimescaleDB works the same way as writing data to regular Postgr
 ### Why
 
 > Time-series data can be compressed to reduce the amount of storage required, and increase the speed of some queries. 
+>
+> 减少空间使用，加快查询速度。
 
 ### When
 
 > When new data is added to your database, it is in the form of uncompressed rows. Timescale uses a built-in job scheduler to convert this data to the form of compressed columns. **When you enable compression**, the data in your hypertable is compressed chunk by chunk. 
+>
+> 新增数据会被添加到为被压缩的列，当启用了压缩 Timescale 会将超表中的数据按照一个个 chunk 来压缩。
 
 ### Benefits
 
-> Compressing your time-series data allows you to reduce your chunk size by more than 90%. This saves on storage costs, and keeps your queries operating at lightning speed.
+> Compressing your time-series data allows you to reduce your chunk size by **more than 90%**. This saves on storage costs, and keeps your queries operating at lightning speed.
 >
 > When the chunk is compressed, multiple records are grouped into a single row. The columns of this row hold an array-like structure that stores all the data. This means that instead of using lots of rows to store the data, it stores the same data in a single row.
 >
 > Because a single row takes up less disk space than many rows, it decreases the amount of disk space required, and can also speed up your queries.
+>
+> 减少超过 90% 的空间占用，加快查询速度。
+>
+> chunk 被压缩时会根据设置的压缩字段（compress_segmentby）将多行记录进行分组，组成一行。单行内的数据按照指定的排序字段（compress_orderby）排列，组成类似数组一样的数据结构。
 
 
 
 ### 数据压缩操作
-
-> You can enable compression on individual hypertables, by declaring which column you want to segment by.
 
 可以在 hypertable 上分别开启压缩功能，只要指定分段压缩依据的列即可。
 
@@ -278,6 +284,7 @@ Writing data to TimescaleDB works the same way as writing data to regular Postgr
 -- 压缩的数据根据 device_id 这一列来分段
 ALTER TABLE example SET (
   timescaledb.compress,
+  -- timescaledb.compress_orderby -- The default is the descending order of the hypertable's time column.
   timescaledb.compress_segmentby = 'device_id'
 );
 ```
@@ -295,6 +302,12 @@ SELECT * FROM timescaledb_information.jobs
   WHERE proc_name='policy_compression';
 ```
 
+查看压缩状态：
+
+```postgresql
+SELECT * FROM chunk_compression_stats('example');
+```
+
 删除某个表上的压缩策略：
 
 ```postgresql
@@ -304,7 +317,7 @@ SELECT remove_compression_policy('example'); -- 删除 example 表的压缩策�
 关闭数据压缩功能：
 
 ```postgresql
-ALTER TABLE <TABLE_NAME> SET (timescaledb.compress=false);
+ALTER TABLE example SET (timescaledb.compress=false);
 ```
 
 
@@ -325,14 +338,16 @@ ALTER TABLE <TABLE_NAME> SET (timescaledb.compress=false);
 
 ### 压缩分段列
 
-开启数据压缩需要指定一个列来作为分段依据，最好是单值列。
+开启数据压缩需要指定一个列来作为分段依据，最好是包含重复值较多的，具有单个值的列。
+
+> 在时序数据库中因为要记录某个点位数据的变化情况，通常来说 id 列会包含较多的重复值。
 
 | time                 | device_id | cpu            | disk_io  | energy_consumption |
 | :------------------- | :-------- | :------------- | :------- | :----------------- |
 | [12:00:02, 12:00:01] | 1         | [88.2, 88.6]   | [20, 25] | [0.8, 0.85]        |
 | [12:00:02, 12:00:01] | 2         | [300.5, 299.1] | [30, 40] | [0.9, 0.95]        |
 
-如上表所示，单值列 device_id 就能直接映射到一整行数据，不像其他多值列一样需要先解压才能对比，在使用 `WHERE` 从句来进行查询过滤的时候就更加高效。因为使用单值列可以在数据查询过滤之后再对结果进行解压，而不是先解压再过滤。
+如上表所示，单值列 device_id 就能直接映射到一整行数据，在使用 `WHERE` 从句来进行查询过滤的时候就更加高效。而且使用单值列可以在数据查询过滤之后再对结果进行解压，而不是先解压再过滤。不像其他多值列一样需要先解压才能对比，
 
 
 
@@ -367,6 +382,12 @@ ALTER TABLE  example
 > Timescale automatically supports `INSERT`s into compressed chunks. But if you need to insert a lot of data, for example as part of a bulk backfilling operation, you should first decompress the chunk. Inserting data into a compressed chunk is more computationally expensive than inserting data into an uncompressed chunk. This adds up over a lot of rows.
 
 > https://docs.timescale.com/use-timescale/latest/compression/decompress-chunks/
+
+```postgresql
+-- 按照时间顺序将所有的 chunk 解压
+SELECT decompress_chunk(c, true)
+    FROM show_chunks('table_name', older_than, newer_than) c;
+```
 
 
 

@@ -2265,7 +2265,7 @@ watchdog:
   safety_margin: 5
 ```
 
-> `safety_margin`：watchdog 持有一个 leader key 且带有过期时间。如果 leader 节点异常，watchdog 超过 5s 未收到 leader patroni 的心跳，watchdog 会在 leader key 过期前 5s 重启 leader 节点。重启如果在 5s 内完成，leader 节点有机会再次获得 leader 身份，否则备库会通过选举成为新的 leader。
+> `safety_margin`：watchdog 持有一个 leader lock 且带有过期时间。如果 leader 节点异常，watchdog 超过 5s 未收到 leader patroni 的心跳，watchdog 会在 leader lock 过期前 5s 重启 leader 节点。重启如果在 5s 内完成，leader 节点有机会再次获得 leader 身份，否则备库会通过选举成为新的 leader。
 
 3、重启 patroni
 
@@ -2737,6 +2737,34 @@ standby_cluster:
 
 ---
 
+### Patroni 配置管理
+
+默认情况下 Patroni 管理的 PostgreSQL 配置是和数据目录在一起的
+
+```yaml
+postgresql:
+...
+  data_dir: /var/lib/postgresql/15/main
+  #config_dir: /etc/postgresql/15/main/ # defaults to the data directory
+  #custom_conf: /etc/postgresql/15/main/postgresql.custom.conf # 自定义配置文件
+```
+
+数据目录下的 `postgresql.conf` 配置文件会被 Patroni 重写，因此如果需要手动修改 PostgreSQL 配置可以编辑 `/var/lib/postgresql/15/main/postgrsql.base.conf`，`postgresql.conf` 引用了该文件。
+
+当本地或者动态的修改 PostgreSQL 配置时，生效的情况如下：
+
+1. 首先检查 `postgrsql.base.conf` 或者 custom_conf 有无配置；
+
+2. 如果配置了 custom_conf 且有值，Patroni 会忽略 `postgrsql.base.conf` 和 `postgrsql.conf`；
+
+3. 如果没有配置 custom_conf，但是  `postgrsql.base.conf` 存在且有值，则会使用 `postgrsql.base.conf` 中定义的配置；
+4. 如果 custom_conf 和 `postgrsql.base.conf` 都不存在则会使用 `postgrsql.conf`，并将 `postgrsql.conf` 重命名为 `postgrsql.base.conf`，原来的 base 会被作为备份。
+5. 动态设置的值会被直接添加到 `postgrsql.conf`，而且  `postgrsql.conf` 会包含 `postgrsql.base.conf` 和 custom_conf 指定的配置来作为基础值。
+
+…
+
+---
+
 ### 总结
 
 |          | Patroni                                                      | repmgr                                                       |
@@ -2751,9 +2779,9 @@ standby_cluster:
 
 ---
 
-## TimescaleDB
+# TimescaleDB
 
-> 以 Ubuntu 为例
+> 以 Ubuntu 为例，在已经安装了 PostgreSQL 的基础下安装 TimescaleDB。
 
 1、安装
 
@@ -2773,9 +2801,51 @@ apt install timescaledb-2-postgresql-15
 > apt install timescaledb-2-postgresql-12='2.6.0*' timescaledb-2-loader-postgresql-12='2.6.0*'
 > ```
 
-2、手动调整 PostgreSQL 配置，以让 TimescaleDB 达到最佳运行状态
+2、配置调整
 
-[参考官方配置](https://docs.timescale.com/self-hosted/latest/configuration/about-configuration/)
+2.1、手动调整 PostgreSQL 配置，以让 TimescaleDB 达到最佳运行状态
+
+```
+max_worker_processes = 21
+shared_preload_libraries = 'pg_stat_statements,timescaledb'
+
+shared_buffers = 486001kB
+effective_cache_size = 1423MB
+maintenance_work_mem = 243000kB
+work_mem = 9720kB
+timescaledb.max_background_workers = 16
+max_parallel_workers_per_gather = 1
+max_parallel_workers = 2
+wal_buffers = 14579kB
+min_wal_size = 512MB
+max_wal_size = 1GB
+default_statistics_target = 500
+random_page_cost = 1.1
+checkpoint_completion_target = 0.9
+autovacuum_max_workers = 10
+autovacuum_naptime = 10
+effective_io_concurrency = 256
+```
+
+> [参考官方配置](https://docs.timescale.com/self-hosted/latest/configuration/about-configuration/)
+
+2.2、自动配置调整
+
+```shell
+timescaledb-tune --config-path /your/config/path/postgresql.conf
+```
+
+…
+
+> **注意**
+>
+> 如果使用了 Patroni 来管理 PostgreSQL 集群，配置文件默认在 data_dir 内
+>
+> * `/var/lib/postgresql/15/main/postgresql.conf`
+>
+> 但是该文件会被 Patroni 重写，可以编辑
+>
+> * `/var/lib/postgresql/15/main/postgresql.base.conf`
 
 
 
@@ -2820,7 +2890,7 @@ Description | Library of analytical hyperfunctions, time-series pipelining, and 
 
 <br>
 
-## 参考
+# 参考
 
 * http://postgres.cn/docs
 * https://www.sjkjc.com/postgresql
