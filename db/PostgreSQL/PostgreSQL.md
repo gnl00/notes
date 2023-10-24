@@ -1896,7 +1896,7 @@ ETCD_INITIAL_ADVERTISE_PEER_URLS="http://192.168.111.20:2380"
 ETCD_INITIAL_CLUSTER="etcd0=http://192.168.111.20:2380"
 
 ETCD_INITIAL_CLUSTER_STATE="new"
-ETCD_INITIAL_CLUSTER_TOKEN="cluster1"
+ETCD_INITIAL_CLUSTER_TOKEN="etcd-cluster"
 
 ETCD_ADVERTISE_CLIENT_URLS="http://192.168.111.20:2379"
 ```
@@ -1906,7 +1906,7 @@ ETCD_ADVERTISE_CLIENT_URLS="http://192.168.111.20:2379"
 ```shell
 systemctl start etcd
 # 允许开机自启
-systemctl enable etcd
+systemctl enable etcd --now # 允许开机自启并立即启动
 ```
 
 3、安装 Patroni
@@ -1918,9 +1918,7 @@ systemctl enable etcd
 > ```
 
 ```shell
-apt-get install python3-psycopg2 # install python3 psycopg2 module on Debian/Ubuntu
-
-apt install python3-pip
+apt-get install -y python3-pip python3-psycopg2 # install python3 psycopg2 module on Debian/Ubuntu
 
 # 最好开启代理，否则 pip 可能比较慢
 pip install --upgrade pip
@@ -1977,6 +1975,7 @@ bootstrap:
         wal_log_hints: "on"
         # shared_preload_libraries: ['pg_stat_statements']
       pg_hba:
+      - local all all 0.0.0.0/0 trust
       - host replication repl 0.0.0.0/0 trust
       - host all all 0.0.0.0/0 trust
 
@@ -2127,10 +2126,11 @@ postgres@ubt1:~$ patronictl -c /etc/patroni.yml list
 9、将 patroni 配置设置到全局环境变量
 
 ```shell
-vim ~postgres/.bash_profile
+# postgres
+vim ~/.bash_profile
 # 添加
 export PATRONICTL_CONFIG_FILE=/etc/patroni.yml
-source ~postgres/.bash_profile
+source ~/.bash_profile
 # 测试
 patronictl list
 ```
@@ -2295,7 +2295,7 @@ synchronous_mode: true
 对于正在运行中的 patroni 进程，可以通过命令修改
 
 ```shell
-patronictl edit-config -c /etc/patroni.yml -s 'synchronous_mode=true'
+patronictl -c /etc/patroni.yml edit-config -s 'synchronous_mode=true'
 ```
 
 > 在同步复制模式下，只有同步备库具有被提升为主库的资格。如果同步备库临时不可用，Patroni 会把主库的复制模式降级成了异步复制，确保服务不中断。效果类似于 MySQL 的半同步复制，但是相比 MySQL 使用固定的超时时间控制复制降级，这种方式更加智能，同时还能防止脑裂。
@@ -2832,7 +2832,7 @@ effective_io_concurrency = 256
 2.2、自动配置调整
 
 ```shell
-timescaledb-tune --config-path /your/config/path/postgresql.conf
+timescaledb-tune -conf-path /your/config/path/postgresql.conf
 ```
 
 …
@@ -2854,7 +2854,7 @@ timescaledb-tune --config-path /your/config/path/postgresql.conf
 ```postgresql
 postgres=# SELECT * FROM pg_available_extensions;
 -- or
-postgres=# SELECT * FROM pg_available_extensions WHERE name='timescaledb';
+postgres=# SELECT * FROM pg_available_extensions WHERE name like '%timescaledb%';
 ```
 
 4、启用插件
