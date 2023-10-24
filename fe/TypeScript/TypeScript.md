@@ -5,17 +5,20 @@
 ## 入门
 
 ```shell
-# 安装
+# 先全局安装，为了使用 tsc 等编译命令
 npm install -g typescript
-# 使用ts-node运行ts文件
-npm install -g ts-node
-# 项目中 or 全局加-g
-npm install @types/node
+# 再进行项目安装
+npm install -D typescript
+# 最后安装 ts-node 运行 ts 文件
+npm install -D ts-node
+
+# 编译运行时可能会提示未安装 @types/node，直接安装即可
+# npm install -D @types/node
 ```
 
 
 
-## 基本类型和扩展类型
+## 类型
 
 ### 基本类型
 
@@ -54,92 +57,9 @@ console.log(Number(null))// 0
 
 
 
-**字面量**
-
-> 定义什么值就只能赋什么值
-
-```typescript
-let dog: 'dog'
-
-// dog = 'cat' // error: '"cat"' is not assignable to type '"dog"'.
-dog = 'dog'
-
-// 同时赋予多个不同类型的可选值，用"|"分开
-let my_var: 'cat'|'dog'|false|100
-my_var = 'cat'
-my_var = 'dog'
-my_var = false
-my_var = 100
-```
-
-
-
-**联合类型**
-
-> 对于一个变量的类型可能是几种类型的时候我们可以使用 any ，但是 any 的范围有点大，不到万不得已不使用；如果知道是其中的哪几种类型的话，我们就可以使用 联合类型 用 | 分隔
-
-```typescript
-// 联合类型 union types
-let union_var: string | number | boolean
-
-// 注意：在没有赋值之前，只能访问共同的方法、属性，比如下面的例子，number 没有length 属性
-// union_var.valueOf()
-
-union_var = false
-console.log(union_var)
-
-union_var = 'union_var_str'
-console.log(union_var, union_var.length)
-
-union_var = 100
-console.log(union_var)
-```
-
-
-
-**类型守卫**
-
-```typescript
-// 类型守卫 type guard
-// typeof、instanceof、 in
-// 遇到联合类型的时候，使用 类型守卫可以 缩小范围
-function getLenGuard(param: number | string) : number {
-    if (typeof param === 'string') {
-        return param.length
-    }
-    return param.toString().length
-}
-
-console.log(getLen(122222))
-```
-
-
-
-**类型断言**
-
-```typescript
-// 类型断言
-// 在上面联合类型的变量传入的时候，我们声明了这个类型为 number | string 它不能不能调用 length 方法
-// 机器没法判断这个类型，可以人为指定类型 string 这里我们就可以用到 类型断言
-function getLen(param: number | string) : number {
-    // 1、用 as 来进行断言
-    // const str = param as string
-    // 2、用 范型 来进行断言
-    const str = <string> param
-    if (str.length) {
-        return str.length
-    }
-    return str.toString().length
-}
-
-console.log(getLen(123))
-```
-
-
-
 ### 特殊类型
 
-```typescript
+```ts
 // any
 let my_any: any = "aaa" + 100
 console.log(my_any, typeof my_any)
@@ -177,9 +97,9 @@ console.log(my_fun1, typeof my_fun1)
 
 
 
-**数组**
+### 数组
 
-```typescript
+```ts
 // 数组 Array
 let my_arr = [1, 2, 3, 4]
 // typeof my_arr === object
@@ -214,9 +134,9 @@ console.log(isObjectArray(my_num_arr));
 
 
 
-**元组**
+### 元组
 
-```typescript
+```ts
 // 元组数据类型需要跟给定的变量类型一致
 let my_tuple: [string, boolean, number] = ['aaa', false, 100]
 console.log(my_tuple)
@@ -224,10 +144,10 @@ console.log(my_tuple)
 
 
 
-**对象**
+### 对象
 
-```typescript
-// 直接 let a: object; 没有什么意义，因为 js 中对象太多
+```ts
+// 声明一个 ts 对象
 let my_obj: {
     id: number,
     name: string,
@@ -243,14 +163,187 @@ my_obj = {
 console.log(my_obj)
 ```
 
+…
 
+---
+
+## 类型操作
+
+
+
+### 字面量
+
+> 定义什么值就只能赋什么值
+
+```typescript
+let dog: 'dog'
+
+// dog = 'cat' // error: '"cat"' is not assignable to type '"dog"'.
+dog = 'dog' // correct
+
+// 同时赋予多个不同类型的可选值，用"|"分开
+let my_var: 'cat'|'dog'|false|100
+my_var = 'cat'
+my_var = 'dog'
+my_var = false
+my_var = 100
+```
+
+
+
+### 联合类型
+
+> 对于一个变量的类型可能是几种类型的时候我们可以使用 any ，但是 any 的范围有点大，不到万不得已不使用；如果知道是其中的哪几种类型的话，我们就可以使用**联合类型**，多个联合类型之间用 `|` 分隔。
+
+```typescript
+// 联合类型 union types
+let union_var: string | number | boolean
+
+// 注意：在没有赋值之前，只能访问共同的方法、属性，比如下面的例子，number 没有length 属性
+// union_var.valueOf()
+
+union_var = false
+console.log(union_var)
+
+union_var = 'union_var_str'
+console.log(union_var, union_var.length)
+
+union_var = 100
+console.log(union_var)
+
+// querySelector 拿不到 DOM 的时候返回 null
+const ele: HTMLElement | null = document.querySelector('.main')
+```
+
+
+
+### 类型守卫
+
+```typescript
+// 类型守卫 type guard
+// typeof、instanceof、 in
+// 遇到联合类型的时候，使用 类型守卫可以 缩小范围
+function getLenGuard(param: number | string) : number {
+    if (typeof param === 'string') {
+        return param.length
+    }
+    return param.toString().length
+}
+
+console.log(getLen(122222))
+```
+
+
+
+### 类型断言
+
+```typescript
+// 类型断言
+// 在上面联合类型的变量传入的时候，我们声明了这个类型为 number | string 它不能调用 length 方法
+// 这里我们就可以用到 类型断言指定类型为 string
+function getLen(param: number | string) : number {
+    // 1、用 as 来进行断言
+    // const str = param as string
+    // 2、用 范型 来进行断言
+    const str = <string> param
+    if (str.length) {
+        return str.length
+    }
+    return str.toString().length
+}
+
+console.log(getLen(123))
+```
+
+> 不要滥用类型断言，只在能够确保代码正确的情况下去使用它。
+
+
+
+### 非空断言操作符
+
+> 能确定变量值一定不为空时使用。
+
+```ts
+let s = e!.name;  // 断言 e 是非空并访问 name 属性
+```
+
+> 与可选参数不同，非空断言操作符不会防止出现 `null` 或 `undefined`。
+
+…
+
+
+
+### 类型推论
+
+TypeScript 会根据声明变量时赋值的类型，自动帮推导变量类型。
+
+```ts
+// 相当于 msg: string
+let msg = 'Hello World'
+
+// 所以要赋值为 number 类型时会报错
+msg = 3 // Type 'number' is not assignable to type 'string'
+```
+
+TypeScript 会根据 `return` 的结果推导返回值类型。
+
+```ts
+// 相当于 getRandomNumber(): number
+function getRandomNumber() {
+  return Math.round(Math.random() * 10)
+}
+
+// 相当于 num: number
+const num = getRandomNumber()
+```
+
+类型推论的前提是变量在声明时有明确的值，如果一开始没有赋值，那么会被默认为 `any` 类型。
+
+```ts
+// 此时相当于 foo: any
+let foo
+
+// 所以可以任意改变类型
+foo = 1 // 1
+foo = true // true
+```
+
+…
+
+
+
+---
 
 ## 函数
 
+> * 要规定函数的*参数类型*和*返回类型*；
+> * *可选参数*，参数后带 `?` 表示该参数是一个可选参数。可选参数必须排在必须参数的后面。
+
 ```typescript
-// 函数 function
-// 要规定函数的 输入类型 和 返回类型
-// 在形参后面接冒号声明 形参的类型，在 ()后面冒号声明 返回值类型
+function func(str: string, num: number): void {}
+
+const func2 = function(): void {}
+
+// 除了上面这种声明式写法还有一种表达式写法
+const res = (a: number, b: number): number => a - b
+}
+
+interface ISum {
+    (a: number, b: number): number
+}
+
+let mysum: ISum = res
+
+console.log(mysum)
+```
+
+…
+
+---
+
+### 可选参数
+
+```ts
 // 也可以为函数添加可选参数 这里用 ? 即可，这样我们就可以调用两个参数或者三个参数不报错
 function myFun1 (a: number, b: number, c?: number): number {
     return a + b
@@ -263,23 +356,46 @@ function myFun3 (a: number, b: number, c?: number, d?: number): void {}
 
 console.log(myFun1(1, 2))
 
-// 除了上面这种声明式写法还有一种表达式写法
-const res = (a: number, b: number): number => {
-    return a - b
+function buildName(firstName: string, lastName?: string) {
+    return firstName + ' ' + lastName
 }
 
-interface ISum {
-    (a: number, b: number): number
-}
-
-let mysum: ISum = res
-
-console.log(mysum)
+// 错误演示
+buildName("firstName", "lastName", "lastName")
+// 正确演示
+buildName("firstName")
+// 正确演示
+buildName("firstName", "lastName")
 ```
 
+…
 
+---
 
-`function.length`，就是==第一个具有默认值之前的参数个数==
+### 异步函数
+
+对于异步函数，需要用 `Promise<T>` 类型来定义它的返回值，这里的 `T` 是泛型，取决于该函数最终返回一个什么样的值。
+
+```ts
+// 注意这里的返回值类型
+function queryData(): Promise<string> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve('Hello World')
+    }, 3000)
+  })
+}
+
+queryData().then((data) => console.log(data))
+```
+
+…
+
+---
+
+### function.length
+
+`function.length`，就是**方法中|第一个|具有默认值的参数|之前的|参数个数**。
 
 ```typescript
 const fun0 = () => {}
@@ -313,36 +429,37 @@ console.log(fn4.length) // 1
 console.log(fn5.length) // 0
 ```
 
+…
 
+---
 
-### 可选参数和非空断言操作符
+### 函数重载
 
-**可选参数**
-
-```typescript
-function buildName(firstName: string, lastName?: string) {
-    return firstName + ' ' + lastName
+```ts
+function greet(name: string): string  // TS 类型
+function greet(name: string[]): string[]  // TS 类型
+// 真正的函数体，函数入参需要把可能涉及到的类型都写出来，用以匹配前两行的类型
+// 函数的返回值类型可以省略，因为在第 1 、 2 行里已经定义过返回类型了。
+function greet(name: string | string[]) {
+  if (Array.isArray(name)) {
+    return name.map((n) => `Welcome, ${n}!`)
+  }
+  return `Welcome, ${name}!`
 }
 
-// 错误演示
-buildName("firstName", "lastName", "lastName")
-// 正确演示
-buildName("firstName")
-// 正确演示
-buildName("firstName", "lastName")
+// 单个问候语，此时只有一个类型 string
+const greeting = greet('Petter')
+console.log(greeting) // Welcome, Petter!
+
+// 多个问候语，此时只有一个类型 string[]
+const greetings = greet(['Petter', 'Tom', 'Jimmy'])
+console.log(greetings)
+// [ 'Welcome, Petter!', 'Welcome, Tom!', 'Welcome, Jimmy!' ]
 ```
 
+…
 
-
-**非空断言操作符**
-
-> 能确定变量值一定不为空时使用。与可选参数不同的是，非空断言操作符不会防止出现 null 或 undefined
-
-```typescript
-let s = e!.name;  // 断言e是非空并访问name属性
-```
-
-
+---
 
 ## 类
 
@@ -864,8 +981,136 @@ declare module '*.vue' {
 
 
 
+## 新增
+
+### Omit
+
+可以在继承的过程中舍弃某些属性，通过 `Omit` 帮助类型来实现，`Omit` 的类型如下：
+
+```ts
+type Omit<T, K extends string | number | symbol>
+```
+
+其中 `T` 代表已有的一个对象类型， `K` 代表要删除的属性名，如果只有一个属性就直接是一个字符串，如果有多个属性，用 `|` 来分隔开。
+
+```ts
+interface UserItem {
+  name: string
+  age: number
+  enjoyFoods: string[]
+  friendList?: UserItem[]
+}
+
+// 这里在继承 UserItem 类型的时候，删除了两个多余的属性
+interface Admin extends Omit<UserItem, 'enjoyFoods' | 'friendList'> {
+  permissionLevel: number
+}
+
+// 现在的 admin 就非常精简了
+const admin: Admin = {
+  name: 'Petter',
+  age: 18,
+  permissionLevel: 1,
+}
+```
+
+如果类上面本身有方法存在，接口在继承的时候也要相应的实现，当然也可以借助 `Omit` 帮助类型来去掉这些方法。
+
+```ts
+class UserBase {
+  name: string
+  constructor(userName: string) {
+    this.name = userName
+  }
+  // 这是一个方法
+  getName() {
+    console.log(this.name)
+  }
+}
+
+// 接口继承类的时候也可以去掉类上面的方法
+interface User extends Omit<UserBase, 'getName'> {
+  age: number
+}
+
+// 最终只保留数据属性，不带有方法
+const petter: User = {
+  name: 'Petter',
+  age: 18,
+}
+```
+
+…
+
+---
+
+## 配置详解
+
+先全局安装 TypeScript
+
+```shell
+npm install -g typescript
+```
+
+再打开根目录进行配置初始化
+
+```shell
+tsc --init
+```
+
+```shell
+Created a new tsconfig.json with:
+                                                                                                    TS
+  target: es2016
+  module: commonjs
+  strict: true
+  esModuleInterop: true
+  skipLibCheck: true
+  forceConsistentCasingInFileNames: true
+```
+
+每个 `tsc` 命令行选项，都可以使用 `tsconfig.json` 中的一个字段来管理，比如 `--outDir`
+
+```json
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "es6",
+    "outDir": "./dist"
+  }
+}
+```
+
+> 在实际工作中，项目都是通过一些脚手架创建的。`tsconfig.json` 也是脚手架提前配置好通用的选项，只需要在不满足条件的情况下去调整。
+
+…
+
+> 具体可以参考[官方配置](https://www.typescriptlang.org/tsconfig)
+
+> 也可以参考[这个配置](https://jkchao.github.io/typescript-book-chinese/project/compilationContext.html#tsconfig-json)
+
+…
+
+---
+
+## 项目脚手架与配置
+
+项目中的配置如：
+
+* tsconfig
+* editor config 编辑器代码格式配置
+* prettier 代码格式化
+* eslint 语法解析
+* …
+
+> 参考：https://vue3.chengpeiquan.com/upgrade.html
+
+…
+
+---
+
 ## 参考
 
-[Vue3.0 前的 TypeScript 最佳入门实践](https://juejin.cn/post/6844903749501059085)
-
-[TypeScript装饰器（decorators） - 一箭中的 - 博客园 (cnblogs.com)](https://www.cnblogs.com/winfred/p/8216650.html)
+* [Vue3.0 前的 TypeScript 最佳入门实践](https://juejin.cn/post/6844903749501059085)
+* [TypeScript装饰器（decorators）](https://www.cnblogs.com/winfred/p/8216650.html)
+* https://vue3.chengpeiquan.com/typescript.html
