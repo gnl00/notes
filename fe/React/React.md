@@ -705,7 +705,11 @@ https://juejin.cn/post/6975864046058733576#heading-19
 
 ## 路由
 
-> `react` 提供 `react-router` 来管理路由，`react-router` 包含 `3` 个部分，分别为 `react-router`、`react-router-dom` （网页）和 `react-router-native`（native）
+> react 提供 `react-router` 来管理路由，react-router 包含
+>
+> * react-router
+> * react-router-dom （网页）
+> * 和 react-router-native（native）
 
 **安装**
 

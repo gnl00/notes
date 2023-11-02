@@ -391,25 +391,29 @@ SELECT decompress_chunk(c, true)
 
 
 
-## 数据迁移/备份与恢复
+## 数据迁移
+
+### 普通表迁移
 
 > https://docs.timescale.com/self-hosted/latest/migration/
 
 TimescaleDB 可以借助 PostgreSQL 提供的 [pg_dump](https://www.postgresql.org/docs/current/app-pgdump.html) 和 [pg_restore](https://www.postgresql.org/docs/current/app-pgrestore.html) 工具来完成数据迁移操作。
 
-### 数据备份
+**数据备份**
 
 ```postgresql
 -- 从名为 tsdb 的数据库备份
 pg_dump -Fc -f tsdb.bak tsdb
 
 -- 备份远程数据库
-pg_dump -h <REMOTE_HOST> -p 55555 -U tsdbadmin -Fc -f tsdb.bak tsdb
+pg_dump -h <REMOTE_HOST> -p 5432 -U tsdbadmin -Fc -f tsdb.bak tsdb
 ```
 
-> 需要注意：不要使用 pd_dump 工具直接备份 hypertable，因为使用这个方法生成的 dump 文件缺少 hypertable 需要的一些必要文件，会导致 hypertable 无法能够正确恢复。
+> 注意：**不要使用 pd_dump 工具直接备份超表**，因为使用这个方法生成的 dump 文件缺少超表需要的一些必要文件，会导致超表无法能够正确恢复。
 
-### 数据恢复
+…
+
+**数据恢复**
 
 ```postgresql
 -- 1
@@ -432,49 +436,178 @@ SELECT timescaledb_post_restore();
 
 > 注意：不能使用 `pg_restore -j` 因为 `-j` 参数会导致数据库无法正确恢复 TimescaleDB 的目录结构。
 
+…
 
+---
 
-### 超表备份
+### 超表迁移
 
-1、备份超表结构
-
-```postgresql
-pg_dump -s -d old_db --table <table-name> -N _timescaledb_internal | \
-grep -v _timescaledb_internal > schema.sql
-```
-
-2、将超表数据备份到 csv 文件
-
-```postgresql
-psql -d old_db \
--c "\COPY (SELECT * FROM table_name) TO data_name.csv DELIMITER ',' CSV"
-```
-
-
-
-### 超表恢复
-
-1、恢复表结构
-
-```postgresql
-psql -d new_db < schema.sql
-```
-
-2、重新创建超表
-
-```postgresql
-psql -d new_db -c "SELECT create_hypertable('<table-name>', '<time-colum>')"
-```
-
-3、恢复数据
-
-```postgresql
-psql -d new_db -c "\COPY table_name FROM data_name.csv CSV"
-```
-
+> **旧的方法**
+>
+> ---
+>
+> **超表备份**
+>
+> 1、备份超表结构
+>
+> ```postgresql
+> pg_dump -s -d old_db --table <table-name> -N _timescaledb_internal | \
+> grep -v _timescaledb_internal > schema.sql
+> ```
+>
+> 2、将超表数据备份到 csv 文件
+>
+> ```postgresql
+> psql -d old_db \
+> -c "\COPY (SELECT * FROM table_name) TO data_name.csv DELIMITER ',' CSV"
+> ```
+>
+> …
+>
+> ---
+>
+> **超表恢复**
+>
+> 1、恢复表结构
+>
+> ```postgresql
+> psql -d new_db < schema.sql
+> ```
+>
+> 2、重新创建超表
+>
+> ```postgresql
+> psql -d new_db -c "SELECT create_hypertable(
+>     '<table-name>', '<time-colum>',
+>     chunk_time_interval => INTERVAL '<CHUNK_TIME_INTERVAL>'
+> )"
+> ```
+>
+> 3、恢复数据
+>
+> ```postgresql
+> psql -d new_db -c "\COPY table_name FROM data_name.csv CSV"
+> ```
+>
+> …
+>
 > When you create the new hypertable with the `create_hypertable` command, you do not need to use the same parameters as existed in the old database. This can provide a good opportunity for you to re-organize your hypertables if you need to. For example, you can change the partitioning key, the number of partitions, or the chunk interval sizes.
 
+…
 
+---
+
+> 下面是新的方法
+
+1、首先备份数据库的 schema
+
+```postgresql
+pg_dump -U <SOURCE_DB_USERNAME> -w \
+-h <SOURCE_DB_HOST> -p <SOURCE_DB_PORT> -Fc -v \
+--section=pre-data --exclude-schema="_timescaledb*" \
+-f dump_pre_data.bak <DATABASE_NAME>
+```
+
+2、恢复 schema
+
+```postgresql
+pg_restore -U tsdbadmin -w \
+-h <HOST> -p <PORT> --no-owner -Fc \
+-v -d tsdb dump_pre_data.bak
+```
+
+> To avoid permissions errors, include the `--no-owner` flag.
+
+3、重新创建超表（每一个超表都需要重新创建）
+
+```postgresql
+SELECT create_hypertable(
+   '<TABLE_NAME>', '<TIME_COLUMN_NAME>',
+    chunk_time_interval =>
+        INTERVAL '<CHUNK_TIME_INTERVAL>');
+```
+
+4、数据备份到 csv
+
+```postgresql
+\COPY (SELECT * FROM <TABLE_NAME>) TO <TABLE_NAME>.csv CSV
+```
+
+> 如果表很大，可以将表拆分成不同的时间段
+>
+> ```postgresql
+> \COPY (SELECT * FROM TABLE_NAME WHERE time > '2022-11-01' AND time < '2023-11-02') TO TABLE_NAME_DATE_RANGE.csv CSV
+> ```
+>
+> *Split each table by time range, and copy each range individually.*
+
+使用 `COPY` 备份数据全部都会变成未压缩的状态，可能会造成占用的存储空间成倍增长。为了避免空间不足的情况，尽量将压缩数据解压，再进行 COPY 操作。
+
+5、数据恢复到超表，有两种方法：1、使用 PostgreSQL 提供的 `COPY` 命令；2、使用其他工具如 `timescaledb-parallel-copy`。后者比较快，但是非默认提供的，需要[手动安装](https://github.com/timescale/timescaledb-parallel-copy)。
+
+5.1、使用 COPY 命令
+
+连接上目标数据库
+
+```shell
+psql "postgres://tsdbadmin:<PASSWORD>@<HOST>:<PORT>/tsdb?sslmode=require"
+```
+
+进行数据恢复
+
+```postgresql
+\COPY <TABLE_NAME> FROM '<TABLE_NAME>.csv' WITH (FORMAT CSV);
+```
+
+5.2、使用 timescaledb-parallel-copy
+
+```shell
+# 首先，先安装 go
+
+#使用 go 安装 timescaledb-parallel-copy
+go get github.com/timescale/timescaledb-parallel-copy/cmd/timescaledb-parallel-copy
+
+# 对每个表都需要进行导入操作
+timescaledb-parallel-copy \
+--connection "host=<HOST> \
+user=tsdbadmin password=<PASSWORD> \
+port=<PORT> \
+sslmode=require" \
+--db-name tsdb \
+--table <TABLE_NAME> \
+--file <FILE_NAME>.csv \
+--workers <NUM_WORKERS> \
+--reporting-period 30s
+```
+
+6、恢复 schema-post 数据，例如约束数据
+
+```shell
+# 从原数据库备份 schema 后置数据
+pg_dump -U <SOURCE_DB_USERNAME> -w \
+-h <SOURCE_DB_HOST> -p <SOURCE_DB_PORT> -Fc -v \
+--section=post-data --exclude-schema="_timescaledb*" \
+-f dump_post_data.bak <DATABASE_NAME>
+
+# 将后置数据恢复到目标库
+pg_restore -U tsdbadmin -w \
+-h <HOST> -p <PORT> --no-owner -Fc \
+-v -d tsdb dump_post_data.bak
+```
+
+7、如果存在持续聚合表，[重新创建](https://docs.timescale.com/self-hosted/latest/migration/schema-then-data/#recreate-continuous-aggregates)
+
+8、如果存在自定义的策略（持续聚合刷新策略、数据留存策略、压缩策略、重排序策略），[重新创建](https://docs.timescale.com/self-hosted/latest/migration/schema-then-data/#recreate-policies)
+
+9、最后，执行 PostgreSQL 提供的 [Analyze 命令](https://www.postgresql.org/docs/10/sql-analyze.html)，更新数据表数据。
+
+```postgresql
+ANALYZE;
+```
+
+…
+
+---
 
 ## 持续聚合
 
@@ -500,7 +633,7 @@ psql -d new_db -c "\COPY table_name FROM data_name.csv CSV"
 
 > https://docs.timescale.com/use-timescale/latest/ingest-data/
 
-
+> [timescaledb-parallel-copy](https://github.com/timescale/timescaledb-parallel-copy)
 
 ## 数据留存
 
@@ -551,21 +684,35 @@ psql -d new_db -c "\COPY table_name FROM data_name.csv CSV"
 
 
 
-## 多节点部署
+## TSDB 数据库备份
 
-> https://docs.timescale.com/self-hosted/latest/multinode-timescaledb/
-
-
-
-## 高可用和主从
-
-> https://docs.timescale.com/self-hosted/latest/replication-and-ha/configure-replication/
+* 使用 [WAL-E](https://github.com/wal-e/wal-e)，参考：[官方描述](https://docs.timescale.com/self-hosted/latest/backup-and-restore/docker-and-wale/#perform-the-backup-using-the-wal-e-sidecar)
+* 物理备份（全量备份）
+* …
 
 
 
-## 备份和恢复
+### 全量备份工具
 
-> https://docs.timescale.com/use-timescale/latest/backup-restore-cloud/
+* pg_basebackup，PostgreSQL 官方提供
+* [pgBackRest](https://pgbackrest.org/)
+* [barman](https://github.com/EnterpriseDB/barman)
+
+
+
+### pg_basebackup
+
+```shell
+pg_basebackup -U username -h hostname -w -Ft -x -P -D /path/to/wal_backup
+```
+
+
+
+
+
+## 高可用部署
+
+> 先部署 PostgreSQL 高可用再安装 TimescaleDB 插件即可。
 
 
 
