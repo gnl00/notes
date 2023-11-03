@@ -694,7 +694,7 @@ ANALYZE;
 
 ### 全量备份工具
 
-* pg_basebackup，PostgreSQL 官方提供
+* pg_basebackup，PostgreSQL 官方提供，会备份整个 PostgreSQL 实例数据。
 * [pgBackRest](https://pgbackrest.org/)
 * [barman](https://github.com/EnterpriseDB/barman)
 
@@ -703,10 +703,10 @@ ANALYZE;
 ### pg_basebackup
 
 ```shell
-pg_basebackup -U username -h hostname -w -Ft -x -P -D /path/to/wal_backup
+pg_basebackup -U repl -h <source-db-ip> -p 5432 -F p -X stream -P -R -v -D /pgdata/dump
 ```
 
-
+> 详情参考 PostgreSQL 该篇文章。
 
 
 
