@@ -8,7 +8,10 @@
 
 ```bash
 docker pull postgres
-docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=<your-pw> -d postgres
+docker run --name postgres-test -p 5432:5432 -e POSTGRES_PASSWORD=postgres -v /var/lib/postgresql/dump/2023-11-02:/var/lib/postgresql/data -d postgres
+# 将 PostgreSQL 内部的数据目录挂载到外部时需要挂载 /var/lib/postgresql/data 这个路径
+# 挂载 /var/lib/postgresql 路径的话数据目录是不会被映射出来的。
+# ref：https://hub.docker.com/_/postgres # PGDATA 参数部分
 ```
 
 …
@@ -2774,6 +2777,125 @@ postgresql:
 | 故障转移 | 自动切换，无需干预，方便                                     | 需要配置 repmgrd，主节点恢复之后还需要人为 rejoin，相对 Patroni 复杂。 |
 | 脑裂     | 两种办法来避免 watchdog 或者同步复制， 同步复制基本上可以达到目的 | 可以配置 witness 节点来预防双主产生，如果脑裂需要手动 pg_rewind，越早干预越好 |
 | …        | …                                                            | …                                                            |
+
+…
+
+---
+
+## 全量备份
+
+如果部署了一主一从一备库还不放心，可以再定期对数据库进行全量冷备份。
+
+> 在这里使用 K3s/K8s 中的定时任务来进行备份。
+
+1、使用 pg_basebackup 命令
+
+```shell
+pg_basebackup -U repl -h <source-db-ip> -p 5432 -F p -X stream -P -R -v -D /pgdata/dump/2023-11-02
+```
+
+命令执行无误，下一步。
+
+2、编写 CronJob
+
+pg-secret
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pg-secret
+  namespace: test
+type: Opaque
+data:
+  pg-password: cG9zdGdyZXM= # 经过 base64 加密后的密码 postgres
+```
+
+pg-backup
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-backup
+  namespace: test
+spec:
+  schedule: "13 2 */5 * *" # m h date-of-month month date-of-week
+  timeZone: "Asia/Shanghai"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: pg-backup
+            image: postgres:15.4
+            imagePullPolicy: IfNotPresent
+            env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-secret
+                  key: pg-password
+            command:
+            - /bin/sh
+            - -c
+            - |
+              current_date=$(date +"%Y%m%d");
+              echo "$current_date backup started"; 
+              mkdir -p /opt/pgdata;
+              su postgres;
+              pg_basebackup -U repl -h 192.168.2.200 -p 5432 -F p -X stream -P -R -v -D /opt/pgdata/$(date +"%Y%m%d");
+              if [ $? -eq 0 ]; then
+                echo "$current_date pg_basebackup backup succeed.";
+                find /opt/pgdata -maxdepth 1 -mtime +10 -type d -exec rm -rf {} +;
+              else
+                echo "$current_date pg_basebackup backup failed."
+              fi
+            volumeMounts:
+            - name: dump-dir
+              mountPath: /opt/pgdata
+            - name: localtime
+              readOnly: true
+              mountPath: /etc/localtime
+          volumes:
+          - name: dump-dir
+            hostPath:
+              path: /opt/pgdata
+          - name: localtime
+            hostPath:
+              type: File
+              path: /etc/localtime
+```
+
+> 其中
+>
+> ```shell
+> find /opt/pgdata -maxdepth 1 -mtime +10 -type d -exec rm -rf {} +;
+> ```
+>
+> 表示删除 10 天前的备份
+
+…
+
+99、备份完成后可以测试全量备份的数据是否正常
+
+```shell
+# 在备份的机器上操作
+
+# 使用备份目录启动
+pg_ctl start -D /pgdata/full-dump/2023-11-02
+# 检查启动状态
+pg_ctl status -D /pgdata/full-dump/2023-11-02
+
+# 进入 postgresql 再使用 \l 或者 \dt 等命令查询数据，查看是否完整
+```
+
+…
+
+> 启动报错 `invalid value for parameter "lc_monetary"`：
+>
+> 编辑 postgresql.conf，注释 lc_messages、lc_monetary、lc_numeric、lc_time 字段。
 
 …
 

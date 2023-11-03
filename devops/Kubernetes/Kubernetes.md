@@ -1142,6 +1142,36 @@ kubectl delete namespaces new-namespace
 
 
 
+## CronJob
+
+> cronjob 容器内部时间与外部主机对应不上最有效的解决办法：将外部主机的 localtime 挂载到容器内部。
+>
+> ```yaml
+> apiVersion: batch/v1
+> kind: CronJob
+> ...
+> spec:
+>   ...
+>   jobTemplate: 
+>     spec:
+>       template:
+>         spec:
+>           ...
+>           volumeMounts: 
+>           - name: localtime
+>             readOnly: true
+>             mountPath: /etc/localtime
+>         volumes:
+>         - name: localtime
+>           hostPath:
+>             type: File
+>             path: /etc/localtime
+> ```
+>
+> …
+
+
+
 ## Ingress
 
 > 关于 Ingress：https://www.v2ex.com/t/968820
