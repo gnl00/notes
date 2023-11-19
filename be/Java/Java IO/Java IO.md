@@ -25,11 +25,13 @@
 >
 > <br>
 >
-> 常见的 IO 多路复用技术包括
+> **IO 多路复用技术使用到的方法**
+>
+> *下面这些方法都是操作系统提供的`系统调用方法`*
 >
 > * select
 >
->   select 函数是最早的多路复用函数之一，可监视的文件描述符数量有限（默认为 1024），其实现方式是遍历整个 fd_set 集合，时间复杂度为 O(N)。select 每次调用都会把 fd_set 集合从用户态拷贝到内核态，所以性能较低。此外，select 函数的实现方式要求用户传递 fd_set 集合，所以它存在一定的安全漏洞。
+>   select 函数是最早的多路复用函数之一，可监视的文件描述符（fd_set）数量有限（BitMap 结构，默认长度为 1024），实现方式是遍历整个 fd_set 集合，时间复杂度为 O(N)。select 每次调用都会把 fd_set 集合从用户态拷贝到内核态，由内核来遍历 fd_set，所以性能较低。此外，select 函数的实现方式要求用户传递 fd_set 集合，所以它存在一定的安全漏洞。
 >
 > * poll
 >
@@ -38,16 +40,16 @@
 > * epoll
 >
 >   在 select 和 poll 中，用户态每次都需要对整个 fd_set 进行轮询，才能知道有哪个 socket 的 IO 就绪了。
->   
->   epoll 函数是 Linux 下的一种 IO 多路复用机制，可监视的文件描述符数量也不受限制。epoll 函数不需要将 fd_set 集合在用户和内核态中来回拷贝，并且对就绪 IO 进行了标记，不再需要对整个 fd_set 进行轮询操作，效率比 select 和 poll 高。而且 epoll 内部使用红黑树来管理文件描述符，减少遍历文件描述符集合的时间复杂度，时间复杂度为 O(log N) 。
+>
+>   epoll 函数是 Linux 下的一种 IO 多路复用机制，可监视的文件描述符数量也不受限制。epoll 函数不需要将 fd_set 集合在用户和内核态中来回拷贝，并且对就绪 IO 进行了标记，不再需要对整个 fd_set 进行轮询操作，效率比 select 和 poll 高。而且 epoll 内部使用红黑树来管理 fd_set，减少遍历 fd_set 的时间复杂度，时间复杂度为 O(log N) 。
 >
 > <br>
 >
-> fd_set 是 IO 多路复用技术中 select/poll/epoll 用于存储被监控的文件描述符（*file descriptor*）的一种数据结构
+> fd_set 是一种数据结构，是一个集合，用于存储被监控的文件描述符（*file descriptor*）。常被用于 IO 操作，比如 IO 多路复用技术中 select/poll/epoll 都使用到了它。
 
-> Java 的 NIO 实现早期版本使用的是 select，从 JDK 1.5 版本开始采用 epoll
+> Java 的 NIO 实现早期版本使用的是 select，从 JDK 1.5 开始采用 epoll。
 
-
+> 网络 IO 模型就是围绕着使用尽可能少的线程处理更多的请求这一方向演变的。
 
 <br>
 
@@ -88,7 +90,14 @@
 
 > BIO 模型中，ServerSocket 负责绑定 IP 地址，启动监听端口；Socket 负责发起连接操作。连接成功后，双方通过 InputStream 和 OutputStream 进行同步阻塞式数据传输。
 
+…
 
+**适用场景**
+
+* 连接数少
+* 并发度低
+
+---
 
 <br>
 
@@ -123,7 +132,7 @@
 >
 > 在上面的代码中，FileChannel 的 read 方法将不会阻塞线程。使用 Buffer 类可以缓存数据，在处理数据时更加高效。NIO 允许一个线程通过一个 Channel 处理多个 IO 操作。
 
-> NIO 采用 Reactor 模式，一个线程可以处理多个请求，当请求来临时，只需进行事件注册，而不是像 BIO 一样开启一个线程处理一个请求。
+> NIO 采用 **Reactor 模式**，一个线程可以处理多个请求，当请求来临时，只需进行事件注册，而不是像 BIO 一样开启一个线程处理一个请求。
 
 > Reactor 模式是一种基于事件驱动、非阻塞式 IO 的编程模式，相对于传统的阻塞式 IO，它的主要优点有
 >
@@ -189,6 +198,24 @@ public void close() throws IOException;
 
 > 一个 SelectableChannel 对象的多路复用器
 
+```java
+public abstract class Selector implements Closeable
+```
+
+```java
+public static Selector open() throws IOException {
+    return SelectorProvider.provider().openSelector();
+}
+public abstract boolean isOpen();
+public abstract SelectorProvider provider();
+public abstract Set<SelectionKey> keys(); // Returns this selector's key set.
+public abstract Set<SelectionKey> selectedKeys(); // Returns this selector's selected-key set
+public abstract int selectNow() throws IOException; // Selects a set of keys whose corresponding channels are ready for I/O operations.
+public abstract int select() throws IOException; // Selects a set of keys whose corresponding channels are ready for I/O operations
+public abstract Selector wakeup(); // Causes the first selection operation that has not yet returned to return immediately.
+public abstract void close() throws IOException; // Closes this selector.
+```
+
 > Selector#open 方法会使用系统默认的 SelectorProvider 创建一个 Selector；也可以使用自定义的 SelectorProvider 来创建 Selector。Selector 一直是 open 的，直到它被关闭。
 
 > 将 SelectableChannel 注册到 Selector 上是通过 SelectionKey 来表示的，Selector 维护 3 个 SelectionKey 集合。
@@ -214,24 +241,27 @@ public void close() throws IOException;
 > Selector 本身是线程安全的，但是它维护的 SelectionKey 集合却不是。Selection 操作会在 Selector 本身，以及 *Key Set* 和 *Selected-Key Set* 上同时进行。在对 SelectionKey 集合上进行操作的时候需要注意维护相应的同步机制，避免出现线程安全问题。
 
 ```java
-public abstract class Selector implements Closeable
-```
+// SelectorImpl
 
-```java
-public static Selector open() throws IOException {
-    return SelectorProvider.provider().openSelector();
+private final Set<SelectionKey> selectedKeys;
+private final Set<SelectionKey> publicSelectedKeys; // Removal allowed, but not addition
+
+protected SelectorImpl(SelectorProvider sp) {
+    // ...
+  	// selectedKeys 实际上就是 HashSet，多线程操作下线程不安全
+    selectedKeys = new HashSet<>();
+    // ...
+    publicSelectedKeys = Util.ungrowableSet(selectedKeys);
 }
-public abstract boolean isOpen();
-public abstract SelectorProvider provider();
-public abstract Set<SelectionKey> keys(); // Returns this selector's key set.
-public abstract Set<SelectionKey> selectedKeys(); // Returns this selector's selected-key set
-public abstract int selectNow() throws IOException; // Selects a set of keys whose corresponding channels are ready for I/O operations.
-public abstract int select() throws IOException; // Selects a set of keys whose corresponding channels are ready for I/O operations
-public abstract Selector wakeup(); // Causes the first selection operation that has not yet returned to return immediately.
-public abstract void close() throws IOException; // Closes this selector.
+
+@Override
+public final Set<SelectionKey> selectedKeys() {
+    ensureOpen();
+    return publicSelectedKeys;
+}
 ```
 
-
+…
 
 <br>
 
