@@ -1,3 +1,14 @@
+---
+description: PostgreSQL 详解，包含基础内容、高可用架构等
+top: 1
+sticky: true
+tag: 
+  - PostgreSQL
+  - 数据库
+---
+
+
+
 # PostgreSQL
 
 
