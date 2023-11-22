@@ -2574,6 +2574,9 @@ Are you sure you want to switchover cluster pgsql, demoting current leader pg2? 
 ```shell
 # root
 tail -f -n 100 /var/log/syslog # 当前系统为 Ubuntu，其他系统日志文件名可能不太一样
+
+# 指定只观察 patroni 的日志
+journalctl -f -u patroni
 ```
 
 ```shell
@@ -2655,6 +2658,12 @@ systemctl enable keepalived
 …
 
 > 在网络抖动或其它临时故障时 keepalived 管理的 VIP 容易飘，更推荐使用 Patroni 回调脚本动态绑定读写 VIP。
+
+…
+
+> **注意**
+>
+> *在实践过程中发现，一次 Leader 异常断网的期间 VIP 没能顺利漂移到 replica，但后续手动断网发现漂移正常。*
 
 …
 
