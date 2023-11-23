@@ -1,3 +1,12 @@
+---
+description: 在使用 MySQL 的过程中的一些思考
+sticky: true
+top: 6
+tag: 
+  - MySQL
+  - 数据库
+---
+
 # Think In MySQL
 
 ## SQL

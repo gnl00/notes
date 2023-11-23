@@ -1,3 +1,13 @@
+---
+description: Redis 配置详解
+top: 7
+sticky: true
+tag: 
+  - Redis
+  - NoSQL
+  - 数据库
+---
+
 # Redis 配置详解
 
 
