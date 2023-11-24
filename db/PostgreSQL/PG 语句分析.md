@@ -58,16 +58,16 @@ truck_rt 和 truck_gps_rt  都有着单列索引 time。有一个索引，但是
 ```postgresql
 select * from public.truck_rt tk
     join public.truck_gps_rt gps on tk.time = gps.time
-         where tk.time >= '2023-10-22' and tk.time < '2023-11-23';
+         where tk.time > '2023-10-21' and tk.time < '2023-11-23';
 ```
 
 可能原因：
 
-1、~~使用了不等号 `>=` 和 `<`~~
+1、~~使用了不等号 `>=` 和 `<`~~ *PG 中涉及到不等操作会考虑使用 B-Tree 索引。PostgreSQL 和 MySQL 不一样，PG 查询语句中不等号不会影响索引的使用。*
 
 2、使用索引扫描的代价比顺序扫描的代价大
 
-先看看第 1 点，为什么同样都有着不等号，如果是因为不等号的存在所以不走索引，那么 truck_rt 应该也不会走索引才对。但是 truck_rt 走索引，这里就矛盾了，排除掉 1。
+~~先看看第 1 点，为什么同样都有着不等号，如果是因为不等号的存在所以不走索引，那么 truck_rt 应该也不会走索引才对。但是 truck_rt 走索引，这里就矛盾了，排除掉 1。~~
 
 接下来看第 2 点，因为 PG 没有像 MySQL 一样展示所有的 explain 情况给我们进行对比，第 2 点原因只是**根据经验判断**。
 

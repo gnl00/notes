@@ -289,7 +289,7 @@ ALTER TABLE example SET (
 );
 ```
 
-开启完成后添加压缩策略，设置数据压缩的时间间隔为 7 天：
+开启完成后**添加压缩策略**，设置数据压缩的时间间隔为 7 天：
 
 ```postgresql
 SELECT add_compression_policy('example', INTERVAL '7 days');
@@ -320,7 +320,34 @@ SELECT remove_compression_policy('example'); -- 删除 example 表的压缩策�
 ALTER TABLE example SET (timescaledb.compress=false);
 ```
 
+手动压缩所有符合条件的 chunk
 
+```sql
+SELECT show_chunks('tb_name', older_than => INTERVAL '3 days'); -- 查看符合压缩条件的 chunk
+-- 手动压缩所有符合条件的 chunk
+SELECT compress_chunk(i, if_not_compressed => true)
+FROM show_chunks(
+  'tb_name',
+  older_than => INTERVAL '3 days'
+) i;
+```
+
+查看压缩后的空间占用变化
+
+```sql
+SELECT 
+pg_size_pretty(before_compression_total_bytes) as before_compression , pg_size_pretty(after_compression_total_bytes) as after_compression
+FROM 
+hypertable_compression_stats('tb_name');
+```
+
+*如果压缩后表的空间占用没有变小，反而变大了，**说明 compress_segmentby 的列选错了**，尝试使用别的列来进行压缩。*
+
+> You can see you're using the timestamp column there and it's creating probably fragments that are not suitable for grouping. Try to use a column with a better cardinality. Like some category or something that is repeating over the rows and can be used further as a kind of index in your queries. If you have data changing every second and you segment by it, it will lead to more metadata from segments than data itself.
+>
+> Reference: https://stackoverflow.com/questions/69315359/timescale-db-manual-compression-disk-space-not-reduced 
+
+…
 
 ### 数据压缩阶段
 
@@ -673,6 +700,36 @@ ANALYZE;
 > * [取消数据整理](https://docs.timescale.com/use-timescale/latest/data-tiering/untier-data/)
 
 
+
+##  TSDB API
+
+TSDB 官方提供了[一系列 API](https://docs.timescale.com/api/latest/) 用来操作超表，进行数据压缩等操作。
+
+…
+
+> **注意**
+>
+> 在某次查询数据库中表的大小操作时，使用 PG 官方提供的 `pg_relation_size/pg_table_size` 来查询表的大小时返回的都是 0，使用 `pg_total_relation_size` 查询时返回的都是 8192 kb。
+>
+> *因为使用了 PG 提供的操作普通表的方法来操作 TSDB 的超表*。所以前两个方法并不能正常显示，且后一个方法显示的是表中数据+索引+预留空间的大小（在当时情况下所有表都有一个索引，所以显示的 8192 可能是索引+预留空间的大小）。
+>
+> 超表只有使用 TSDB 提供的 API 才能正确显示大小。
+>
+> ```sql
+> select pg_size_pretty(hypertable_size('table_name'));
+> ```
+>
+> …
+>
+> 此外，
+>
+> - pg_relation_size 只返回表数据本身在内部使用的空间，不包含索引等其他对象。
+> - pg_table_size 返回表及所有相关对象（索引等）在内部使用的总空间。
+> - pg_total_relation_size 返回表及其索引在内部使用的总空间，可能包含一些预留空间。
+>
+> …
+
+…
 
 ## Hyperfunctions
 
