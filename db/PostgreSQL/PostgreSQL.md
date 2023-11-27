@@ -238,6 +238,21 @@ WHERE ID = 1*;
 
 ---
 
+### JSON
+
+PostgreSQL 支持 JSON 和 JSONB 两种类型。
+
+* JSON 按照文本保存数据，会保留原始数据中的空格和重复键
+* JSONB 按照二进制保存数据，会删除多余的空格和重复键
+
+…
+
+> jsonb 占用空间大于 json。
+
+…
+
+---
+
 ## 数据操作
 
 ### 从修改行中返回数据
@@ -627,7 +642,7 @@ CREATE TABLE measurement (
 
 ## 索引
 
-### 索引类型
+### 索引结构
 
 #### B-Tree 索引
 
@@ -734,30 +749,7 @@ CREATE INDEX index_name
 ON table_name(a, b, c);
 ```
 
-
-
-### 多列索引
-
-```sql
-CREATE INDEX multi_col_idx ON tb_test (col1, col2);
-```
-
-> 目前，只有 B-Tree、GiST、GIN 和 BRIN 索引类型支持多列索引。
-
-
-
-### 部分索引
-
-> 按照条件创建索引
-
-```postgresql
--- 对 customer 表中 active = 0 的列创建索引
-CREATE INDEX idx_customer_inactive
-ON customer(active)
-WHERE active = 0;
-```
-
-
+…
 
 ### 重建索引
 
@@ -781,19 +773,116 @@ WHERE active = 0;
 
 * …
 
+…
+
+---
+
+### 索引类型
+
+#### 主键索引
+
+> Primary Key
+
+…
+
+#### 唯一索引
+
+使用 UNIQUE 关键字
+
+…
+
+#### 多列索引
+
+```sql
+CREATE INDEX multi_col_idx ON tb_test (col1, col2);
+```
+
+> 目前，只有 B-Tree、GiST、GIN 和 BRIN 索引类型支持多列索引。
+
+…
+
+#### 部分索引
+
+> 按照条件创建索引
+
+```postgresql
+-- 对 customer 表中 active = 0 的列创建索引
+CREATE INDEX idx_customer_inactive
+ON customer(active)
+WHERE active = 0;
+```
+
+…
+
+#### 表达式索引
+
+可以基于表中的一列或者多列上创建表达式索引。
+
+```sql
+CREATE INDEX index_name
+ON table_name ( (expression) );
+
+-- 对用户 firstName 和lastName 连接后，小写的字段建立索引
+CREATE INDEX idx_concat_name ON users ((lower(concat(first_name, ' ', last_name))));
+
+-- 可以使用该索引来查询
+SELECT * FROM users WHERE lower(concat(first_name, ' ', last_name)) = 'john doe';
+```
+
+> 可以这么认为：*表达式索引是针对某一复杂查询场景而定制的索引，将查询条件直接应用于索引的创建*。
+
+…
+
 ---
 
 ## 执行分析
 
-> * 来自 [polardb 数据库内核月报](http://mysql.taobao.org/monthly/)：http://mysql.taobao.org/monthly/2018/11/06/
-> * https://www.modb.pro/db/101529
+> * [polardb 数据库内核月报](http://mysql.taobao.org/monthly/)：[Explain 使用浅析](http://mysql.taobao.org/monthly/2018/11/06/)
+> * [如何解释 PostgreSQL Explain Analyze 的输出](https://www.modb.pro/db/101529)
 
 ```sql
-explain [SQL statemen] -- 不会执行
+explain (option) [SQL statemen] -- 不会执行 SQL
+
+where option can be one of
+    ANALYZE [ boolean ]
+    VERBOSE [ boolean ]
+    COSTS [ boolean ]
+    BUFFERS [ boolean ]
+    TIMING [ boolean ]
+    SUMMARY [ boolean ]
+    FORMAT { TEXT | XML | JSON | YAML }
+
 explain analyze [SQL statemen] -- 会执行 SQL
+explain (analyze，VERBOSE， FORMAT JSON) [SQL statemen] -- 输出更多信息
 ```
 
 …
+
+根据[官网例子](http://www.postgres.cn/docs/14/using-explain.html)进行简单的分析：
+
+```sql
+EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
+                                 QUERY PLAN
+-----------------------------------------------------------------------------
+ Index Scan using tenk1_unique1 on tenk1  (cost=0.29..8.30 rows=1 width=244)
+   Index Cond: (unique1 = 42)
+```
+
+这条 SQL 使用到了 `Index Scan` 即**使用到了索引**来进行扫描。`Index Cond` 表示查询使用到的条件。
+
+…
+
+除了索引扫描还有以下几种常见的扫描方式：
+
+* Seq 顺序扫描
+* Index
+* Only Index 覆盖索引
+* Bitmap Index，利用 Bitmap 结构进行扫描，返回位图
+* Bitmap Heap，利用 Bitmap 结构进行扫描，返回元组
+* Foreign 外键扫描
+* Custom 用户自定义扫描
+* Subquery 扫描一个子查询
+* …
 
 > [关于 Seq/Index/Only Index/Bitmap Index Scan](https://www.depesz.com/2013/04/27/explaining-the-unexplainable-part-2)
 
@@ -3083,6 +3172,8 @@ Description | Library of analytical hyperfunctions, time-series pipelining, and 
 <br>
 
 # 参考
+
+**PostgreSQL**
 
 * http://postgres.cn/docs
 * https://www.sjkjc.com/postgresql
