@@ -1,3 +1,11 @@
+---
+description:  TimescaleDB 详解
+tag: 
+  - TimescaleDB
+  - 数据库
+  - 时序数据库
+---
+
 # TimescaleDB
 
 > Databases have always had time fields, but using a special database for handling time-series data can make your database work much more effectively. 
@@ -763,7 +771,7 @@ TSDB 官方提供了[一系列 API](https://docs.timescale.com/api/latest/) 用�
 pg_basebackup -U repl -h <source-db-ip> -p 5432 -F p -X stream -P -R -v -D /pgdata/dump
 ```
 
-> 详情参考 PostgreSQL 该篇文章。
+> 详情参考 [PostgreSQL](https://github.com/gnl00/notes/blob/master/db/PostgreSQL/PostgreSQL.md) 这篇文章。
 
 
 

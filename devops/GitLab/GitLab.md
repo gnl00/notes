@@ -1,3 +1,10 @@
+---
+description: GitLab 私服搭建
+sticky: true
+tag: 
+  - GitLab
+---
+
 # GitLab
 
 ## GitLab 私服

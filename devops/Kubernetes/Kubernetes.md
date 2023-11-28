@@ -1,3 +1,15 @@
+---
+description: K8s 详解
+top: 2
+sticky: true
+tag: 
+  - K8s
+  - DevOps
+---
+
+# K8s
+
+
 ## 前言
 
 使用 Docker 时可能会出现这样几个问题：
@@ -126,7 +138,7 @@ kubectl 命令管理工具常见的命令如下：
 
 ### 创建 Deployment
 
-0、镜像 kubernetes-bootcamp 在部署之后能通过 http://localhost:8001/version 访问到它的版本信息
+0、镜像 kubernetes-bootcamp 在部署之后能通过 http://host:8001/version 访问到它的版本信息
 
 1、使用 kubectl 拉取镜像并创建 Deployment
 
@@ -148,7 +160,7 @@ kubectl get pods
 kubectl get pods -A # 显示 K8s 系统级别的 Pod
 ```
 
-Pod 已经部署好了，但是此时请求 http://localhost:8001/version 会发现无法访问到该容器。为什么？
+Pod 已经部署好了，但是此时请求 http://host:8001/version 会发现无法访问到该容器。为什么？
 
 因为：
 
@@ -366,7 +378,7 @@ minikube ip
 > kubectl port-forward service/hello-minikube 7080:8080
 > ```
 >
-> Tada! Your application is now available at http://localhost:7080/.
+> Tada! Your application is now available at http://host:7080/.
 
 
 执行命令：
