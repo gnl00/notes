@@ -2336,133 +2336,15 @@ public class MybatisPlusAutoConfiguration implements InitializingBean {
 //只需要自己编写的Mapper继承 BaseMapper 就可以拥有Mybatis-Plus的功能
 ```
 
+…
 
-
-
-
-<br>
-
-### 分库分表
-
-
-
-**<u>1 - 为什么要分库分表？如何进行</u>**
-
-1、**解决问题**
-
-数据库分表可以解决单表海量数据的查询性能问题，分库可以解决单台数据库的并发访问压力问题
-
-2、**应用场景**
-
-在没分库分表情况下当订单表数量超过1000万条以上，我们需要对订单表按照业务进行分库分表（当超过500万条数据数据库查询用索引效率大大下降）
-
-3、**分库技术方案**
-
-一般都采用第三方工具，当当网的 sharding-jdbc，阿里 TDDL、MyCat 和 Cobar 等插件
-
-4、**分表策略**
-
-1）取模分表，比如订单表，如果是用户订单那么按照用户id后两位（当数据量不是很大情况下）取模存到不同的数据库表中，如果是商家订单那么按照商家id后两位（当数据量不是很大情况下）取模存到不同的数据库表中
-
-2）根据时间维度分表
-
-3）自定义 Hash
-
-5、**分库策略**
-
-1）水平拆分，直接增加 MySQL 服务器数
-
-2）按业务拆分，订单库、用户库、商品库等
-
-3）取模分库（同取模分表类似）
-
-
-
-6、**分库分表时查询策略**
-
-当订单页面需要根据会员姓名、手机号码、订单号、下单开始时间、下单结束时间等等，设计到多个模块一起关联查询时：
-
-1）对不可变字段做沉余，方便查询，比如用户姓名，在金融平台用户实名后姓名不能更改
-
-2）根据阿里规则：各个模块不要做关联查询，避免 join。比如：上述订单表查询，首先到会员数据库中查询，然后在到订单表中查询。
-
-
-
-<br>
-
-**<u>2 - MySQL 扩展策略</u>**
-
-> 关于数据库的扩展主要包括：业务拆分、主从复制，数据库分库与分表
-
-1、**按业务拆分**
-
-业务起步初始，为了加快应用上线和快速迭代，很多应用都采用集中式的架构。随着业务系统的扩大，系统变得越来越复杂，越来越难以维护，开发效率变得越来越低，并且对资源的消耗也变得越来越大，通过硬件提高系统性能的方式带来的成本也越来越高。
-
-因此，在选型初期，一个优良的架构设计是后期系统进行扩展的重要保障。例如：电商平台，包含了用户、商品、评价、订单等几大模块，最简单的做法就是在一个数据库中分别创建 users、shops、comment、order 四张表。
-
-但是，随着业务规模的增大，访问量的增大，我们不得不对业务进行拆分。每一个模块都使用单独的数据库来进行存储，不同的业务访问不同的数据库，将原本对一个数据库的依赖拆分为对4个数据库的依赖，这样的话就变成了4个数据库同时承担压力，系统的吞吐量自然就提高了。
-
-2、**主从复制**
-
-一般采用主从复制，新增和修改都在主库，查询都是在从库中，一般一主多从。
-
-MySQL主从复制的原理：数据复制的实际就是 Slave 从 Master 获取 binlog 文件，然后在 Slave 本地执行日志中记录的操作。由于主从复制的过程是异步的，因此 Slave 和 Master 之间的数据有可能存在延迟的现象，此时只能保证数据最终的一致性。
-
-3、**数据分库与分表**
-
-每台机器无论配置多么好它都有自身的物理上限，所以当我们应用已经能触及或远远超出单台机器的某个上限的时候，我们唯有寻找别的机器的帮助或者继续升级的我们的硬件，但常见的方案还是通过添加更多的机器来共同承担压力。
-
-1）取模分表
-
-对于大部分数据库的设计和业务的操作基本都与用户的 ID 相关，因此使用用户 ID 是最常用的分库的路由策略。用户的 ID 可以作为贯穿整个系统用的重要字段。因此，使用用户的 ID 我们不仅可以方便我们的查询，还可以将数据平均的分配到不同的数据库中。（当然，还可以根据类别等进行分表操作，分表的路由策略还有很多方式）
-
-当数据比较大的时候，对数据进行分表操作，首先要确定需要将数据平均分配到多少张表中，也就是：**表容量**。
-
-这里假设有100 张表进行存储，则我们在进行存储数据的时候，首先对用户 ID 进行取模操作，根据 `user_id%100` 获取对应的表进行存储查询操作
-
-![image-20211102171224328](./assets/image-20211102171224328.png)
-
-例如，`user_id = 101` 那么，我们在获取值的时候的操作，可以通过下边的sql语句：
-
-```sql
-select * from order_1 where user_id= 101
-```
-
-> ⚠ 如果用户 ID 为 UUID 可以先 hash 然后在进行取模
-
-
-
-<br>
-
-2）取模分库
-
-数据库分表能够解决单表数据量很大的时候数据查询的效率问题，但是无法给数据库的并发操作带来效率上的提高，因为分表的实质还是在一个数据库上进行的操作，很容易受数据库  IO性能的限制。
-
-因此，如何将数据库IO性能的问题平均分配出来，很显然将数据进行分库操作可以很好地解决单台数据库的性能问题。分库策略与分表策略的实现很相似，最简单的都是可以通过取模的方式进行路由。
-
-将用户ID进行取模操作，这样的话获取到具体的某一个数据库，同样关键字有：**用户ID、库容量**。下列中有100个库：如果用户 ID 为 UUID 可以先 hash 然后在进行取模
-
-![image-20211102172109013](./assets/image-20211102172109013.png)
-
-
-
-<br>
-
-**<u>3 - 分库分表总结</u>**
-
-1、关于分库分表策略的选择有很多种，上文中根据用户ID应该是比较简单的一种。其他方式比如使用号段进行分区或者直接使用 hash 进行路由等。
-
-2、关于上文中提到的，如果用户的ID是通过UUID的方式生成的话，我们需要单独的进行一次hash操作，然后在进行取模操作等。其实hash本身就是一种分库分表的策略，使用hash进行路由策略的时候，我们需要知道的是hash路由策略的优缺点。优点是：数据分布均匀；缺点是：数据迁移的时候麻烦，不能按照机器性能分摊数据。
-
-3、上述的分库和分表操作，查询性能和并发能力都得到了提高，但是还有一些需要注意的就是，例如：原本跨表的事物变成了分布式事物；由于记录被切分到不同的数据库和不同的数据表中，难以进行多表关联查询，并且不能不指定路由字段对数据进行查询。分库分表之后，如果我们需要对系统进行进一步的扩阵容（路由策略变更），将变得非常不方便，需要我们重新进行数据迁移。
-
-
+---
 
 <br>
 
 ### Redis
 
-<br>
+…
 
 **<u>1 - 实现</u>**
 
@@ -2493,7 +2375,7 @@ spring:
         min-idle: 5
 ```
 
-
+…
 
 **<u>2 - 自动配置类</u>**
 
@@ -2517,15 +2399,13 @@ public class RedisAutoConfiguration {}
 
 ## 事务管理
 
-
+…
 
 <br>
 
 ## 远程接口调用
 
-
-
-<br>
+…
 
 **<u>1 - 原生 Http 请求</u>**
 
@@ -2566,11 +2446,9 @@ public static JSONObject doPost(JSONObject data) {
 }
 ```
 
+…
 
-
-
-
-<br>
+---
 
 **<u>2 - RestTemplate</u>**
 
@@ -2587,7 +2465,7 @@ ResponseEntity<String> responseEntity=restTemplate.getForEntity("http://USERSERV
   
 ```
 
-<br>
+…
 
 2）`getForEntity(URI url,Class responseType)`
 
@@ -2603,11 +2481,11 @@ URI uri=uriComponents.toUri();
 ResponseEntity<String> responseEntity=restTemplate.getForEntity(uri,String.class).getBody();
 ```
 
-<br>
+…
 
 3）`getForObject()`
 
-> `getForObject()`方法可以理解为对`getForEntity()`的进一步封装，它通过 HttpMessageConverterExtractor 对 HTTP 的请求响应体 body 内容进行对象转换，实现请求直接返回包装好的对象内容。
+> `getForObject()` 方法可以理解为对 `getForEntity()` 的进一步封装，它通过 HttpMessageConverterExtractor 对 HTTP 的请求响应体 body 内容进行对象转换，实现请求直接返回包装好的对象内容。
 
 ```java
 getForObject(String url,Class responseType,Object...urlVariables)
@@ -2615,11 +2493,7 @@ getForObject(String url,Class responseType,Map urlVariables)
 getForObject(URI url,Class responseType)
 ```
 
-
-
-
-
-<br>
+…
 
 **2、Post 请求**
 
@@ -2638,9 +2512,9 @@ postForEntity(String url,Object request,Class responseType,Map uriVariables)
 postForEntity(URI url,Object request，Class responseType)
 ```
 
+…
 
-
-<br>
+---
 
 **<u>3 - Feign 请求</u>**
 
@@ -2683,19 +2557,19 @@ private DecisionEngineService decisionEngineService ;
 decisionEngineService.getEngineMesasge("uid" ,  "productCode");
 ```
 
+…
 
-
-
-
-
+---
 
 <br>
 
 ## API 限流
 
-> 高并发的三板斧：缓存，降级和限流。本章节使用采用guava的LimitRater实现，是本地限流，若要实现分布式限流可以使用通过 Redis+Lua+AOP 方案
+> 高并发的三板斧：缓存，降级和限流。
 
+> 下文采用 guava 的 LimitRater 实现，是本地限流。若要实现分布式限流可以使用 Redis+Lua+AOP。
 
+…
 
 **<u>1 - 实现</u>**
 
@@ -2771,7 +2645,7 @@ public class IndentifierInterceptor extends HandlerInterceptorAdapter {
 }
 ```
 
-
+…
 
 **<u>2 - 拦截器层实现</u>**
 
@@ -2836,11 +2710,9 @@ public class WebConfig extends WebMvcConfigurerAdapter {
 }
 ```
 
+…
 
-
-
-
-
+---
 
 <br>
 
@@ -3028,11 +2900,9 @@ public class MyCustomEndpoint {
 }
 ```
 
+…
 
-
-
-
-
+---
 
 <br>
 
@@ -3163,9 +3033,9 @@ public class JUnit5Test {
 }
 ```
 
+…
 
-
-
+---
 
 <br>
 
@@ -3205,7 +3075,7 @@ logging:
   config: classpath:log4j2-spring.xml
 ```
 
-
+…
 
 **<u>2 - 配置文件`log4j2-spring.xml`</u>**
 
@@ -3265,7 +3135,9 @@ logging:
 </Configuration>
 ```
 
+…
 
+---
 
 <br>
 
@@ -3273,7 +3145,7 @@ logging:
 
 > JWT（JSON Web Token），通过 JSON 形式作为 Web 应用中的令牌，用于在各方之间安全地将信息作为 JSON 对象传输。在传输的过程中还可以完成数据加密、签名等操作
 
-<br>
+…
 
 **<u>1 - 传统 Session-Cookie 认证</u>**
 
@@ -3285,7 +3157,7 @@ logging:
 
 3）这份登录信息会在<mark>第一次响应</mark>时传递给浏览器，并在浏览器端保存为 cookie，以便下次发送请求时携带着发送到服务器。这样服务器就能识别请求来自哪个用户了
 
-<br>
+…
 
 **2、存在问题**
 
@@ -3301,9 +3173,9 @@ logging:
 
 6）多个服务之间需要解决 session 共享问题，不适用于微服务
 
+…
 
-
-<br>
+---
 
 **<u>2 - JWT 认证</u>**
 
@@ -3323,7 +3195,7 @@ logging:
 
 6）验证通过后后端使用 JWT 中包含的用户信息进行其他逻辑操作，进行与数据库的操作，返回相应的结果。并将 JWT 的过期时间刷新
 
-<br>
+…
 
 **2、优势**
 
@@ -3337,9 +3209,7 @@ logging:
 
 5、在移动端原生请求是没有 cookie 之说的，而 sessionid 依赖于 cookie，sessionid 就不能用 cookie 来传了，如果用 token 的话，由于它是随着 header 的 authoriize 传过来的，也就不存在此问题，换句话说token 天生支持移动平台，可扩展性好
 
-
-
-<br>
+…
 
 **3、存在问题**
 
@@ -3347,11 +3217,9 @@ logging:
 
 2）token 不太安全。token 存储在 localStorage 中，这类的本地存储是可以被 JavaScript 直接读取的，**从存储角度来看**也不安全。另外，token 一旦生成无法让其失效，必须等到它过期才行，如果服务端检测到了一个安全威胁，也无法使相关的 token 失效，**所以 token 更适合一次性的命令认证，设置一个比较短的有效期**
 
+…
 
-
-
-
-<br>
+---
 
 **<u>3 - JWT 作用</u>**
 
@@ -3359,7 +3227,9 @@ logging:
 
 2、信息交换，JWT 是在各方之间安全地传输信息的好方法，因为可以对 JWT 进行签名（使用公钥/密钥），所以可以确保信息交换的准确性，并且还可以验证传输的内容是否遭到篡改
 
-<br>
+…
+
+---
 
 **<u>4 - JWT 结构</u>**
 
@@ -3406,7 +3276,9 @@ HMACSHA256(base64UrlEncode(header).base64UrlEncode(payload),secret);
 
 最后一步签名的过程，实际上是对头部以及负载内容进行签名，防止内容被篡改。如果有人对头部以及负载内容解码之后进行修改，再进行编码，最后加上之前的签名组合形成新的 JWT 的话，此时服务器就会判断出签名不一致。如果要对新的头部和负载进行签名在不知道密钥的情况下得出来的签名也是不一致的
 
-<br>
+…
+
+---
 
 **<u>5 - JWT 注意细节</u>**
 
@@ -3416,7 +3288,9 @@ HMACSHA256(base64UrlEncode(header).base64UrlEncode(payload),secret);
 
 3）可自定义注解标注在需要 token 认证的方法上，token 拦截器只需要拦截有该注解的方法即可
 
-<br>
+…
+
+---
 
 **<u>6 - SpringBoot 整合 JWT 实现</u>**
 
@@ -3488,13 +3362,15 @@ public class JWTUtils {
 }
 ```
 
+…
 
+---
 
-
+<br>
 
 ## 整合 Swagger3
 
-<br>
+…
 
 **<u>1 - 实现</u>**
 
@@ -3630,9 +3506,7 @@ public class UserController {
 }
 ```
 
-
-
-<br>
+…
 
 **<u>2 - 注解</u>**
 
@@ -3641,10 +3515,14 @@ public class UserController {
 - tags，说明该类的作用，可以在UI界面上看到的注解
 - value，该参数没什么意义，在UI界面上也看到，所以不需要配置
 
+…
+
 2、`@ApiOperation` 用在请求的方法上，说明方法的用途、作用
 
 - value，说明方法的用途、作用
 - notes，方法的备注说明
+
+…
 
 3、`@ApiImplicitParams` 用在请求的方法上，表示一组参数说明
 
@@ -3654,13 +3532,18 @@ public class UserController {
 - value，参数的汉字说明、解释
 - required，参数是否必须传
 - paramType，参数放在哪个地方
-  - header 请求参数的获取：`@RequestHeader`
-  - query 请求参数的获取：`@RequestParam`
-  - path（用于restful接口） 请求参数的获取：`@PathVariable`
-  - body（不常用）
-  - form（不常用）
+
+> - header 请求参数的获取：`@RequestHeader`
+> - query 请求参数的获取：`@RequestParam`
+> - path（用于restful接口） 请求参数的获取：`@PathVariable`
+> - body（不常用）
+> - form（不常用）
+> - …
+
 - dataType，参数类型，默认 String，其它有`dataType="Integer"`等
 - defaultValue，参数的默认值
+
+…
 
 4、`@ApiResponses` 用在请求的方法上，表示一组响应
 
@@ -3670,15 +3553,19 @@ public class UserController {
 - message，信息，例如"请求参数有误"
 - response，抛出异常的类
 
+…
+
 5、`@ApiModel` 用于响应类上，表示一个返回响应数据的信息（这种一般用在 POST 创建的时候，使用 `@RequestBody` 这样的场景，请求参数无法使用 `@ApiImplicitParam` 注解进行描述的时候）   
 
 `@ApiModelProperty` 用在属性上，描述响应类的属性
 
-
+…
 
 > ⚠ 正式版本发布的时候要关闭 Swagger
 
+…
 
+---
 
 <br>
 
@@ -3749,9 +3636,9 @@ public class UserController {
 
 3、最后执行打包操作 `mvn clean package`，`layers.idx` 文件会自动生存并加入 jar 包中。
 
+…
 
-
-<br>
+---
 
 **Dockfile**
 
@@ -3782,9 +3669,9 @@ docker build -t imageName:version .
 docke images # 查看生成的镜像
 ```
 
+…
 
-
-
+---
 
 <br>
 

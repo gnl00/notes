@@ -502,11 +502,9 @@ CREATE TABLE products (
 
 <br>
 
-## 表特性
+## 表继承
 
-### 表继承
-
-直接上 SQL 代码：
+直接上代码：
 
 ```sql
 CREATE TABLE cities (
@@ -536,16 +534,20 @@ select ... from ONLY cities;
 
 除了 Select，Update 和 Delete 关键字也都支持 ONLY。
 
+…
 
+---
 
-### 表分区
+<br>
+
+## 表分区
 
 表分区指的是将逻辑上的一个大表分成一些小的物理上的片。分区的好处：
 
-* 在某些情况下查询性能能够显著提升。
-* 当查询或更新访问单个分区中的某一部分数据时，可以通过使用该分区的顺序扫描来提高性能（索引是在整个表中的随机访问读取）。
+* 在**某些情况下**查询性能能够显著提升。
+* 当查询或更新访问单个分区中的某一部分数据时，可以通过使用该分区的**顺序扫描**来提高性能（索引是在整个表中的随机访问读取）。
 
-
+…
 
 **PostgreSQL 分区形式**
 
@@ -553,16 +555,158 @@ select ... from ONLY cities;
 * 列表分区，通过显式地列出每一个分区中出现的键值来划分表。
 * 哈希分区，通过为每个分区指定模数和余数来对表进行分区。
 
-
+…
 
 **自定义分区创建**
 
-```postgresql
+```sql
 CREATE TABLE measurement (
     id int not null,
-    logdate date not null
-) PARTITION BY RANGE (logdate);
+    ctime date not null
+) PARTITION BY RANGE (ctime);
 ```
+
+…
+
+PostgreSQL 支持范围划分，列表划分和哈希划分三种分区形式。
+
+> 首先确保 `postgresql.conf` 已开启分区优化
+>
+> ```
+> enable_partition_pruning
+> ```
+>
+> …
+
+…
+
+### 创建分区
+
+#### 范围分区
+
+```sql
+CREATE TABLE test_tb (
+    id serial not null,
+    ctime date not null
+) PARTITION BY RANGE (ctime); -- 按照创建时间分区
+
+-- 自定义范围分区
+CREATE TABLE partition_y2023m02 PARTITION OF test_tb
+    FOR VALUES FROM ('2023-02-01') TO ('2023-03-01');
+
+CREATE TABLE partition_y2023m03 PARTITION OF test_tb
+    FOR VALUES FROM ('2023-03-01') TO ('2023-04-01');
+```
+
+在这里只创建了两个分区 partition_y2023m02 和 partition_y2023m03，对应 2 和 3 月。分区并不是越早创建越好，剩下的 4-12 月应该在将要使用到它们的时候再手动创建对应的分区，或者使用脚本设置定时任务自动创建分区。
+
+…
+
+#### 列表分区
+
+…
+
+#### 哈希分区
+
+…
+
+### 分区维护
+
+#### 删除分区
+
+```sql
+DROP TABLE partition_y2023m03;
+```
+
+删除分区 = 批量删除该分区内的数据，但是删除分区比批量删除操作更加快。
+
+…
+
+#### 移除分区
+
+将分区从表中移除，但不删除。
+
+```sql
+ALTER TABLE test_tb DETACH PARTITION partition_y2023m03;
+
+-- 允许 detach 操作只需要父表上的 SHARE UPDATE EXCLUSIVE 锁
+ALTER TABLE test_tb DETACH PARTITION partition_y2023m03 CONCURRENTLY;
+```
+
+> 这通常是使用 `COPY`，pg_dump 或类似工具备份数据的好时机。
+
+…
+
+### 分区表的限制
+
+* 分区表上的唯一约束（以及主键）必须包括所有分区键列。因为构成约束的各个索引只能直接在它们自己的分区内强制唯一性；因此，分区结构本身必须保证不同分区中不存在重复项。
+* 无法创建跨越整个分区表的排它约束。
+* 一个分区除了它所属的分区表之外，不能有任何父级。
+
+…
+
+### 分区枝剪
+
+分区枝剪是一种提升分区表性能的查询优化技术。
+
+```sql
+SET enable_partition_pruning = on; -− the default
+SELECT count(*) FROM measurement WHERE logdate >= DATE '2008-01-01';
+```
+
+如果没有分区剪枝，上面的查询将会扫描 `measurement` 表的每一个分区。如果启用了分区剪枝，规划器将会检查每个分区的定义并且检验该分区是否因为不包含符合查询 `WHERE` 子句的行而无需扫描。当规划器可以证实这一点时，它会把分区从查询计划中排除（*剪枝*）。
+
+**观察分区枝剪**
+
+没有开启分区枝剪时会扫描所有分区：
+
+```shell
+SET enable_partition_pruning = off;
+EXPLAIN SELECT count(*) FROM measurement WHERE logdate >= DATE '2008-01-01';
+                                    QUERY PLAN
+-------------------------------------------------------------------​----------------
+ Aggregate  (cost=188.76..188.77 rows=1 width=8)
+   ->  Append  (cost=0.00..181.05 rows=3085 width=0)
+         ->  Seq Scan on measurement_y2006m02  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate >= '2008-01-01'::date)
+         ->  Seq Scan on measurement_y2006m03  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate >= '2008-01-01'::date)
+...
+         ->  Seq Scan on measurement_y2007m11  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate >= '2008-01-01'::date)
+         ->  Seq Scan on measurement_y2007m12  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate >= '2008-01-01'::date)
+         ->  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
+               Filter: (logdate >= '2008-01-01'::date)
+```
+
+开启分区枝剪后：
+
+```shell
+SET enable_partition_pruning = on;
+EXPLAIN SELECT count(*) FROM measurement WHERE logdate >= DATE '2008-01-01';
+                                    QUERY PLAN
+-------------------------------------------------------------------​----------------
+ Aggregate  (cost=37.75..37.76 rows=1 width=8)
+   ->  Seq Scan on measurement_y2008m01  (cost=0.00..33.12 rows=617 width=0)
+         Filter: (logdate >= '2008-01-01'::date)
+```
+
+定位到数据所在的分区并只扫描该分区。
+
+…
+
+> **分区约束排除**
+>
+> *约束排除*是一种与分区剪枝类似的查询优化技术。
+
+…
+
+### 分区策略
+
+* 分区表：分成太多分区可能会导致语句的查询规划和执行耗时较长，并且存储占用更高；太少分区可能会导致索引仍然太大，查询时索引使用率较低。
+* 分区列：通常最佳选择是按最常出现在分区表上执行的查询的 `WHERE` 子句中的列或列集合进行分区。与分区键匹配并兼容的 `WHERE` 子句可用于裁剪不需要的分区。
+* …
 
 …
 
@@ -885,6 +1029,74 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
 * …
 
 > [关于 Seq/Index/Only Index/Bitmap Index Scan](https://www.depesz.com/2013/04/27/explaining-the-unexplainable-part-2)
+
+…
+
+---
+
+# 分区/分表/分库
+
+随着数据量的增长，不免会带来查询速度变慢的问题。这时候可能就会想到分区、分表与分库了。
+
+## 分区
+
+…
+
+**分区和分表**
+
+分区和分表经常会放在一起比较。分区是将逻辑上的表在物理上分成多个片，查询时只需要在对应的分区上查找即可。分区后的表称为**分区表**。
+
+…
+
+**分区的优势**
+
+1、性能提升。查询时只扫描特定的分区。
+
+2、可使用顺序扫描。当查询单个分区的一部分时可以通过使用该分区的顺序扫描来提高性能。
+
+3、通过分区来批量添加和删除数据，比批量操作方便快捷。
+
+…
+
+**分区的缺点**
+
+1、复杂度提升，需要设置好分区的粒度，分区的规则。
+
+2、索引使用率下降。跨分区查询会导致索引效率下降。
+
+3、存储空间需求增加。分区的元数据保存也需要占用一定的空间。
+
+…
+
+**何时分区**
+
+当一个表非常大，分区带来的好处是值得的。
+
+> *经验之谈*
+>
+> 表的存储占用大小超过了数据库服务器物理内存时开始考虑分区。
+
+…
+
+## 分表
+
+…
+
+## 分库
+
+…
+
+---
+
+<br>
+
+# PgBouncer 连接池
+
+PostgreSQL 客户端每次与服务端连接时都会 fork 出一个进程，在关闭连接后 PostgreSQL 再把该进程停止。频繁的创建和销毁进程就会带来较多的性能和资源损耗。
+
+> [PgBouncer](https://www.pgbouncer.org/) 是一个第三方程序。
+
+使用 PgBouncer 后，PgBouner 会把客户端与 PostgreSQL 的连接缓存起来。有请求时，从连接池中分配一个空闲的连接给客户端使用，这样就降低了资源的消耗。
 
 …
 
@@ -2503,7 +2715,9 @@ etcdctl get /service/pgsql/sync
 
 ### etcd 高可用
 
-> 由于 PostgreSQL 集群的元数据是保存在 etcd 中的，Patroni 需要通过访问 etcd 来确认自己的身份。当无法访问 etcd 的时候，如果本机的是主库，Patroni 会将本机降级为备库。如果集群中所有 Patroni 节点都无法访问 etcd，集群中将全部都是备库，业务无法写入数据。这需要保证 etcd 集群的高可用。
+> 用作高可用 PostgreSQL 集群的 DCS（*Distributed Configuration Store*）。
+
+由于 PostgreSQL 集群的元数据是保存在 etcd 中的，Patroni 需要通过访问 etcd 来确认自己的身份。当无法访问 etcd 的时候，如果本机的是主库，Patroni 会将本机降级为备库。如果集群中所有 Patroni 节点都无法访问 etcd，集群中将全部都是备库，业务无法写入数据。这需要保证 etcd 集群的高可用。
 
 为了预防 etcd 集群故障带来的严重影响，可以考虑为 Patroni 连接 etcd 异常时设置一个比较大的 `retry_timeout` 参数，比如 10000 天
 
@@ -3169,6 +3383,33 @@ Description | Library of analytical hyperfunctions, time-series pipelining, and 
 
 ---
 
+# 拓展
+
+<br>
+
+## 扩展阅读
+
+> 一些拓展阅读
+
+…
+
+[数据库是否应该容器化？](https://pigsty.cc/zh/blog/2019/01/13/%E5%AE%B9%E5%99%A8%E5%8C%96%E6%95%B0%E6%8D%AE%E5%BA%93%E6%98%AF%E4%B8%AA%E5%A5%BD%E4%B8%BB%E6%84%8F%E5%90%97/)
+
+* 首先是容器**有无状态**的问题
+* 其次是**可靠性**问题，引入容器意味着更多的组件，额外的复杂度。**能跑和能稳定的跑**。
+* 接着是数据库的**维护**，与容器中的数据库维护相比，目前来说显然裸机维护有更多的工具和参考资料
+* 最后从性能的角度来看，虽说容器化已经能利用较多的系统资源了，但裸机更具优势。
+
+* …
+
+[为什么postgresql前途无量](https://pigsty.cc/zh/blog/2021/05/08/%E4%B8%BA%E4%BB%80%E4%B9%88postgresql%E5%89%8D%E9%80%94%E6%97%A0%E9%87%8F/)
+
+> 很有意思的一篇文章
+
+…
+
+---
+
 <br>
 
 # 参考
@@ -3182,6 +3423,18 @@ Description | Library of analytical hyperfunctions, time-series pipelining, and 
 **数组类型对应**
 
 * https://access.crunchydata.com/documentation/pgjdbc/42.3.2/arrays.html
+
+**PG 分区**
+
+* http://postgres.cn/docs/14/ddl-partitioning.html
+
+**pgbouncer**
+
+* https://www.cndba.cn/dave/article/116395
+
+**开发规约**
+
+* https://pigsty.cc/zh/blog/2018/06/20/postgresq
 
 **repmgr**
 
