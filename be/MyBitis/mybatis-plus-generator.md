@@ -1,3 +1,9 @@
+---
+isPublish: false
+---
+
+
+
 # mybatis-plus-generator
 
 
