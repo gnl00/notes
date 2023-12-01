@@ -1769,12 +1769,12 @@ postgres ALL= NOPASSWD: /usr/bin/pg_ctlcluster 15 main reload
 # root
 ssh-keygen -t rsa
 cd /root/.ssh
-cat id_dsa.pub >> root_authorized_keys
+cat id_rsa.pub >> root_authorized_keys
 
 # postgres
 ssh-keygen -t rsa
 cd /var/lib/postgresql/.ssh
-cat id_dsa.pub >> pg_authorized_keys
+cat id_rsa.pub >> pg_authorized_keys
 ```
 
 
@@ -2239,6 +2239,12 @@ Patroni 是一个不同于 repmgr 的 PostgreSQL 高可用方案。关于 Patron
 > * PostgreSQL/Patroni: 192.168.111.21/192.168.111.22/192.168.111.23
 > * etcd: 192.168.111.20
 
+0、首先确保 PG 处于停止状态
+
+```shell
+systemctl status postgresql
+```
+
 1、部署 etcd 用于存储集群元数据
 
 > 目前仅部署一个服务用作测试，一般来说生产环境下需要部署三个 etcd 服务。
@@ -2269,8 +2275,6 @@ ETCD_ADVERTISE_CLIENT_URLS="http://192.168.111.20:2379"
 启动 etcd
 
 ```shell
-systemctl start etcd
-# 允许开机自启
 systemctl enable etcd --now # 允许开机自启并立即启动
 ```
 
@@ -2285,10 +2289,13 @@ systemctl enable etcd --now # 允许开机自启并立即启动
 ```shell
 apt-get install -y python3-pip python3-psycopg2 # install python3 psycopg2 module on Debian/Ubuntu
 
-# 最好开启代理，否则 pip 可能比较慢
+# 切换到 root 用户
+
+# 最好开启代理或者换源，否则 pip 可能比较慢
 pip install --upgrade pip
 pip install --upgrade setuptools
-pip install patroni[etcd]
+pip install patroni[etcd] # 安装最新版
+pip install patroni[etcd]==3.1.2 # 或者指定版本
 
 # 注意：需要取消 postgresql 开机自启
 systemctl disable postgresql
@@ -2307,16 +2314,17 @@ systemctl disable postgresql
 > * postgresql.bin_dir
 
 ```yaml
-scope: pgsql
+scope: pgsql-test
 namespace: /service/
-name: pg1
+name: pg12
 
+# 配置 patroni 的 rest api 端口
 restapi:
   listen: 0.0.0.0:8008
-  connect_address: 192.168.111.21:8008
+  connect_address: 192.168.111.12:8008
 
 etcd:
-  host: 192.168.111.20:2379
+  host: 192.168.2.203:2379
 
 bootstrap:
   dcs:
@@ -2330,8 +2338,6 @@ bootstrap:
       use_pg_rewind: true
       use_slots: true
       parameters:
-        listen_addresses: "0.0.0.0"
-        port: 5432
         wal_level: logical
         hot_standby: "on"
         wal_keep_segments: 100
@@ -2340,9 +2346,8 @@ bootstrap:
         wal_log_hints: "on"
         # shared_preload_libraries: ['pg_stat_statements']
       pg_hba:
-      - local all all 0.0.0.0/0 trust
-      - host replication repl 0.0.0.0/0 trust
-      - host all all 0.0.0.0/0 trust
+      - host replication repl 0.0.0.0/0 md5
+      - host all all 0.0.0.0/0 md5
 
   initdb:
   - encoding: UTF-8
@@ -2350,9 +2355,10 @@ bootstrap:
 
 postgresql:
   listen: 0.0.0.0:5432
-  connect_address: 192.168.111.21:5432
+  connect_address: 192.168.111.12:5432
   data_dir: /var/lib/postgresql/15/main # main 目录需要为空，且用户和用户组为 postgres
-  #config_dir: /etc/postgresql/15/main/ # defaults to the data directory
+  # 如果 postgresql 是 apt 源安装，配置在 /etc/postgresql/{version}/main/
+  config_dir: /etc/postgresql/15/main/ # defaults to the data directory
   bin_dir: /usr/lib/postgresql/15/bin
 
   authentication:
@@ -2431,11 +2437,10 @@ postgres ALL=(ALL) NOPASSWD: ALL
 
 ```shell
 root:~$ systemctl status postgresql # 确保 pg 处于停止状态下
-# 备份原来的数据目录
-root:~$ cd /var/lib/postgresql/15
-root:~$ mv main backup/
-root:~$ sudo su -- postgres
-# postgres
+# 切换到 postgres 用户，备份原来的数据目录
+postgres:~$ cd /var/lib/postgresql/15
+postgres:~$ mv main backup/
+
 postgres:~$ mkdir main
 # 注意 postgres 用户对 main 文件夹的权限应该是 0700 或者 0750
 postgres:~$ chmod 0750 main
@@ -2464,17 +2469,6 @@ postgres@ubt1:~$ sudo systemctl status patroni
              ├─6983 "postgres: pgsql: autovacuum launcher " "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" >
              ├─6984 "postgres: pgsql: logical replication launcher " "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" >
              └─6987 "postgres: pgsql: postgres postgres 127.0.0.1(51908) idle" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "">
-
-Oct 18 16:14:54 ubt1 patroni[6978]: 2023-10-18 16:14:54.872 CST [6978] LOG:  database system was shut down at 2023-10-18 16:14:54 CST
-Oct 18 16:14:54 ubt1 patroni[6975]: localhost:5432 - rejecting connections
-Oct 18 16:14:54 ubt1 patroni[6981]: 2023-10-18 16:14:54.875 CST [6981] FATAL:  the database system is starting up
-Oct 18 16:14:54 ubt1 patroni[6980]: localhost:5432 - rejecting connections
-Oct 18 16:14:54 ubt1 patroni[6974]: 2023-10-18 16:14:54.878 CST [6974] LOG:  database system is ready to accept connections
-Oct 18 16:14:55 ubt1 patroni[6985]: localhost:5432 - accepting connections
-Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,887 INFO: establishing a new patroni connection to the postgres cluster
-Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,891 INFO: running post_bootstrap
-Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,905 WARNING: Could not activate Linux watchdog device: Can't open watchdog device: [Errno 2] No such file or directory: '/dev/watch>
-Oct 18 16:14:55 ubt1 patroni[6939]: 2023-10-18 16:14:55,910 INFO: initialized a new cluster
 ```
 
 8、查看集群状态
@@ -2486,6 +2480,12 @@ postgres@ubt1:~$ patronictl -c /etc/patroni.yml list
 +--------+----------------+--------+---------+----+-----------+
 | pg1    | 192.168.111.21 | Leader | running |  1 |           |
 +--------+----------------+--------+---------+----+-----------+
+```
+
+查看数据库状态
+
+```shell
+pg_ctlcluster 15 main status
 ```
 
 9、将 patroni 配置设置到全局环境变量
@@ -2812,13 +2812,11 @@ action=$1
 role=$2
 cluster=$3
 
-log()
-{
+log() {
   echo "loadvip: $*" | logger
 }
 
-load_vip()
-{
+load_vip() {
 ip a|grep -w ${DEV}|grep -w ${VIP} >/dev/null
 if [ $? -eq 0 ] ;then
   log "vip exists, skip load vip"
@@ -2831,8 +2829,8 @@ else
   fi
 
   log "added vip ${VIP} at dev ${DEV}"
-
-  sudo arping -U -I ${DEV} -s ${VIP} ${GATEWAY} -c 5 >/dev/null
+	
+  sudo arping -q -A -c 1 -i ${DEV} ${VIP} >/dev/null
   rc=$?
   if [ $rc -ne 0 ] ;then
     log "fail to call arping to gateway ${GATEWAY} rc=$rc"
@@ -2840,11 +2838,11 @@ else
   fi
   
   log "called arping to gateway ${GATEWAY}"
+  sudo iptables -F
 fi
 }
 
-unload_vip()
-{
+unload_vip() {
 ip a|grep -w ${DEV}|grep -w ${VIP} >/dev/null
 if [ $? -eq 0 ] ;then
   sudo ip addr del ${VIP}/32 dev ${DEV} >/dev/null
@@ -2855,6 +2853,7 @@ if [ $? -eq 0 ] ;then
   fi
 
   log "deleted vip ${VIP} at dev ${DEV}"
+  sudo iptables -F
 else
   log "vip not exists, skip delete vip"
 fi
@@ -2953,11 +2952,23 @@ Oct 19 06:24:42 ubt1 postgres: loadvip: added vip 192.168.111.30 at dev eth1
 
 …
 
+> **注意**
+>
+> *1、在实践过程中，Patroni 集群运行了一段时间后，在一次 Leader 断网异常期间 VIP 没能顺利漂移到 replica。后续手动断网尝试复现发现漂移正常。*
+>
+> *2、距离上一次断网异常过了一个星期之后，之前绑定了 VIP 的网卡自动移除了 VIP。尝试使用 haproxy*
+
+…
+
 ---
 
 #### [keepalived 实现 VIP 漂移](https://github.com/ChenHuajun/blog_xqhx/blob/main/2020/2020-09-07-%E5%9F%BA%E4%BA%8EPatroni%E7%9A%84PostgreSQL%E9%AB%98%E5%8F%AF%E7%94%A8%E7%8E%AF%E5%A2%83%E9%83%A8%E7%BD%B2.md#73-vip%E9%80%9A%E8%BF%87keepalived%E5%AE%9E%E7%8E%B0vip%E6%BC%82%E7%A7%BB)
 
+> keepalived 提供 VRRP（*Virtual Router Redundancy Protocol*，虚拟路由冗余协议） 和 health-check 功能。
+
 Patroni 提供了一系列 [REST API](https://patroni.readthedocs.io/en/latest/rest_api.html)，其中有可用于检查节点角色健康状态的 API。可使用 REST API 搭配 keepalived 动态的在主备库上绑定 VIP。
+
+…
 
 1、安装 keepalived
 
@@ -2965,44 +2976,64 @@ Patroni 提供了一系列 [REST API](https://patroni.readthedocs.io/en/latest/r
 apt install -y keepalived
 ```
 
+创建用户和用户组用于执行 keepalived 脚本
+
+```shell
+groupadd -r keepalived_script
+useradd -r -s /sbin/nologin -g keepalived_script -M keepalived_script # -M 添加主用户
+
+cat /etc/passwd # 查看当前系统中的所有用户
+```
+
 2、编辑 keepalived 配置文件 `/etc/keepalived/keepalived.conf`
 
-> 下面的例子表示备节点故障时则将只读 VIP 绑在主节点上。
+…
 
-```
+下面的配置每隔 2s 查询 master 节点是否处于健康状态，若不健康则将 VIP 漂移到当前节点上。
+
+```shell
 global_defs {
-    router_id LVS_DEVEL
+    router_id LVS_DEVEL # 路由器标识，一般不用改，也可以写成每个主机自己的主机名
+    # 1-99
+    max_auto_priority 99
+    enable_script_security
 }
-vrrp_script check_leader {
-    script "/usr/bin/curl -s http://127.0.0.1:8008/leader -v 2>&1|grep '200 OK' >/dev/null"
-    interval 2
+
+vrrp_script check_health {
+    script "/usr/bin/curl -s http://192.168.111.11:8008/health -v 2>&1|grep '200 OK' >/dev/null"
+    interval 2 # 脚本执行间隔，单位 s，默认为 1s
     weight 10
 }
-vrrp_script check_replica {
-    script "/usr/bin/curl -s http://127.0.0.1:8008/replica -v 2>&1|grep '200 OK' >/dev/null"
-    interval 2
-    weight 5
-}
-vrrp_script check_can_read {
-    script "/usr/bin/curl -s http://127.0.0.1:8008/read-only -v 2>&1|grep '200 OK' >/dev/null"
-    interval 2
-    weight 10
-}
+
+# 一个 vrrp_instance 就是定义一个虚拟路由器的实例名称
 vrrp_instance VI_1 {
+		# 定义初始状态，可以是 MASTER 或者 BACKUP
     state BACKUP
-    interface eth1
-    virtual_router_id 21
-    priority 100
+    # 非抢占模式
+    # nopreempt
+    # 网卡接口，通告选举使用哪个接口进行
+    interface eth0
+    # 虚拟路由 ID，取值范围 0-255
+    # 当前 IP 192.168.111.12
+    # 一般取当前 IP 最后一位即可
+    virtual_router_id 12
+    # 如果你上面定义了 MASTER，优先级就需要定义得比其他的高
+    priority 1
+    # 通告频率，单位 s
     advert_int 1
+    
+    # 追踪脚本，执行上面定义的 vrrp_script 脚本
     track_script {
-        check_can_read
-        check_replica
+        check_health
     }
+    # 设置 VIP 地址
     virtual_ipaddress {
-       192.168.111.31
+       192.168.111.10
     }
 }
 ```
+
+…
 
 > 有两个地方需要注意：
 >
@@ -3013,10 +3044,8 @@ vrrp_instance VI_1 {
 3、启动 keepalived
 
 ```shell
-systemctl start keepalived
-
-# 如果有必要，开机自启
-systemctl enable keepalived
+# 开机自启并立即启动
+systemctl enable keepalived --now
 ```
 
 …
@@ -3025,17 +3054,121 @@ systemctl enable keepalived
 
 …
 
-> **注意**
->
-> *在实践过程中发现，一次 Leader 异常断网的期间 VIP 没能顺利漂移到 replica，但后续手动断网发现漂移正常。*
+---
+
+#### haproxy
+
+> 参考：[haproxy](https://github.com/ChenHuajun/blog_xqhx/blob/main/2020/2020-09-07-%E5%9F%BA%E4%BA%8EPatroni%E7%9A%84PostgreSQL%E9%AB%98%E5%8F%AF%E7%94%A8%E7%8E%AF%E5%A2%83%E9%83%A8%E7%BD%B2.md#74-haproxy)
+
+> *haproxy 作为服务代理和 Patroni 配套使用可以很方便地支持**读写分离和负载均衡**。haproxy 本身会占用一定的资源，且需要配合 keepalived 来实现 VIP 使用。*
 
 …
 
----
+1、安装
 
-#### [haproxy](https://github.com/ChenHuajun/blog_xqhx/blob/main/2020/2020-09-07-%E5%9F%BA%E4%BA%8EPatroni%E7%9A%84PostgreSQL%E9%AB%98%E5%8F%AF%E7%94%A8%E7%8E%AF%E5%A2%83%E9%83%A8%E7%BD%B2.md#74-haproxy)
+```shell
+sudo apt install -y haproxy
+```
 
-haproxy 本身会占用一定的资源，且需要配合 keepalived 来使用。
+2、编辑配置 `/etc/haproxy/haproxy.cfg`
+
+> 下面的配置文件配置了读写分离的场景
+
+```shell
+global
+    daemon
+    maxconn 100
+    # 指定使用 127.0.0.1 上的 syslog 服务中的 local2 日志设备
+    log 127.0.0.1 local2
+    # log 127.0.0.1 local0 info|notice # 记录日志等级
+    chroot /var/lib/haproxy
+    pidfile /var/run/haproxy.pid
+
+defaults
+    log global
+    mode tcp
+    retries 2
+    timeout client 30m
+    timeout connect 4s
+    timeout server 30m
+    timeout check 5s
+
+listen stats
+    mode http
+    bind *:7000
+    stats enable
+    stats uri /
+    stats show-node
+    stats show-legends
+
+listen pgsql
+    bind *:5000
+    option httpchk
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+    server postgresql_192.168.2.201_5432 192.168.2.201:5432 maxconn 100 check port 8008
+    server postgresql_192.168.2.202_5432 192.168.2.202:5432 maxconn 100 check port 8008
+    server postgresql_192.168.2.203_5432 192.168.2.203:5432 maxconn 100 check port 8008
+
+listen pgsql_read
+    bind *:6000
+    option httpchk GET /replica
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+    server postgresql_192.168.2.201_5432 192.168.2.201:5432 maxconn 100 check port 8008
+    server postgresql_192.168.2.202_5432 192.168.2.202:5432 maxconn 100 check port 8008
+    server postgresql_192.168.2.203_5432 192.168.2.203:5432 maxconn 100 check port 8008
+```
+
+…
+
+> 如果只有 2 个节点，需要将 `pgsql_read` 的 `GET /replica` 修改成 `GET /read-only`。这样配置可以在备库故障的时候从主库分出一条只读的连接，*但是这实际上不能分离主库的读负载*。
+
+…
+
+3、启动 haproxy
+
+```shell
+systemctl enable haproxy --now
+```
+
+haproxy 本身也需要配置高可用，所以在其他机器上也需要部署 haproxy。
+
+4、配置 keepalived
+
+```shell
+global_defs {
+    router_id LVS_DEVEL
+}
+vrrp_script check_haproxy {
+    script "pgrep -x haproxy"
+    interval 2
+    weight 10
+}
+vrrp_instance VI_1 {
+    state BACKUP
+    interface enp6s0
+    virtual_router_id 230
+    priority 100
+    advert_int 1
+    track_script {
+        check_haproxy
+    }
+    virtual_ipaddress {
+       192.168.2.200
+    }
+}
+```
+
+启动 keepalived
+
+```shell
+systemctl start keepalived
+```
+
+…
+
+6、此后：从 192.168.2.200:5000 就能访问到主库；从 192.168.2.200:6000 就能访问到只读库，如果存在多个只读库会轮询连接；从 192.168.2.200:7000/ 可以访问到 haproxy 的数据统计页面。
 
 …
 
