@@ -2956,7 +2956,7 @@ Oct 19 06:24:42 ubt1 postgres: loadvip: added vip 192.168.111.30 at dev eth1
 >
 > *1、在实践过程中，Patroni 集群运行了一段时间后，在一次 Leader 断网异常期间 VIP 没能顺利漂移到 replica。后续手动断网尝试复现发现漂移正常。*
 >
-> *2、距离上一次断网异常过了一个星期之后，之前绑定了 VIP 的网卡自动移除了 VIP。尝试使用 haproxy*
+> *2、距离上一次断网异常过了一个星期之后，之前绑定了 VIP 的网卡自动移除了 VIP。尝试使用 keepalived*
 
 …
 
@@ -2970,6 +2970,15 @@ Patroni 提供了一系列 [REST API](https://patroni.readthedocs.io/en/latest/r
 
 …
 
+keepalived 判断 VIP 漂移情况需要下面两个条件配合：
+
+* 执行*脚本权重*加上执行*节点优先级*的**总和**
+* 是否是抢占模式 `preempt` 或者 `nopreempt`。
+
+一般来说 VIP 会漂移到总和最大的节点上。只有开启了抢占模式，新的优先级高节点才有资格抢占其他节点的 VIP。
+
+…
+
 1、安装 keepalived
 
 ```shell
@@ -2979,78 +2988,129 @@ apt install -y keepalived
 创建用户和用户组用于执行 keepalived 脚本
 
 ```shell
-groupadd -r keepalived_script
-useradd -r -s /sbin/nologin -g keepalived_script -M keepalived_script # -M 添加主用户
+useradd -r -s /sbin/nologin keepalived_script
 
 cat /etc/passwd # 查看当前系统中的所有用户
 ```
 
-2、编辑 keepalived 配置文件 `/etc/keepalived/keepalived.conf`
+2、编辑 keepalived 配置文件
 
 …
 
-下面的配置每隔 2s 查询 master 节点是否处于健康状态，若不健康则将 VIP 漂移到当前节点上。
+编辑脚本 `/etc/keepalived/check_role.sh`
 
 ```shell
+# 192.168.111.11 配置
+#! /bin/bash
+patronictl -c /etc/patroni.yml list | grep 192.168.111.11 | grep Leader > /dev/null
+```
+
+…
+
+```shell
+# 192.168.111.12 配置
+#! /bin/bash
+patronictl -c /etc/patroni.yml list | grep 192.168.111.12 | grep Leader > /dev/null
+```
+
+上面脚本实现的功能是：如果当前节点是 Leader，将 VIP 漂移到当前机器。
+
+…
+
+编辑  `/etc/keepalived/keepalived.conf`
+
+```shell
+# 全局配置
 global_defs {
-    router_id LVS_DEVEL # 路由器标识，一般不用改，也可以写成每个主机自己的主机名
-    # 1-99
+    # 路由器标识，也可以写成每个主机名
+    router_id LVS_DEVEL
+    # 最高优先级，1-99
     max_auto_priority 99
+    # 安全的脚本运行模式
+    # 如果运行的脚本中包含有可以用 non-root 运行的代码段，则使用 non-root 模式运行
+    # Don't run scripts configured to be run as root if any part of the path
+    # is writable by a non-root user.
     enable_script_security
 }
 
-vrrp_script check_health {
-    script "/usr/bin/curl -s http://192.168.111.11:8008/health -v 2>&1|grep '200 OK' >/dev/null"
-    interval 2 # 脚本执行间隔，单位 s，默认为 1s
+# 定义 vrrp_script 脚本
+vrrp_script check_role
+{
+    script "/etc/keepalived/check_role.sh"
     weight 10
+    interval 2 # 单位 s，默认是 1
+    # 成功 2 次才算成功
+    rise 2
+    # 失败 3 次才算失败
+    fall 3
 }
 
-# 一个 vrrp_instance 就是定义一个虚拟路由器的实例名称
+# 定义一个虚拟路由器的实例名称
 vrrp_instance VI_1 {
-		# 定义初始状态，可以是 MASTER 或者 BACKUP
-    state BACKUP
+    state MASTER # or BACKUP
     # 非抢占模式
-    # nopreempt
-    # 网卡接口，通告选举使用哪个接口进行
-    interface eth0
-    # 虚拟路由 ID，取值范围 0-255
-    # 当前 IP 192.168.111.12
-    # 一般取当前 IP 最后一位即可
-    virtual_router_id 12
-    # 如果你上面定义了 MASTER，优先级就需要定义得比其他的高
-    priority 1
-    # 通告频率，单位 s
+    # MASTER 会忽略 nopreempt 模式
+    preempt # 如果权重+优先级高，允许抢占 VIP
+    interface eth0 # 需要将 VIP 漂移到的网卡
+    # 虚拟路由 ID，同一个集群内需要一致
+    # 比如集群内有两台机器 192.168.111.11 和 192.168.111.12
+    # 两台机器上的 virtual_router_id 和 virtual_ipaddress 需要一致
+    virtual_router_id 111
+    priority 2 # MASTER 的权重必须是集群内最高的
     advert_int 1
-    
-    # 追踪脚本，执行上面定义的 vrrp_script 脚本
+
+    # 追踪脚本，执行用户自定义的脚本
     track_script {
-        check_health
+        # 脚本的总权重 = 脚本 weight + vrrp_instance.priority
+        # 此处总权重 = 10 + 2 = 12
+        check_role
     }
-    # 设置 VIP 地址
+
     virtual_ipaddress {
-       192.168.111.10
+        192.168.111.10
     }
 }
 ```
 
 …
 
-> 有两个地方需要注意：
->
-> * `interface` 绑定自己机器上的网卡接口
-> * `virtual_router_id` 虚拟路由 ID，最好在同一个子网下唯一
-> * `virtual_ipaddress` 绑定的 VIP
+将 keepalived 配置复制到其他节点，并修改：
+
+* `vrrp_instance.state` 改成 BACKUP
+* BACKUP 需要设置成 nopreempt 或者 preempt 模式，需要根据场景来决定
+* `vrrp_instance.interface` 改成自己的网卡
+* `vrrp_instance.priority`
+
+…
 
 3、启动 keepalived
 
 ```shell
+# 先开一个窗口查看日志情况
+journalctl -f
+# or
+tail -f /var/log/syslog # 不同的发行版有不同的日志名，可能叫 message，不一定是 syslog
+
 # 开机自启并立即启动
 systemctl enable keepalived --now
 ```
 
 …
 
-> 在网络抖动或其它临时故障时 keepalived 管理的 VIP 容易飘，更推荐使用 Patroni 回调脚本动态绑定读写 VIP。
+4、查看 VIP 漂移情况
+
+```shell
+# 显示所有的 ip，包括激活的和未激活的
+ip addr 
+```
+
+…
+
+> 由于使用回调脚本实现 VIP 在使用的过程中出现过异常，导致 VIP 没能正常漂移或者已经绑定的 VIP 被从网卡中自动移除。
+>
+> …
+>
+> 考虑到目前使用的是 JDBC，遂尝试使用回调脚本 + keepalived 同时部署，分配两个 VIP，*反正 JDBC 可以连接多主机*。
 
 …
 
