@@ -3,6 +3,7 @@ description: GitLab 私服搭建
 sticky: true
 tag: 
   - GitLab
+  - DevOps
 ---
 
 # GitLab
@@ -217,6 +218,70 @@ ssh-keygen -t rsa -b 2048 -C "<comment>"
 # 测试
 ssh -T ssh://git@127.0.0.1:2200 # 假设将默认 22 端口修改成了 2200
 ```
+
+
+
+### SSH 端口转发
+
+由于安装了 GitLab 的机器安装了 openssh-server，所以 22 端口被 openssh 占用了。此时可以选择一台没 22 端口没有被占用的节点进行端口转发。
+
+目前将 `no-ssh.my-dev.com:22` 请求转发到  `gitlab.my-dev.com:2200` 
+
+再进行转发的节点上配置
+
+1、生成 SSH key
+
+*rsa or ed25519 Whatever*
+
+```shell
+ssh-keygen -t ed25519 -C "your_email@example.com"
+# or
+ ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```
+
+2、配置 config
+
+```shell
+Host gitlab_host
+  HostName gitlab.my-dev.com # 转发目标地址
+  User git
+  Port 2200 # 转发目标端口
+  IdentityFile ./id_rsa  # 替换为您的私钥文件路径
+```
+
+…
+
+> 本来 SSH 转发命令是类似下面这样子的：
+>
+> ```shell
+> ssh -L no-ssh.my-dev:22:gitlab.my-dev:2200 git@gitlab.my-dev -N
+> ```
+>
+> 但是：我们**不知道 git 用户的密码**，这样子行不通。
+>
+> 所以需要先配置 config，后面就不再需要配置用户和密码了。
+
+…
+
+3、再进行 ssh 转发
+
+```shell
+ssh -L 请求IP:请求Port:转发IP:转发Port 目标IP -N
+
+# 示例
+# 可以先在本地测试一下
+# 将本地 2200 端口的 ssh 请求转发到 192.168.2.200:2200
+ssh -L localhost:2200:192.168.2.200:2200 192.168.2.200 -N
+ssh -L 2200:192.168.2.200:2200 192.168.2.200 -N # 本地转发可以省略 localhost
+lsof -i :2200 # 查看 2200 端口是否已被占用
+ssh -T ssh://git@localhost:2200 # 查看返回是否访问成功
+
+# 将 no-ssh.my-dev:22 的 ssh 访问转发到 gitlab.my-dev:2200
+ssh -L no-ssh.my-dev:22:gitlab.my-dev:2200 git@gitlab.my-dev -N
+ssh -T ssh://git@no-ssh.my-dev # 查看返回是否访问成功
+```
+
+…
 
 
 
@@ -463,3 +528,15 @@ build-image-job:
   stage: build
   image: docker:24.0.6-git
 ```
+
+…
+
+---
+
+<br>
+
+## 参考
+
+**SSH 端口转发**
+
+https://zhuanlan.zhihu.com/p/148825449
