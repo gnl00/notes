@@ -2749,6 +2749,42 @@ patronictl -c /etc/patroni.yml edit-config -p 'max_connections=300'
 
 …
 
+某次重启集群的时候出现了两个 Replica
+
+```shell
+postgres@ubt:/$ patronictl -c /etc/patroni.yml list
++ Cluster: pgsql (7293041961231008937) -+---------+----+-----------+
+| Member | Host               | Role    | State   | TL | Lag in MB |
++--------+--------------------+---------+---------+----+-----------+
+| pg1    | test1.my-dev.com | Replica | running | 20 |         0 |
+| pg2    | test2.my-dev.com | Replica | running | 20 |         0 |
++--------+--------------------+---------+---------+----+-----------+
+```
+
+此时只需要执行 `patronictl failover` 就能强制将某一个节点的角色提升
+
+```shell
+postgres@ubt:/$ patronictl -c /etc/patroni.yml failover
+Current cluster topology
++ Cluster: pgsql (7293041961231008937) -+---------+----+-----------+
+| Member | Host               | Role    | State   | TL | Lag in MB |
++--------+--------------------+---------+---------+----+-----------+
+| pg1    | test1.my-dev.com | Replica | running | 20 |         0 |
+| pg2    | test2.my-dev.com | Replica | running | 20 |         0 |
++--------+--------------------+---------+---------+----+-----------+
+Candidate ['pg1', 'pg2'] []: pg1
+Are you sure you want to failover cluster pgsql? [y/N]: y
+2023-12-07 14:16:40.36882 Successfully failed over to "pg1"
++ Cluster: pgsql (7293041961231008937) -+---------+----+-----------+
+| Member | Host               | Role    | State   | TL | Lag in MB |
++--------+--------------------+---------+---------+----+-----------+
+| pg1    | test1.my-dev.com | Leader  | running | 20 |           |
+| pg2    | test2.my-dev.com | Replica | running | 20 |         0 |
++--------+--------------------+---------+---------+----+-----------+
+```
+
+…
+
 ---
 
 ### 客户端连接
@@ -3017,6 +3053,16 @@ patronictl -c /etc/patroni.yml list | grep 192.168.111.12 | grep Leader > /dev/n
 
 …
 
+> 使用 Patroni 其实还有另一种办法查看当前节点是不是主节点
+>
+> ```
+> curl -s http://127.0.0.1:8008/master -v 2>&1 | grep '200 OK' > /dev/null
+> ```
+>
+> …
+
+…
+
 编辑  `/etc/keepalived/keepalived.conf`
 
 ```shell
@@ -3106,11 +3152,90 @@ ip addr
 
 …
 
-> 由于使用回调脚本实现 VIP 在使用的过程中出现过异常，导致 VIP 没能正常漂移或者已经绑定的 VIP 被从网卡中自动移除。
+> 在使用回调脚本实现 VIP 漂移的过程中出现过异常：1、断网后网络恢复 VIP 没能正常漂移；2、已经绑定的 VIP 被从网卡中自动移除。
 >
 > …
 >
-> 考虑到目前使用的是 JDBC，遂尝试使用回调脚本 + keepalived 同时部署，分配两个 VIP，*反正 JDBC 可以连接多主机*。
+> 尝试使用回调脚本 + keepalived 同时部署，分配两个 VIP，*反正 JDBC 可以连接多主机*。
+>
+> …
+>
+> 使用 keealived 的过程中发现：***keepalived 实现 VIP 漂移可能会影响到 ARP 表，导致 ARP 请求无响应。***
+>
+> 外部对该节点内任意服务的请求用 WireShark 抓包得到的信息都是 TCP 重传。类似下面的返回
+>
+> ```shell
+> 890	48.998150	SourceIP	TargetIP	TCP	66	[TCP Retransmission] 65154 → 443 [SYN] Seq=0 Win=64240 Len=0 MSS=1460 WS=256 SACK_PERM
+> ```
+>
+> 部署的 keepalived 配置如下
+>
+> ```shell
+> global_defs {
+>     router_id LVS_DEVEL
+>     max_auto_priority 99
+>     enable_script_security
+> }
+> 
+> vrrp_script check_role
+> {
+>     script "/etc/keepalived/check_role.sh"
+>     weight 10
+>     interval 2
+>     rise 2
+>     fall 3
+> }
+> 
+> vrrp_instance VI_1 {
+>     state MASTER # or BACKUP
+>     preempt # 如果权重+优先级高，允许抢占 VIP
+>     interface eth0
+>     virtual_router_id 2
+>     priority 2 # MASTER 的权重必须是集群内最高的
+>     advert_int 1
+> 
+>     track_script {
+>         check_role
+>     }
+> 
+>     virtual_ipaddress {
+>         192.168.111.10
+>     }
+> }
+> ```
+>
+> …
+>
+> 尝试修改 virtual_ipaddress
+>
+> ```
+> virtual_ipaddress {
+>   192.168.111.10/24 dev eth0
+>   arp_ignore 1
+>   arp_announce 2
+> }
+> ```
+>
+> 无效。
+>
+> 尝试清除 ARP 表和 IPTables
+>
+> ```shell
+> ip -s -s neigh flush all # clean arp
+> iptables -F # clean iptables
+> ```
+>
+> 无效。
+>
+> 尝试重新分配 IP；重启；关机重启；重启路由；断电重启；均无效（也不是完全无效，重启后服务恢复一段时间，大概几分钟，再之后就会返回 TCP Retransmission 异常）。
+>
+> 最后备份数据，重装系统才恢复正常。
+>
+> 慎用 keepalived，也可能是局域网内慎用？因为测试的时候使用的是局域网内的三台机器。
+>
+> **老老实实使用回调脚本**。可以给回调脚本加点料：实时监控 VIP 的连通，如果 VIP 无法连通立马执行 `patronictl failover/switchover`。
+>
+> …
 
 …
 
