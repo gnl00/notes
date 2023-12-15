@@ -5,8 +5,6 @@ tag:
   - 后端
 ---
 
-
-
 # Netty
 
 > 基于 Java NIO 封装的网络框架
@@ -1256,11 +1254,25 @@ private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
 
 …
 
+---
+
 <br>
 
 ## 实例
 
 ### Redis 客户端
+
+…
+
+#### 使用自定义编解码
+
+[netty-overview](https://github.com/gnl00/netty-overview/tree/main/src/main/java/com/demo/greenis)
+
+…
+
+---
+
+#### 使用内置编解码
 
 创建了客户端之后添加好对应的编解码器：
 
@@ -1349,7 +1361,7 @@ public class GreenisChannelHandler extends ChannelDuplexHandler {
 
 …
 
-—
+---
 
 <br>
 
