@@ -1,14 +1,24 @@
+---
+description: Spring 框架使用详解
+tag: 
+  - Java
+  - Spring
+  - 后端
+---
+
+
+
 # Spring
 
 
 
 ## IOC
 
-> 控制反转（Inversion of Control），即与用户自行编写代码创建对象相反，为了将耦合度降低，IOC将对象的创建和对象之间的调用过程交给Spring来进行管理
+> 控制反转（Inversion of Control），即与自行编写代码创建对象相反，为了将耦合度降低，将对象的创建和对象之间的调用过程交给 Spring 来进行管理。
 
-<br/>
+…
 
-**<u>1 - IOC 底层原理</u>**
+### IOC 底层原理
 
 > xml 解析、工厂模式、反射
 
@@ -20,15 +30,22 @@
 
 2、创建工厂类，通过反射的 `newInstance()` 创建对象
 
-<br/>
+…
 
-**<u>2 - IOC 接口</u>**
+---
+
+### IOC 接口
 
 > BeanFactory & ApplicationContext
 
-Spring 提供 IOC 容器两种实现方式（两个接口）：**BeanFactory** & **ApplicationContext**
+Spring 提供 IOC 容器两种实现方式（两个接口）：
 
-**1、BeanFactory**，是 IOC 容器的基本实现，**是 Spring 内部使用的接口**。BeanFactory 在加载配置文件的时候不会创建对象（此处特指懒加载的单例对象），直到获取对象的时候才会创建对象
+* BeanFactory
+* ApplicationContext
+
+…
+
+BeanFactory 是 IOC 容器的基本实现，**是 Spring 内部使用的接口**。BeanFactory 在加载配置文件的时候不会创建对象（此处特指懒加载的单例对象），直到获取对象的时候才会创建对象
 
 ```java
 // BeanFactory 完成这一步只会加载配置文件，不会创建对象
@@ -38,9 +55,9 @@ User user = bf.getBean("user", User.class);
 System.out.println(user.toString());
 ```
 
+…
 
-
-**2、ApplicationContext**，BeanFactory 的子接口，提供更多更强大的功能，一般开发人员使用该接口
+ApplicationContext 是 BeanFactory 的子接口，提供更多更强大的功能，一般由开发者调用。
 
 ```java
 // 在加载配置文件的时候就会把配置文件中配置的对象创建
@@ -50,27 +67,31 @@ User user = ac.getBean("user", User.class);
 System.out.println(user.toString());
 ```
 
-<br/>
+…
 
-**<u>3 - IOC 管理 Bean（XML）</u>**
+---
+
+### Bean 的管理（XML）
 
 > Bean 的管理指的是**创建对象和依赖注入（DI）**
 
-1、创建对象，Spring 创建对象的时候，默认执行无参的构造方法完成对象创建
+1、创建对象，Spring 创建对象的时候，默认执行**无参**的构造方法完成对象创建
 
 ```xml
-<!-- 将对象的创建交给Spring来完成 -->
-<!-- 配置User对象并赋值 -->
+<!-- 将对象的创建交给 Spring 来完成 -->
+<!-- 配置 User 对象并赋值 -->
 <bean id="user" class="com.demo.bean.User"></bean>
+<!--
 id：唯一标识，指创建对象的别名，可通过别名获取该对象
 class：类全路径，通过全路径找到对应的类
+-->
 ```
 
-<br/>
+…
 
-**2、依赖注入/属性值注入（DI）**
+2、依赖注入/属性值注入（DI）
 
-① `set()`方法注入
+① setter 注入
 
 ```xml
 <bean id="user" class="com.demo.bean.User">
@@ -97,7 +118,7 @@ class：类全路径，通过全路径找到对应的类
 </bean>
 ```
 
-
+…
 
 ② 有参构造方法注入
 
@@ -116,9 +137,9 @@ class：类全路径，通过全路径找到对应的类
 </bean>
 ```
 
+…
 
-
-③ **p名称空间**注入，使用p名称空间注入可简化基于 xml 配置方式
+③ **p名称空间**注入，使用 p 名称空间注入可简化基于 xml 配置方式
 
 ```xml
 <!-- 1、在配置文件中<beans>标签内添加p名称空间支持 -->
@@ -127,9 +148,9 @@ xmlns:p="http://www.springframework.org/schema/p"
 <bean id="user3" class="com.demo.bean.User" p:name="User666" p:age="16" />
 ```
 
+…
 
-
-④ 属性注入——外部 Bean 注入
+④ 属性注入（外部 Bean 注入）
 
 ```xml
 <bean id="userDao" class="com.demo.dao.impl.UserDaoImpl" />
@@ -143,27 +164,29 @@ UserService userService = ac.getBean("userServiceImpl", UserService.class);
 userService.add();
 ```
 
+…
 
+⑤ 属性注入（内部 Bean 和级联赋值）
 
-⑤ 属性注入——内部 Bean 和级联赋值
-
-⑥ 属性注入——外部 Bean 和级联赋值
+⑥ 属性注入（外部 Bean 和级联赋值）
 
 ⑦ 集合属性注入
 
-<br/>
+…
 
-**3、FactoryBean**
+---
 
-> Spring 有两种类型的 Bean，一种普通 Bean，一种工厂 Bean（FactoryBean）
+### FactoryBean
 
-普通 Bean：在配置文件中配置的 Bean 的类型就是返回类型
+> Spring 有两种类型的 Bean：普通 Bean 和工厂 Bean（FactoryBean）。
 
-工厂 Bean：在配置文件中定义 Bean 类型可以和返回类型不一样（多于 Spring 框架内部使用），用于创建/生产 Bean
+* 普通 Bean：在配置文件中配置的 Bean 的类型就是返回类型
 
+* 工厂 Bean：在配置文件中定义 Bean 类型可以和返回类型不一样（多于 Spring 框架内部使用），用于创建/生产 Bean
 
+…
 
-**FactoryBean 的实现**
+FactoryBean 的实现
 
 ```java
 // 1、创建类，让这个类作为工厂 Bean，实现工厂接口 FactoryBean
@@ -185,38 +208,48 @@ public class MyFactoryBean implements FactoryBean<User> {
 ```
 
 ```java
-@Test
-public void test4() {
 User user = ac.getBean("myFactoryBean", User.class);
-   System.out.println(user);
-}
+System.out.println(user);
 ```
 
-<br/>
+…
 
-**4、Bean 的作用域**
+---
 
-> `<bean>`标签中的`scope`属性。默认情况下，Spring 创建的 Bean 是单例的
+### Bean 的作用域
 
-1）Singleton：单例
+> `<bean>` 标签中的 `scope` 属性用于设置 Bean 的生命周期，可以设置为单例/原型/请求/会话。默认情况下，Spring 创建的 Bean 是单例的。
 
-2）Prototype：多例
+* Singleton：单例
+* Prototype：多例
+* Request：一次请求
+* Session：一次对话
 
-3）Request：一次请求
+…
 
-4）Session：一次对话
+---
 
-<br/>
+### Bean 的生命周期
 
-**5、Bean 的生命周期**
-
-> 生命周期，即 Bean 从创建到销毁的过程
+> Bean 从创建到销毁的过程
 
 1）通过构造器创建 Bean 实例（无参构造函数）
 
-2）调用`set()`方法
+2）调用 Setter 方法
 
-3）`postProcessBeforeInitialization()`，Bean 后置处理器中的Before方法
+?）
+
+BeanNameAware
+
+BeanFactoryAware
+
+ApplicationContextAware
+
+…
+
+3）`BeanPostProcessor#postProcessBeforeInitialization`，后置处理器中的 Before 方法
+
+?）InitializingBean#afterPropertiesSet
 
 4）调用 Bean 的初始化方法（需要进行配置初始化方法）
 
@@ -230,34 +263,42 @@ public void destroyMethod(){
 ```
 
 ```xml
-<!-- 在xml中对User配置初始化和销毁方法 -->
+<!-- 在 xml 中对 User 配置初始化和销毁方法 -->
 <bean id="user" class="com.demo.bean.User" init-method="initMethod" destroy-method="destroyMethod">
     <property name="name" value="张三" />
     <property name="age" value="20" />
 </bean>
 ```
 
-5）`postProcessAfterInitialization()`，Bean 后置处理器中的After方法
+5）`BeanPostProcessor#postProcessAfterInitialization`，Bean 后置处理器中的 After 方法
 
 6）Bean 可获取
 
+?）DisposableBean
+
 7）（若是单例 Bean）当容器关闭，调用 Bean 的销毁方法（需要进行配置销毁方法，并手动调用销毁方法）
 
-<br/>
+destroyMethod
 
-**6、Bean 自动装配**
+…
 
-> 自动装配即 Spring 根据指定装配规则（属性名或属性类型），Spring 自动将匹配的属性值进行注入的过程
+---
 
-通过配置`<bean>`标签的`autowire`属性来配置自动装配：
+### Bean 自动装配
 
-1）byName：根据属性名称注入，注入值的id和类的属性名称一致
+> 自动装配即 Spring 根据指定装配规则（名称或类型），Spring 自动将匹配的属性值进行注入的过程
 
-2）byType：根据属性类型注入。xml 文件中若存在多个同类型的对象则 byType 会报错（可以同时指定名称和类型来避免）
+通过配置 `<bean>` 标签的 `autowire` 属性来配置自动装配：
 
-<br/>
+* byName：根据属性名称注入，注入值的id和类的属性名称一致
 
-**7、引入外部属性文件**
+* byType：根据属性类型注入。xml 文件中若存在多个同类型的对象则 byType 会报错（可以同时指定名称和类型来避免）
+
+…
+
+---
+
+### 使用外部属性文件
 
 ```properties
 jdbc.username=root
@@ -278,13 +319,11 @@ jdbc.url=jdbc:mysql:///userdb?useUnicode=true&characterEncoding=UTF-8&useSSL=fal
 </bean>
 ```
 
+…
 
+---
 
-<br/>
-
-**<u>3 - IOC 管理 Bean（注解）</u>**
-
-> 注解是代码特殊标记，可以使用在类上、方法上、属性上
+### Bean 的管理（注解）
 
 1、配置注解扫描
 
@@ -293,15 +332,15 @@ jdbc.url=jdbc:mysql:///userdb?useUnicode=true&characterEncoding=UTF-8&useSSL=fal
 <context:component-scan base-package="com.demo" use-default-filters="false">
     <!-- context:include-filter 扫描哪些内容 -->
     <!-- type="annotation" 扫描注解类型 -->
-    <!-- expression="org.springframework.stereotype.Controller" 扫描@Controller注解 -->
+    <!-- 扫描 @Controller 注解 -->
     <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
     <!-- exclude-filter 扫描排除哪些内容 -->
-    <!-- expression="org.springframework.stereotype.Service" 不扫描@Service注解 -->
+    <!-- 不扫描 @Service 注解 -->
     <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Service"/>
 </context:component-scan>
 ```
 
-
+…
 
 2、注解方式实现属性注入
 
@@ -313,7 +352,7 @@ jdbc.url=jdbc:mysql:///userdb?useUnicode=true&characterEncoding=UTF-8&useSSL=fal
 
 4）`@Value`：注入普通类型属性
 
-
+…
 
 3、完全注解开发
 
@@ -352,103 +391,46 @@ public class TestConfig {
 }
 ```
 
+…
 
+---
 
-
-
-## 整合 Mybatis
-
-**步骤**
-
-1、新建项目加入依赖
-
-- Spring 依赖
-- Mybatis 依赖
-- MySQL 的驱动
-- Spring 事务依赖
-- Spring 和 Mybatis 集成依赖（由 Mybatis 官方提供，用来在 Spring 项目中创建 Mybatis 的 SqlSessionFactory 和 Dao 对象）
-
-<br/>
-
-2、创建实体类
-
-3、创建 Dao 接口和 Mapper 文件
-
-4、创建 Mybatis 主配置文件
-
-5、创建 Service 接口和实现类
-
-<br/>
-
-6、创建 Spring 配置文件，声明 Mybatis 对象并交给 Spring 创建，交由 IOC 容器管理
-
-1）创建数据源
-
-2）SqlSessionFactory
-
-3）Dao 对象
-
-4）声明自定义的 Service
-
-<br/>
-
-7、创建测试类
-
-
+<br>
 
 ## AOP
 
-> AOP（*Aspect Oriented Programming*）面向切面编程，能够在不修改源代码的情况下添加新功能（通过动态代理），常用作异常处理和日志记录。有两种实现：Spring AOP 和 AspectJ。
+> AOP（*Aspect Oriented Programming*）面向切面编程，能够在不修改源代码的情况下添加新功能，常用作异常处理和日志记录。
 
-<br/>
+AOP 有两种实现：
+
+* Spring AOP
+* AspectJ
+
+…
 
 ### 动态代理
 
-1、JDK 动态代理，要求目标对象（被代理对象）必须实现接口
+1、JDK 动态代理，要求**目标对象（被代理对象）必须实现接口**。
 
-2、CGLib 动态代理，目标对象不需要实现接口，原理是**生成目标类的子类**，子类是增强过的。目标对象=被代理类，子类=代理类。所以使用 CGLib 生成动态代理，要求目标类必须能够被继承（不是 final 类）。
+2、CGLib 动态代理，**目标对象不需要实现接口**。原理是：**生成目标类的子类**，子类是增强过的。目标对象=被代理类，子类=代理类。所以使用 CGLib 生成动态代理，要求目标类必须能够被继承（不是 final 修饰的类）。
 
-
+…
 
 **动态代理的作用**
 
-1）在目标类源代码不改变的情况下，增加功能
+1、在目标类源代码不改变的情况下，增加功能
 
-2）减少重复代码
+2、减少重复代码，专注业务逻辑代码
 
-3）专注业务逻辑代码
+3、降低耦合，让业务功能和日志记录等非业务功能分离
 
-4）降低耦合，让业务功能和日志，事务非业务功能分离
-
-
+…
 
 <br/>
 
 ### 关键字
 
 1、**Aspect**，切面，给目标类增加的功能就是切面，如日志，事务，统计信息，参数检查等都是切面
-
-1）**切面方法特点**：一般都是非业务方法，独立使用
-
-2）切面的**三个关键要素**：
-
-① 切面的功能，切面干什么
-
-② 切面的执行位置（使用 PointCut 表示切面执行的位置）
-
-③ 切面的执行时间（使用 Advice 表示执行时间，在目标方法之前，还是在目标方法之后）
-
-<br/>
-
-3）如何面向切面编程
-
-① 需要在分析项目功能时找出切面
-
-② 合理安排切面的执行时间（在目标方法前，还是目标方法后）
-
-③ 合理的安排切面执行的位置，在哪个类，哪个方法增加还是增强功能
-
-<br/>
 
 2、**JoinPoint**，连接点，连接业务方法和切面的位置，即某类中的业务方法
 
@@ -458,9 +440,21 @@ public class TestConfig {
 
 5、**Advice**，通知，通知表示切面功能执行的时间
 
+…
 
+> **切面方法特点**：一般都是非业务方法，独立使用
+>
+> 切面的**三个关键要素**：
+>
+> ① 切面的功能，切面干什么
+>
+> ② 切面的执行位置（使用 PointCut 表示切面执行的位置）
+>
+> ③ 切面的执行时间（使用 Advice 表示执行时间，在目标方法之前，还是在目标方法之后）
 
-<br/>
+…
+
+---
 
 ### AOP 注解实现
 
@@ -485,11 +479,10 @@ public class TestConfig {
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 @ComponentScan(basePackages = {"com.demo"})
 @Configuration
-public class SpringConfig {
-}
+public class SpringConfig {}
 ```
 
-3、目标类与切面类
+…
 
 3.1、编写目标类，**并加入 IOC 容器中**
 
@@ -654,7 +647,9 @@ public class MyAspect {
 }
 ```
 
+…
 
+---
 
 ### AOP XML 实现
 
@@ -684,7 +679,9 @@ public class MyAspect {
 </beans>
 ```
 
+…
 
+---
 
 ### 切面方法执行顺序
 
@@ -710,9 +707,9 @@ public class MyAspect {
  */
 ```
 
+…
 
-
-<br/>
+---
 
 ### 切面织入时期
 
@@ -726,23 +723,23 @@ public class MyAspect {
 
 动态织入又分为动静两种：
 
-1）静是织入过程只在第一次调用目标方法时执行
+1）静是织入过程只在第一 次调用目标方法时执行
 
 2）动指每次调用目标方法都执行
 
+…
 
-
-<br/>
+---
 
 ### Spring AOP VS AspectJ
 
 1、**能力不同**
 
-1）Spring AOP 提供一个简单 AOP 实现。**Spring AOP 只能应用于由 Spring 容器管理的 Bean**
+1）Spring AOP 是一个简单 AOP 实现，**只能应用于 IOC 容器中的 Bean**
 
-2）AspectJ 目的是提供完整的 AOP 解决方案。它相对于 Spring AOP 来说更强大，也更复杂。**AspectJ 可以应用在所有的 POJO 对象**。
+2）AspectJ 是一个完整的 AOP 解决方案，它更强大，也更复杂。**AspectJ 可以应用在所有的 Java 对象中**。
 
-<br/>
+…
 
 2、**织入时期不同**
 
@@ -750,7 +747,7 @@ public class MyAspect {
 
 2）AspectJ 采用的是静态织入（加载时织入）即编译出来的 `class` 文件字节码就已经被织入
 
-<br/>
+…
 
 3、**应用场景**
 
@@ -770,7 +767,7 @@ public class MyAspect {
 
   这两个框架都是完全兼容的。在使用 Spring 框架时，仍然可以使用 AspectJ
 
-
+…
 
 **总结**
 
@@ -786,83 +783,91 @@ public class MyAspect {
 | 编译时织入比运行时织入快得多。Spring AOP 是基于代理的框架, 因此在应用程序启动时会创建代理。另外每个方面还有一些方法调用，这会对性能产生负面影响 | AspectJ 在应用程序执行之前将这些方面编织到主代码中，因此没有额外的运行时开销，与 Spring AOP 不同。基于这些原因，基准表明 AspectJ 的速度几乎比 Spring AOP 快8到35倍 |
 | 易于学习和应用                                               | 相对于 Spring AOP 来说更复杂                                 |
 
+…
 
-
-
+---
 
 <br/>
 
 ## Spring 事务
 
-> Spring 事务的本质其实就是数据库对事务的支持，没有数据库的事务支持，Spring 是无法提供事务功能的
+> Spring 事务本质其实就是数据库对事务的支持，没有数据库的事务支持，Spring 是无法提供事务功能的。
 
+…
 
+**声明式事务**
 
-<br/>
+> 把事务相关的资源和内容都提供给 Spring 进行管理，Spring 就能处理事务提交、回滚，几乎不用增加额外的代码。
 
-**<u>1 - 声明式事务</u>**
+…
 
-把事务相关的资源和内容都提供给 Spring 进行管理，Spring 就能处理事务提交、回滚，几乎不用增加额外的代码
+**事务概括**
 
+> 事务是指一组 SQL 语句的集合，集合中的 SQL 语句可能是 insert、update、select、delete。这些 SQL 语句的执行是一致的，作为一个整体执行，我们希望这些多个 SQL 语句都能成功执行或者都失败。
 
+…
 
-<br/>
-
-**<u>2 - 事务概括</u>**
-
-**1、什么是事务**
-
-> 事务是指一组 SQL 语句的集合，集合中的 SQL 语句可能是 insert、update、select、delete。我们希望这些多个 SQL 语句都能成功执行或者都失败，这些 SQL 语句的执行是一致的，作为一个整体执行
-
-
-
-**四个特性（ACID）**
+### 事务特性（ACID）
 
 1、**原子性**
 
-事务要么全部提交成功，要么全部失败回滚，不能只执行其中一部分操作
+事务要么全部提交成功，要么全部失败回滚，不能只执行其中一部分操作。
+
+…
 
 2、**一致性**
 
-1）操作前后总量不变，事务的执行不能破坏数据库的完整性和一致性，一个事务在执行之前和执行之后，数据库必须处于一致性状态
+如果数据库系统在运行过程中发生故障，有些事务尚未完成就被迫中断，这些未完成的事务对数据库所做的修改已有一部分写入物理数据库，这时数据库就处于一种不正确的状态，也就是不一致的状态。
 
-2）如果数据库系统在运行过程中发生故障，有些事务尚未完成就被迫中断，这些未完成的事务对数据库所做的修改已有一部分写入物理数据库，这时数据库就处于一种不正确的状态，也就是不一致的状态
+一致性要求事务操作前后总量不变，事务的执行不能破坏数据库的完整性和一致性，一个事务在执行之前和执行之后，数据库必须处于一致性状态。
 
-<br/>
+…
 
 3、**隔离性**
 
-事务的隔离性是指在并发环境中，并发的事务是相互隔离的，一个事务的执行不能被其他事务干扰。不同的事务并发操作相同的数据时，每个事务都有各自完成的数据空间，即一个事务内部的操作及使用的数据对其他事务是隔离的，并发执行的各个事务之间不能相互干扰
+事务的隔离性是指在含有并发操作的环境中，并发的事务是相互隔离的，一个事务的执行不能被其他事务干扰。事务内部的操作及使用的数据对其他事务是隔离的，不同的事务并发操作相同的数据时，每个事务都有各自完成的数据空间。
 
-4、**持久性**，事务提交之后，表发生的变化是永久的。一旦事务提交，那么它对数据库中对应数据的状态的变更就会永久保存到数据库中，即使发生系统崩溃或者服务器宕机等故障，只要数据库能够重新启动，那么一定能将其恢复到事务成功的状态
+…
 
+4、**持久性**
 
+事务提交之后，表发生的变化是永久的，它对数据库中对应数据的状态的变更就会永久保存到数据库中。即使发生系统崩溃或者服务器宕机等故障，只要数据库能够重新启动，那么一定能将其恢复到事务成功的状态。
 
-<br/>
+…
 
-**隔离级别**
+---
 
-1、**读未提交（READ UNCOMMITTED）**，隔离级别最低，存在脏读、不可重复读、幻读
+### 隔离级别
 
-1）**脏读**，即当一个事务正在访问数据，对数据进行了修改，而这种修改还没有提交到数据库中，此时另外一个事务也访问这个数据，并且读取到了数据
+**存在的问题**
 
-2）**不可重复读**，是指在一个事务内，多次读同一数据，得到的是不一样的结果。如事务A在读取某数据，同时事务B在修改该数据，事务A无法看到这个数据项在事务A操作过程中的中间值，只能看到修改的结果（不允许脏读）。在事务A还没有结束时，事务C也访问同一数据，并且进行修改，之后事务A再获取到的数据和第一次获取到的数据就是不一样的。**在第一个事务中的两次读数据之间，由于第二个事务的修改，第一个事务两次读到的的数据可能是不一样的，称为不可重复读**。
+1）**脏读**，即当一个事务修改了某个数据，但是修改还没有提交到数据库中；而此时存在另外一个事务也访问这个数据，并且读取到了未被他提交的数据。
 
-<mark>**不可重复读的重点是修改**</mark>。同样的条件，读取过的数据，再次读取出来发现值不一样。
+2）**不可重复读**，是指一个事务多次读同一个数据，得到的是不一样的结果。
 
-3）**幻读**，指同样的事务操作，在前后两个时间段内执行对同一个数据的读取，可能出现不一样的结果。如，第一个事务对一个表中的数据进行了修改，这种修改涉及到表中的全部数据行。同时第二个事务也修改这个表中的数据，这种修改是向表中插入一行新数据。那么以后就会发生操作第一个事务的用户发现表中还有没有修改的数据行，就好象发生了幻觉一样。
+如事务A在读取某数据，同时事务B也在访问该数据并且修改了数据。事务A再次获取到该数据时发现和第一次读取到的值不一致。
 
-<mark>**幻读的重点在于新增或者删除**</mark>。同样的条件，第 1 次和第 2 次读出来的记录数不一样
+在第一个事务中的两次读数据之间，由于第二个事务的修改，第一个事务两次读到的的数据可能是不一样的，称为不可重复读。
 
-<br/>
+<mark>**不可重复读的重点是修改**</mark>。同样的条件，读取过的数据，再次读取出来发现**值不一样**。
 
-2、**读已提交（READ COMMITTED）**，读已提交只允许获取已经提交的数据，解决脏读，存在不可重复读、幻读
+3）**幻读**，指同一个事务在前后两个时间段内对同一个数据的读取出现不一样的结果。如，事务A对表中的数据进行读取，同时事务B对这个表中的数据进行了新增或者删除操作。事务A再次读取发现读取的表的数据增加或者减少了，就好象发生了幻觉一样。
 
-3、**可重复读（REPEATABLE READ）**，保证在事务处理过程中，多次读取同一个数据时，其结果和事务开始时刻读取到的值是一致的。解决脏读和不可重复读，存在幻读
+<mark>**幻读的重点在于新增或者删除**</mark>。同样的条件，第 1 次和第 2 次读出来的**记录数不一样**。
 
-4、**串行化（SERIALIZABLE）**，最严格的事务隔离级别，它要求所有事务被串行化，即事务只能一个接着一个进行处理，不能并发执行。**脏读、不可重复读、幻读都不会出现**
+…
 
+**如何解决**
 
+1、**读未提交**（READ UNCOMMITTED），隔离级别最低，存在脏读、不可重复读、幻读。
+
+2、**读已提交**（READ COMMITTED），读已提交只允许获取已经提交的数据，解决脏读，存在不可重复读、幻读。
+
+3、**可重复读**（REPEATABLE READ），保证在事务处理过程中，多次读取同一个数据时，其结果和事务开始时刻读取到的值是一致的。解决脏读和不可重复读，存在幻读。
+
+4、**串行化**（SERIALIZABLE），最严格的事务隔离级别，它要求所有事务被串行化，即事务只能一个接着一个进行处理，不能并发执行。**脏读、不可重复读、幻读都不会出现**。
+
+…
 
 | 隔离级别 | 脏读 | 不可重复读 | 幻读 |
 | -------- | ---- | ---------- | ---- |
@@ -871,24 +876,24 @@ public class MyAspect {
 | 可重复读 | 无   | 无         | 有   |
 | 串行化   | 无   | 无         | 无   |
 
+…
 
+---
 
+### 何时使用事务
 
+> 当操作涉及到多个表或者是多个 SQL 语句时，需要保证这些语句都能成功才能完成该功能，或者都失败，保证操作是符合要求的。通常在项目中，控制事务的代码会放在 Service 类的业务方法上，因为业务方法会调用多个数据库操作方法，执行多条 SQL 语句
 
-<br/>
+…
 
-**2、什么时候想到使用事务**
-
-当操作涉及到多个表或者是多个 SQL 语句时，需要保证这些语句都能成功才能完成该功能，或者都失败，保证操作是符合要求的。通常在项目中，控制事务的代码会放在 Service 类的业务方法上，因为业务方法会调用多个 Dao 方法，执行多条 SQL 语句
-
-<br/>
-
-3、通常使用 JDBC 或 Mybatis 访问数据库时如何处理事务
+**使用 JDBC 或 Mybatis 访问数据库时如何处理事务？**
 
 1）JDBC 访问数据库，处理事务
 
 ```java
-Connection conn; conn.commit();
+Connection conn; 
+conn.commit();
+// or
 conn.rollback();
 ```
 
@@ -899,73 +904,75 @@ sqlSession.commit();
 sqlSession.rollback();
 ```
 
-<br/>
+…
 
-4、在`3`中事务的处理方式有什么不足？
+**上述事务处理方式有什么不足？**
 
-1）不同的数据库访问技术，处理事务的对象，方法不同，需要了解不同数据库访问技术使用事务的原理
+1）不同的数据库访问技术，处理事务的对象，方法不同，需要了解不同数据库访问技术使用事务的原理；
 
-2）需要掌握多种数据库中事务的处理逻辑，什么时候提交事务
+2）需要掌握多种数据库中事务的处理逻辑，什么时候提交事务；
 
-3）需要掌握处理事务的多种方法
+3）需要掌握处理事务的多种方法；
 
-4）多种数据库的访问技术有不同的事务处理的机制，对象，方法
+4）多种数据库的访问技术有不同的事务处理的机制，对象，方法。
 
-<br/>5、怎么解决`3`中的不足
+…
 
-Spring 提供一种处理事务的统一模型，能够使用统一的步骤/方式完成多种不同数据库的事务管理
+**如何解决？**
 
-<br/>
+> Spring 提供一种处理事务的统一模型，能够使用统一的步骤/方式完成多种不同数据库的事务管理。
 
+…
 
-
-<u>**3 - 使用 Spring 来管理事务需要怎么做/做什么**</u>
+### Spring 事务管理
 
 > Spring 处理事务的模型，使用的步骤都是固定的，把事务使用的信息提供给 Spring 即可
 
-1、创建 Spring 事务管理器对象，完成 commit 和 rollback
+1、创建 Spring 事务管理器对象实现类，继承事务管理器接口 `PlatformTransactionManager`，完成 commit 和 rollback 方法。
 
-事务管理器接口`PlatformTransactionManager`，定义了事务重要方法 `commit()` 和`rollback()`。Spring 把每一种数据库访问计数对应的事务管理器都创建好，Mybatis 访问数据库使用`DataSourceTransactionManager`。
+> Spring 已经把每一种数据库访问技术对应的事务管理器都创建好了，Mybatis 访问数据库使用`DataSourceTransactionManager`。
 
-告诉 Spring 使用的数据库类型，即声明数据库访问技术对应的事务管理器实现类，在 Spring 的配置文件中使用`<bean>`标签声明即可
+告诉 Spring 使用的数据库类型，即声明数据库访问技术对应的事务管理器实现类。在 Spring 的配置文件中使用 `<bean>` 标签声明即可。
 
-<br/>
+…
 
 2）业务方法需要什么样的事务（说明需要的事务类型）
 
 ① 事务的隔离级别，Spring 事务默认采用数据库默认的事务隔离级别，MySQL 默认为 REPEATABLE_READ，Oracle 默认为 READ_COMMITTED
 
-② 事务的超时时间，表示一个方法最长的执行时间，如果方法执行超过了时间，事务就会回滚。单位是秒，整数值，默认是`-1`
+② 事务的超时时间，如果方法执行超过了时间，事务就会回滚。单位是秒，整数值，默认是 `-1`
 
-③ 事务的传播行为（7个传播行为），控制业务方法是不是有事务的，是什么样的事务。表示业务方法调用时，事务在方法之间是如何使用的
+③ 事务的传播行为（7 个传播行为），表示业务方法调用时事务的执行逻辑
 
-<br/>
+…
 
-3）**Spring 提交事务和回滚事务的时机**
+> **总结**
+>
+> 1、管理事务的是事务管理器接口和它的实现类
+>
+> 2、Spring 的事务是一个统一模型
+>
+> ① 指定要使用的事务管理器实现类
+>
+> ② 指定方法需要的隔离级别，传播行为，超时等
 
-① 当业务方法执行成功，没有异常抛出，Spring 在方法执行后提交事务，事务管理器执行 `commit()`
+…
 
-② 当业务方法抛出运行时异常，Spring 执行回滚，调用事务管理器`rollback()`
+---
 
-③ 当业务方法抛出非运行时异常，主要是受查异常（在代码中必须处理的异常，如 IOException、SQLException），提交事务
+### 提交和回滚时机
 
-<br/>
+1、当业务方法执行成功，没有异常抛出，Spring 在方法执行后提交事务，事务管理器执行 `commit()`
 
+2、当业务方法抛出运行时异常，Spring 执行回滚，调用事务管理器 `rollback()`
 
+3、当业务方法抛出非运行时异常，主要是受查异常（在代码中必须处理的异常，如 IOException、SQLException），提交事务
 
-<u>**4 - Spring 事务管理总结**</u>
+…
 
-1、管理事务的是事务管理器接口和它的实现类
+---
 
-2、Spring 的事务是一个统一模型
-
-① 指定要使用的事务管理器实现类
-
-② 指定方法需要的隔离级别，传播行为，超时等
-
-<br/>
-
-**<u>5 - Spring 实现事务管理</u>**
+### Spring 声明式事务实现
 
 > 适合中小型项目
 
@@ -988,41 +995,43 @@ Spring 提供一种处理事务的统一模型，能够使用统一的步骤/方
     <property name="dataSource" ref="dataSource" />
 </bean>
 
-<!--开启事务注解，即可扫描到@Transactional注解-->
+<!--开启事务注解，即可扫描到 @Transactional 注解-->
 <tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
 ```
 
-3、在 Service 层代码中使用`@Transactional`注解
+3、在 Service 层代码中使用 `@Transactional` 注解
 
 1）解标在类上，说明该类中的所有方法都启用事务管理
 
 2）标在方法上，说明该方法启用事务管理
 
-3）`@Transactional`属性：
+…
+
+**@Transactional 属性**
 
 * propagation，传播行为，默认为 REQUIRE
 
-  REQUIRE：如果有事务在运行，当前的方法就在这个事务内运行，否则，就启动一个新的事务，并在自己的事务内运行
+  REQUIRE：如果有事务在运行，就在已存在事务内执行，否则就启动一个新的事务执行。
 
-  REQUIRE_NEW：当前方法比会启动新事务，并在它自己的事务内运行，如果有事务在运行，则应该将正在运行的事务挂起，等待新事务执行完毕，再恢复挂起的事务
+  REQUIRE_NEW：如果存在事务，则暂停已存在事务，并创建新事务执行。
 
-  SUPPORTS：如果有事务在运行，当前的方法就在这个事务内运行。否则不在事务内运行
+  SUPPORTS：如果有事务，就在已存在事务中运行。否则以无事务的方式执行。
 
-* isolation，隔离级别（解决脏读，幻/虚读，不可重复读），默认为 REPEATABLE_READ 
+* isolation，隔离级别，默认为 REPEATABLE_READ 
 * timeout，超时时间，默认值`-1`，单位秒
 * readOnly，是否只读，默认为 false
 * rollBackFor，出现哪些异常进行事务回滚。Spring 框架会首先检查方法抛出的异常是不是在 rollbackFor 的属性值中，如果异常在 rollbackFor 列表中，不管什么类型的异常，一定回滚；如果抛出的异常不在 rollbackFor 列表中，Spring 会判断该异常是否是 RunTimeException，如果是，一定回滚
 * noRollBackFor，出现哪些异常不进行事务回滚
 
+…
 
+---
 
-<br/>
+### AOP 实现事务
 
-**<u>6 - AspectJ 框架 AOP 方式实现事务管理</u>**
+> 适合大型项目，有很多的类和业务方法，需要配置大量事务。使用 AspectJ 框架在 Spring 配置文件中声明类和方法需要的事务。这种方式业务方法和事务配置完全分离。
 
-> 适合大型项目，有很多的类和业务方法，需要配置大量事务。使用 AspectJ 框架，在 Spring 配置文件中声明类和方法需要的事务。这种方式业务方法和事务配置完全分离
-
-1、引入`spring-aspects`依赖
+1、引入 `spring-aspects` 依赖
 
 2、声明事务管理器对象
 
@@ -1039,7 +1048,7 @@ Spring 提供一种处理事务的统一模型，能够使用统一的步骤/方
     <property name="dataSource" ref="dataSource" />
 </bean>
 
-<!--2. 开启事务注解，即可扫描到@Transactional注解-->
+<!--2. 开启事务注解，扫描 @Transactional 注解-->
 <tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
 
 <!--3. 声明业务方法的业务属性（隔离级别，传播行为，超时时间）
@@ -1079,11 +1088,11 @@ Spring 提供一种处理事务的统一模型，能够使用统一的步骤/方
 <!--配置aop-->
 <aop:config>
     <!--
-        expression="execution(* *..service..*.*(..))"：任意目录下service包中任意类的任意方法
+        expression="execution(* *..service..*.*(..))"：任意目录下 service 包中任意类的任意方法
     -->
     <aop:pointcut id="servicePointcut" expression="execution(* *..service..*.*(..))"/>
     <!--
-        配置增强器：关联advice和pointcut
+        配置增强器：关联 advice 和 pointcut
         advice-ref：通知id
         pointcut-ref：切入点表达式id
     -->
@@ -1091,123 +1100,33 @@ Spring 提供一种处理事务的统一模型，能够使用统一的步骤/方
 </aop:config>
 ```
 
+…
 
+---
 
+### 事务失效场景
 
+1、标注 `@Transactional` 的方法非 public 权限修饰；
 
-<br/>
+2、注解 `@Transactional` 所在类非 Spring 容器管理的 Bean；
 
-**<u>7 - 事务失效场景</u>**
-
-1、注解`@Transactional`配置的方法非 public 权限修饰；
-
-2、注解`@Transactional`所在类非 Spring 容器管理的 Bean；
-
-3、注解`@Transactional`所在类中，注解修饰的方法被类内部方法调用；
+3、注解 `@Transactional` 所在类中，注解修饰的方法被类内部方法调用；
 
 4、业务代码抛出异常类型非 RuntimeException，事务失效；
 
-5、业务代码中存在异常时，使用`try-catch`语句块捕获，而 catch 语句块没有抛出异常;（最难被排查到问题且容易忽略）；
+5、业务代码中存在异常时，使用 `try-catch` 语句块捕获，而 catch 语句块没有抛出异常;（最难被排查到问题且容易忽略）；
 
-6、注解`@Transactional`中 Propagation 属性值设置错误即 `Propagation.NOT_SUPPORTED`（一般不会设置此种传播机制）；
+6、注解 `@Transactional` 中 Propagation 属性值设置错误即 `Propagation.NOT_SUPPORTED`（一般不会设置此种传播机制）；
 
-7、MySQL 关系型数据库，且存储引擎是 MyISAM 而非 InnoDB，则事务会不起作用（基本开发中不会遇到）
+7、MySQL 关系型数据库，且存储引擎是 MyISAM 而非 InnoDB，则事务会不起作用。
 
+…
 
-
-
-
-<br/>
-
-## Spring 5 新特性
+---
 
 <br/>
 
-**<u>1 - 支持`@Nullable`注解</u>**
-
-1、标注在方法上，表示该方法返回可以为空
-
-2、标注在属性值上，表示属性值可以为空
-
-3、标注在参数前，表示参数可以为空
-
-
-
-<br/>
-
-**<u>2 - SpringWebFlux</u>**
-
-> SpringWebFlux 是Spring 5 新添加的模块，用于 Web 开发，功能和 SpringMVC 类似，WebFlux 使用的是当前比较流行的响应式编程框架
-
-WebFlux 是一种异步非阻塞的框架，异步非阻塞的框架在 Servlet3.1 之后才支持，核心是基于 Reactor 的相关 API 实现的
-
-**异步非阻塞**
-
-1）异步和同步，针对调用者，调用者发送请求，如果等着对方回应之后才去做其他事情就是同步；如果发送请求之后不用等着对方回应就去做其他事情就是异步
-
-2）阻塞和非阻塞，针对被调用者，被调用者收到请求之后**，做完请求任务之后**才给出反馈就是阻塞；**收到请求之后马上给出反馈**，然后再去做其他任务就是非阻塞
-
-<br/>
-
-**特点**
-
-1）非阻塞式，在有限资源下，提高系统的吞吐量和伸缩性，以Reactor为基础实现响应式编程
-
-2）函数式编程
-
-<br/>
-
-**和 SpringMVC 比较**
-
-1）两个框架都可以使用注解方式实现，都运行在 Tomcat 等容器中
-
-2）SpringMVC 采用命令式编程，SpringWebFlux 采用异步响应式编程
-
-
-
-> 实际生产中还是 SpringMVC 优势大，且 WebFlux 对关系型数据库不是很友好，暂且先做了解…
-
-<br/>
-
-**<u>3 - 支持 JUnit5</u>**
-
-1、引入依赖
-
-```xml
-<dependency>
-  <groupId>org.springframework</groupId>
-  <artifactId>spring-test</artifactId>
-  <version>5.3.2</version>
-</dependency>
-
-<dependency>
-    <scope>compile</scope>
-    <groupId>org.junit.jupiter</groupId>
-    <artifactId>junit-jupiter-api</artifactId>
-    <version>5.6.3</version>
-</dependency>
-```
-
-2、创建测试类
-
-```java
-// 1、单独两个注解
-@ExtendWith(SpringExtension.class)
-@ContextConfiguration("/spring/spring-context.xml")
-```
-
-```java
-// 2、使用复合注解
-@SpringJUnitConfig(locations = {"/spring/spring-context.xml"})
-```
-
-
-
-
-
-<br/>
-
-**<u>4 - 日志整合</u>**
+## 日志整合
 
 > Spring 5 整合 Log4j 2
 
@@ -1264,17 +1183,13 @@ WebFlux 是一种异步非阻塞的框架，异步非阻塞的框架在 Servlet3
 </Configuration> 
 ```
 
+…
 
+---
 
+<br>
 
+## 参考
 
-
-
-
-
-
-
-**参考**
-
-[9种设计模式在Spring中的运用，一定要非常熟练！](https://mp.weixin.qq.com/s/ThK3QTGxIQla6AjKosZNVw)
+设计模式：https://mp.weixin.qq.com/s/ThK3QTGxIQla6AjKosZNVw
 
