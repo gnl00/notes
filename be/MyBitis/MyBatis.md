@@ -50,7 +50,7 @@ tag:
 >
 > 5、能够与 Spring/SpringBoot 很好的集成
 >
-> <br>
+> …
 >
 > **缺点**
 >
@@ -66,146 +66,191 @@ tag:
 >
 > 3、MyBatis 支持编写原生 SQL，灵活度高。灵活的后果是 MyBatis 无法做到数据库无关性，如果需要实现支持多种数据库的软件，则需要自定义多套 SQL 映射。
 
+…
 
+---
 
 <br>
 
 ## 整体架构
 
-MyBatis 最顶层的是接口层，即 Mapper 接口定义，包含了对数据库的 CRUD 操作方法。数据处理层主要是配置 Mapper 到 XML 之间的参数映射，SQL 解析，SQL 执行，结果映射的过程；基础支持层包括连接管理，事务管理，配置加载和缓存管理等。
+* MyBatis 最顶层是接口层，即 Mapper 接口定义，包含了对数据库的 CRUD 操作方法；
+
+* 数据处理层主要是配置 Mapper 到 XML 之间的参数映射，SQL 解析，SQL 执行，结果映射的过程；
+* 基础支持层包括连接管理，事务管理，配置加载和缓存管理等。
+
+…
 
 ![整体架构](./assets/整体架构.png)
 
+…
 
+接下来让我们一层一层往下看。
 
-<br>
+…
+
+---
 
 ### 接口层
 
 SqlSessionFactory 和 SqlSession 是 MyBatis 的核心接口。
 
-> **SqlSessionFactory**
->
-> 主要负责创建 SqlSession，SqlSessionFactory 有两个实现类：
->
-> - DefaultSqlSessionFactory
-> 
->  SqlSessionFactory 的默认实现类，这个类的实例是全局共享的，只会在首次调用时生成一个实例（单例模式），就一直存在直到应用关闭。
-> 
->- SqlSessionManager
-> 
->  已被废弃，内部需要维护一个 ThreadLocal，用来维护当前线程的 SqlSession。而使用 MyBatis 更多的是要与 Spring 进行集成，SqlSession 已经交由 Spring 来管理，再无维护 ThreadLocal 的意义。
+…
 
-> **SqlSession**
->
-> SqlSession 接口中定义了一系列获取数据库连接方法、CRUD 操作方法、getMapper 方法、以及事务操作方法。
+**SqlSessionFactory**
 
+主要负责创建 SqlSession，SqlSessionFactory 有两个实现类：
 
+- DefaultSqlSessionFactory
 
-<br>
+ SqlSessionFactory 的默认实现类，这个类的实例是全局共享的，只会在首次调用时生成一个实例（单例模式），就一直存在直到应用关闭。
+
+- SqlSessionManager
+
+ 已被废弃，内部需要维护一个 ThreadLocal，用来维护当前线程的 SqlSession。而使用 MyBatis 更多的是要与 Spring 进行集成，SqlSession 已经交由 Spring 容器来管理，再无维护 ThreadLocal 的意义。
+
+…
+
+**SqlSession**
+
+SqlSession 接口中定义了一系列获取数据库连接方法、CRUD 操作方法、getMapper 方法、以及事务操作方法。
+
+…
+
+---
 
 ### 数据处理层
 
-> **配置解析**
->
-> 负责解析 MyBatis 配置，解析后的信息会保存到 Configuration 类中。
+**配置解析**
 
-> **SQL 解析**
->
-> * SqlSource，表示从 XML 文件或注释读取的映射语句的内容，它将从用户接收的输入参数传递给数据库，创建对应的 SQL。
-> * MappedStatement，保存 SQL 语句、参数类型、结果类型、缓存等配置信息，每个 SQL 映射语句在 MyBatis 中都会被解析为一个 MappedStatement 对象。在运行时，MyBatis 会根据调用的方法，获取对应 MappedStatement 对象中的信息，生成相应的 SQL 语句，并执行该语句，然后将结果映射为 Java 对象。
+负责解析 MyBatis 配置，解析后的信息会保存到 Configuration 类中。
 
-> **SQL 执行**
->
-> SQL 语句的执行涉及多个组件，包括：
->
-> - ParameterHandler，负责将用户传递的参数转换成 JDBC Statement 所需要的参数；
-> - StatementHandler，封装了 JDBC Statement 操作；
-> - TypeHandler，用于 Java 类型和 JDBC 类型之间的转换；
-> - SqlSession，执行 SQL 命令，获取映射，管理事务；
-> - Executor，负责 SQL 语句的生成以及查询缓存的维护。
+…
 
-> **结果映射**
->
-> ResultSetHandler，负责将 JDBC 返回的 ResultSet 结果集对象转换成 List 类型的集合。
+**SQL 解析**
 
+* SqlSource，表示从 XML 文件或注释读取的映射语句的内容，它将从用户接收的输入参数传递给数据库，创建对应的 SQL。
+* 每个 SQL 映射语句在 MyBatis 中都会被解析为一个 MappedStatement 对象。主要用来保存 SQL 语句、参数类型、结果类型、缓存等配置信息。在运行时 MyBatis 会根据调用的方法，获取对应 MappedStatement 对象中的信息，生成相应的 SQL 语句，并执行，最后将结果映射为 Java 对象返回。
 
+…
 
-<br>
+**SQL 执行**
+
+SQL 语句的执行涉及多个组件，包括：
+
+- ParameterHandler，负责将用户传递的参数转换成 JDBC Statement 所需要的参数；
+- StatementHandler，封装了 JDBC Statement 操作；
+- TypeHandler，用于 Java 类型和 JDBC 类型之间的转换；
+- SqlSession，执行 SQL 命令，获取映射，管理事务；
+- Executor，负责 SQL 语句的生成以及查询缓存的维护。
+
+…
+
+**结果映射**
+
+ResultSetHandler，负责将 JDBC 返回的 ResultSet 结果集对象转换成 List 类型的集合。
+
+…
+
+---
 
 ### 基础支持层
 
-> **反射模块**
->
-> MyBatis 中的反射模块，对 Java 反射进行封装，缓存类的元数据（MetaClass）和对象的元数据（MetaObject）。
->
-> **类型转换模块**
->
-> 主要有两个功能：
->
-> * MyBatis 的别名机制，为 POJO 设置别名；
-> * JDBC 类型与 Java 类型的转换。在 SQL 语句绑定参数时，由 Java 类型转换成 JDBC 类型；在映射结果集时，由 JDBC 类型转换成 Java 类型。
->
-> **日志模块**
->
-> MyBatis 支持集成多种日志框架，日志模块的主要功能就是集成第三方日志框架。
->
-> **资源加载模块**
->
-> 封装类加载器，确定类加载器的使用顺序，并提供加载类文件和其它资源文件的功能。
->
-> **解析器模块**
->
-> 该模块有两个主要功能：
->
-> * 封装 XPath，为 MyBatis 初始化时解析配置文件以及映射配置文件提供支持；
-> * 为处理动态 SQL 语句中的占位符提供支持。
->
-> **数据源模块**
->
-> MyBatis 自身提供了相应的数据源实现，也提供了与第三方数据源集成的接口。
->
-> **事务管理模块**
->
-> 一般来说 MyBatis 与 Spring 框架集成，由 Spring 框架管理事务。MyBatis 自身也对数据库事务进行了抽象，提供了相应的事务接口和简单实现。
->
-> **缓存模块**
->
-> MyBatis 中有**一级缓存**和**二级缓存**，这两级缓存都依赖于缓存模块中的实现。需要注意，这两级缓存与MyBatis 以及整个应用是运行在同一个 JVM 中的，共享同一块内存。如果这两级缓存中的数据量较大，则可能影响系统中其它功能，所以需要缓存大量数据时，优先考虑使用 Redis、Memcache 等缓存产品。
->
-> **Binding 模块**
->
-> 在调用 SqlSession 相应方法执行数据库操作时，需要指定映射文件中定义的 SQL 节点，如果 SQL 中出现了拼写错误，那就只能在运行时才能发现。
->
-> 为了能尽早发现这种错误，MyBatis 通过 Binding 模块将用户自定义的 Mapper 接口与映射文件关联起来，系统可以通过调用自定义 Mapper 接口中的方法执行相应的 SQL 语句完成数据库操作，从而避免上述问题。在开发中，只创建 Mapper 接口，并没有编写实现类，因为 MyBatis 自动为 Mapper 接口创建了动态代理对象。
+**反射模块**
 
+MyBatis 中的反射模块，对 Java 反射进行封装，缓存类的元数据（MetaClass）和对象的元数据（MetaObject）。此外，反射模块还包含了 Reflector 工具类用来反射获取 Getter/Setter 方法。
 
+…
+
+**类型转换模块**
+
+主要有两个功能：
+
+* MyBatis 的别名机制，为 POJO 设置别名；
+* JDBC 类型与 Java 类型的转换。在 SQL 语句绑定参数时，由 Java 类型转换成 JDBC 类型；在映射结果集时，由 JDBC 类型转换成 Java 类型。
+
+…
+
+**日志模块**
+
+MyBatis 支持集成多种日志框架，日志模块的主要功能就是集成第三方日志框架。
+
+…
+
+**资源加载模块**
+
+封装类加载器，确定类加载器的使用顺序，并提供加载类文件和其它资源文件的功能。
+
+…
+
+**解析器模块**
+
+该模块有两个主要功能：
+
+* 封装 XPath，为 MyBatis 初始化时解析配置文件以及映射配置文件提供支持；
+* 为处理动态 SQL 语句中的占位符提供支持。
+
+…
+
+**数据源模块**
+
+MyBatis 自身提供了相应的数据源实现，也提供了与第三方数据源集成的接口。
+
+…
+
+**事务管理模块**
+
+一般来说 MyBatis 与 Spring 框架集成，由 Spring 框架管理事务。MyBatis 自身也对数据库事务进行了抽象，提供了相应的事务接口和简单实现。
+
+…
+
+**缓存模块**
+
+MyBatis 中有**一级缓存**和**二级缓存**，这两级缓存都依赖于缓存模块中的实现。需要注意，这两级缓存与MyBatis 以及整个应用是运行在同一个 JVM 中的，共享同一块内存。如果这两级缓存中的数据量较大，则可能影响系统中其它功能，所以需要缓存大量数据时，优先考虑使用 Redis、Memcache 等缓存产品。
+
+…
+
+**Binding 模块**
+
+在调用 SqlSession 相应方法执行数据库操作时，需要指定映射文件中定义的 SQL 节点，如果 SQL 中出现了拼写错误，那就只能在运行时才能发现。
+
+为了能尽早发现这种错误，MyBatis 通过 Binding 模块将用户自定义的 Mapper 接口与映射文件关联起来，系统可以通过调用自定义 Mapper 接口中的方法执行相应的 SQL 语句完成数据库操作，从而避免上述问题。在开发中，只创建 Mapper 接口，并没有编写实现类，因为 MyBatis 自动为 Mapper 接口创建了动态代理对象。
+
+…
+
+---
 
 <br>
 
 ## 配置文件
 
-> 配置文件内的标签需要保持一定的顺序：
->
-> * properties 属性
->
-> * settings 设置
->
-> * typeAliases 类型别名
->
-> * typeHandlers 类型处理器
->
-> * objectFactory 对象工厂，MyBatis 创建结果对象的新实例时，都会使用对象工厂来完成实例化工作
->
-> * plugins 插件，MyBatis 允许在映射语句执行过程中的某些时刻进行拦截调用
->
-> * environments 环境配置
->
-> * databaseIdProvider 数据库厂商标识
->
-> * mappers 映射器
->
+…
+
+配置文件内的标签需要保持一定的顺序：
+
+* properties 属性
+
+* settings 设置
+
+* typeAliases 类型别名
+
+* typeHandlers 类型处理器
+
+* objectFactory 对象工厂，MyBatis 创建结果对象的新实例时，都会使用对象工厂来完成实例化工作
+
+* plugins 插件，MyBatis 允许在映射语句执行过程中的某些时刻进行拦截调用
+
+* environments 环境配置
+
+* databaseIdProvider 数据库厂商标识
+
+* mappers 映射器
+
+…
+
 > 顺序不能颠倒，比如 settings 不能放在 environments 后面。
+
+…
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -239,7 +284,7 @@ SqlSessionFactory 和 SqlSession 是 MyBatis 的核心接口。
 </configuration>
 ```
 
-<br>
+…
 
 **配置加载**
 
@@ -254,7 +299,9 @@ SqlSession sqlSession = sqlSessionFactory.openSession();
 UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
 ```
 
+…
 
+---
 
 <br>
 
@@ -262,8 +309,10 @@ UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
 
 ### 结果映射
 
-> * resultMap 标签，逐一定义数据库列名和对象属性名之间的映射关系
-> * SQL 的 as 关键字设置列别名，将列的别名设置为对象属性名
+* resultMap 标签，逐一定义数据库列名和对象属性名之间的映射关系
+* SQL 的 as 关键字设置列别名，将列的别名设置为对象属性名
+
+…
 
 有了列名与属性名的映射关系后，MyBatis 通过反射创建对象，使用反射给对象的属性逐一赋值并返回。找不到映射关系的属性，无法完成赋值。
 
@@ -280,7 +329,9 @@ UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
 </select>
 ```
 
-<br>
+…
+
+---
 
 ### 参数传递
 
@@ -290,21 +341,27 @@ UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
 
 - 可以接收简单类型值或 POJO 属性值。MyBatis 在处理 `#{}` 时，会将 SQL 中的 `#{}` 替换为 `?` 号，调用 PreparedStatement 的 set 方法来赋值。
 
+…
+
 **`${}` 表示拼接 SQL 串**
 
 通过 `${}` 可以将 parameterType 传入的内容拼接在 SQL 中且不进行 JDBC 类型转换。MyBatis 在处理 `${}` 时，就是把 `${}` 替换成方法参数的值。
 
-<br>
+…
+
+---
 
 ### 多参数传递
 
-> 有 3 种方式：
->
-> * 数字占位
-> * @param 注解
-> * 多参数封装成 map
->
-> 常用前两种。
+有 3 种方式：
+
+* 数字占位
+* @param 注解
+* 多参数封装成 map
+
+常用前两种。
+
+…
 
 **数字占位**
 
@@ -319,7 +376,7 @@ public User selectUser(String name, int id);
 </select>
 ```
 
-<br>
+…
 
 **@param 注解**
 
@@ -339,6 +396,8 @@ public interface UserMapper {
 </select>
 ```
 
+…
+
 **多参数封装成 Map**
 
 ```xml
@@ -355,9 +414,9 @@ params.put("end", 5);
 sqlSession.selectList(params)
 ```
 
+…
 
-
-<br>
+---
 
 ### 模糊查询
 
@@ -387,9 +446,9 @@ List<String> names = mapper.selectLike(param);
 </select>
 ```
 
+…
 
-
-<br>
+---
 
 ### 获取自动生成(主)键值
 
@@ -411,6 +470,8 @@ system.out.println(“rows inserted = ” + rows);
 system.out.println(“generated key value = ” + user.getId());
 ```
 
+…
+
 **在 xml 中使用返回的主键值**
 
 ```xml
@@ -430,9 +491,9 @@ system.out.println(“generated key value = ” + user.getId());
 </insert>
 ```
 
+…
 
-
-<br>
+---
 
 ### 分页
 
@@ -443,18 +504,20 @@ MyBatis 中有两种分页方式：
 
 分页插件的基本原理是拦截待执行的 SQL，然后重写 SQL，根据 Dialect 方言，添加对应的物理分页语句和物理分页参数。
 
+…
 
-
-<br>
+---
 
 ### 插件
 
-> MyBatis 允许在映射语句执行过程中的某一时刻进行拦截调用，默认情况下，MyBatis 允许使用插件来拦截的方法调用包括
->
-> - Executor 接口中的方法，如 update/query/flushStatements/commit/rollback/getTransaction/close/isClosed
-> - ParameterHandler 接口中的方法，如 getParameterObject/setParameters
-> - ResultSetHandler 接口中的方法，如 handleResultSets/handleOutputParameters
-> - StatementHandler 接口中的方法，如 prepare/parameterize/batch/update/query
+MyBatis 允许在映射语句执行过程中的某一时刻进行拦截调用，默认情况下，MyBatis 允许使用插件来拦截的方法调用包括
+
+- Executor 接口中的方法，如 update/query/flushStatements/commit/rollback/getTransaction/close/isClosed
+- ParameterHandler 接口中的方法，如 getParameterObject/setParameters
+- ResultSetHandler 接口中的方法，如 handleResultSets/handleOutputParameters
+- StatementHandler 接口中的方法，如 prepare/parameterize/batch/update/query
+
+…
 
 **自定义插件**
 
@@ -482,6 +545,8 @@ public class ExamplePlugin implements Interceptor {
 }
 ```
 
+…
+
 **注册插件**
 
 ```xml
@@ -493,9 +558,11 @@ public class ExamplePlugin implements Interceptor {
 </plugins>
 ```
 
+…
+
+---
+
 <br>
-
-
 
 ## 核心接口/类
 
@@ -520,9 +587,11 @@ UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
 3. 根据配置 SqlSessionFactory；
 4. 调用 SqlSessionFactory#openSession，创建 SqlSession。
 
+…
+
 接下来先简单看一下其中的代码逻辑：
 
-<br>
+…
 
 #### SqlSessionFactoryBuilder
 
@@ -555,7 +624,7 @@ public class SqlSessionFactoryBuilder {
 }
 ```
 
-<br>
+…
 
 #### SqlSessionFactory*
 
@@ -568,7 +637,7 @@ public interface SqlSessionFactory {
 }
 ```
 
-<br>
+…
 
 #### DefaultSqlSessionFactory
 
@@ -596,13 +665,15 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
 }
 ```
 
-<br>
+…
 
 上述创建流程比较简单，得到 SqlSession 之后就可以进行数据库操作了。SqlSession 接口中定义了关于数据库操作的 CRUD 方法、获取 Mapper 映射的方法和事务有关的方法。
 
 思考一下，我们在 XML 中编写一条 SQL，在 Java 的接口中编写一个方法就能完成对数据库的操作，这是如何完成的？**mapper 标签中的 SQL 如何与 Java 接口方法对应起来？**接着往下看。
 
-<br>
+…
+
+---
 
 ### 接口与映射绑定
 
@@ -620,9 +691,11 @@ protected final MapperRegistry mapperRegistry = new MapperRegistry(this);
 2. 将 Java Mapper 接口和对应的 XML 映射绑定；
 3. 创建 Java 接口代理，将接口信息和接口代理保存到 MapperRegistry。
 
-<br>
+…
 
 XMLConfigBuilder#parseConfiguration 会逐个解析 XML 文件的标签，遇到 mapper 标签的时候会将其注册到 MapperRegistry 中，MapperRegistry 实际上是使用 HashMap 来保存 mapper 映射关系的。
+
+…
 
 先来看一下 XMLConfigBuilder 如何解析 mapper 标签：
 
@@ -635,6 +708,8 @@ XMLConfigBuilder#parseConfiguration 会逐个解析 XML 文件的标签，遇到
 * `<package name="">` 直接添加 Configuration#addMappers(String)
 * `<mapper resource=""> ` 或 `<mapper url=""> ` 使用 XMLMapperBuilder#parse -> XMLMapperBuilder#bindMapperForNamespace -> Configuration#addMapper
 * `<mapper class=""> ` 直接添加 Configuration#addMapper
+
+…
 
 详细分析 XMLConfigBuilder#mapperElement：
 
@@ -739,11 +814,15 @@ private final Map<Class<?>, MapperProxyFactory<?>> knownMappers = new HashMap<>(
 
 到这里我们大概了解了 Mapper 接口和映射文件之间如何绑定，接下来看一下**接口中的方法会被如何处理？我们并没有编写方法的实现，但是却能正常执行对应的方法，这是如何做到的？**
 
-<br>
+…
+
+---
 
 ### 接口方法生成
 
 #### XMLConfigBuilder
+
+…
 
 #### MapperRegistry
 
@@ -757,9 +836,7 @@ public class MapperRegistry {
 }
 ```
 
-
-
-<br>
+…
 
 #### MappedStatement
 
@@ -806,9 +883,9 @@ public final class MappedStatement {
 }
 ```
 
-<br>
+…
 
-
+---
 
 ### 执行阶段
 
@@ -835,9 +912,7 @@ void rollback();
 Connection getConnection();
 ```
 
-
-
-<br>
+…
 
 #### DefaultSqlSession
 
@@ -860,9 +935,7 @@ private <E> List<E> selectList(String statement, Object parameter, RowBounds row
 }
 ```
 
-
-
-<br>
+…
 
 #### MapperProxy
 
@@ -877,9 +950,7 @@ public class MapperProxy<T> implements InvocationHandler, Serializable
 UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
 ```
 
-
-
-<br>
+…
 
 #### MapperMethod
 
@@ -919,21 +990,23 @@ public Object execute(SqlSession sqlSession, Object[] args) {
 
 4、BaseExecutor#query(MappedStatement,Object,RowBounds,ResultHandler,CacheKey,BoundSql)
 
-
-
-<br>
+…
 
 **Mapper 接口的方法不可重载**
 
 Mapper 接口的方法不能重载。因为在定位唯一 MapperStatement 时，使用的是 `全限名+方法名` 的策略。如果存在多个同名方法则无法定位到唯一的 MapperStatement。
 
+…
 
+---
 
 <br>
 
 ## Spring 集成
 
 > [mybatis-spring](https://mybatis.org/spring/zh/)
+
+…
 
 ### SqlSessionFactoryBean
 
@@ -963,7 +1036,9 @@ public SqlSessionFactory sqlSessionFactory(DataSource dataSource) throws Excepti
 private SqlSessionFactoryBuilder sqlSessionFactoryBuilder = new SqlSessionFactoryBuilder();
 ```
 
-<br>
+…
+
+---
 
 ### SqlSessionTemplate
 
@@ -973,9 +1048,9 @@ private SqlSessionFactoryBuilder sqlSessionFactoryBuilder = new SqlSessionFactor
 public class SqlSessionTemplate implements SqlSession, DisposableBean
 ```
 
+…
 
-
-<br>
+---
 
 ### SqlSessionUtils
 
@@ -985,7 +1060,9 @@ public class SqlSessionTemplate implements SqlSession, DisposableBean
 * getSqlSession
 * isSqlSessionTransactional(SqlSession, SqlSessionFactory)，如果传过去的参数 SqlSession 已经被 Spring 管理则返回 true
 
+…
 
+---
 
 <br>
 
@@ -995,14 +1072,19 @@ public class SqlSessionTemplate implements SqlSession, DisposableBean
 
 > 所有核心接口/类的创建都是从 MybatisAutoConfiguration 的初始化及其内部对应方法调用开始的。Mabais 的核心配置类为 MybatisProperties，配置文件的位置和 mapper 映射文件的位置等都是在这个类内部配置的
 
+…
 
+---
 
 <br>
 
 ## 参考
 
-[MyBatis SQL 如何执行](https://mp.weixin.qq.com/s/N4LPTmlKRrUPvZ0axzO0GA)
+**SQL 执行**
 
-[MyBatis 的 mapper接口如何工作？](https://mp.weixin.qq.com/s/5A6RHkAjJlcEjBdMW6kqVQ)
+* [MyBatis SQL 如何执行](https://mp.weixin.qq.com/s/N4LPTmlKRrUPvZ0axzO0GA)
+* https://mp.weixin.qq.com/s/E6sRawj1YdnRapwqYXC2gg
 
-https://mp.weixin.qq.com/s/E6sRawj1YdnRapwqYXC2gg
+**Mapper 接口**
+
+* [MyBatis 的 mapper接口如何工作？](https://mp.weixin.qq.com/s/5A6RHkAjJlcEjBdMW6kqVQ)

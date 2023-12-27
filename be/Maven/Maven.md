@@ -1,17 +1,6 @@
 # Maven
 
-
-
-```xml
-<!-- 从远程仓库引入依赖 -->
-<dependency>
-    <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-bus-amqp</artifactId>
-    <version>2.2.1.RELEASE</version>
-</dependency>
-```
-
-
+JAR 包安装到本地仓库
 
 ```shell
 # 将本地 jar 包安装到本地依赖库
@@ -21,10 +10,5 @@ mvn install:install-file -DgroupId=org.springframework.cloud -DartifactId=spring
 # -DartifactId=druid-spring-boot-starter	--artifactId
 # -Dversion=1.1.21	--version
 # -Dfile=druid-spring-boot-starter-1.1.21.jar	--要安装的jar包名
-
-
-
-
-
 ```
 

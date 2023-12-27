@@ -1,5 +1,5 @@
 ---
-description: MyBatis Inspect；MyBatis 自定义 PG 数组类型 TypeHandler。
+description: MyBatis 自定义 PG 数组类型 TypeHandler
 tag: 
   - MyBatis
   - 数据库
@@ -7,7 +7,7 @@ tag:
 
 # MyBatis Inspect
 
-
+…
 
 ## TypeHandler
 
@@ -23,11 +23,15 @@ create table (
 );
 ```
 
-但是 MyBatis 没有做相关的数据映射，导致查询场景下数据库中设置为数组类型的列返回值都是 `null`。因此就需要自定义 `TypeHandler` 来应对这种情况。
+但是 MyBatis 没有做相关的数据映射，将导致查询场景下数组类型的列返回值为 `null`，因此就需要自定义 `TypeHandler` 来应对这种情况。
+
+…
 
 ---
 
-MyBatis 在设置预处理语句（PreparedStatement）参数的值，或从结果集（ResultSet）中取出一个值时，都会用类型处理器。类型处理器将获取到的值以合适的方式转换成 Java 类型。可以参考 `BooleanTypeHandler` 来理解：
+MyBatis 在设置预处理语句（PreparedStatement）参数的值，或者从结果集（ResultSet）中取出一个值时，都会用到类型处理器。
+
+类型处理器将获取到的值以合适的方式转换成对应的 Java 类型。可以参考 `BooleanTypeHandler` 来理解：
 
 ```java
 public class BooleanTypeHandler extends BaseTypeHandler<Boolean> {
@@ -48,30 +52,37 @@ public class BooleanTypeHandler extends BaseTypeHandler<Boolean> {
 }
 ```
 
-常见的类型以及默认的类型处理器如下：
+…
 
-| 类型处理器              | Java 类型                      | JDBC 类型                            |
-| :---------------------- | :----------------------------- | :----------------------------------- |
-| `BooleanTypeHandler`    | `java.lang.Boolean`, `boolean` | 数据库兼容的 `BOOLEAN`               |
-| `ByteTypeHandler`       | `java.lang.Byte`, `byte`       | 数据库兼容的 `NUMERIC` 或 `BYTE`     |
-| `ShortTypeHandler`      | `java.lang.Short`, `short`     | 数据库兼容的 `NUMERIC` 或 `SMALLINT` |
-| `IntegerTypeHandler`    | `java.lang.Integer`, `int`     | 数据库兼容的 `NUMERIC` 或 `INTEGER`  |
-| `LongTypeHandler`       | `java.lang.Long`, `long`       | 数据库兼容的 `NUMERIC` 或 `BIGINT`   |
-| `FloatTypeHandler`      | `java.lang.Float`, `float`     | 数据库兼容的 `NUMERIC` 或 `FLOAT`    |
-| `DoubleTypeHandler`     | `java.lang.Double`, `double`   | 数据库兼容的 `NUMERIC` 或 `DOUBLE`   |
-| `BigDecimalTypeHandler` | `java.math.BigDecimal`         | 数据库兼容的 `NUMERIC` 或 `DECIMAL`  |
-| `StringTypeHandler`     | `java.lang.String`             | `CHAR`, `VARCHAR`                    |
+MyBatis 也实现了一系列类型处理器，常见的类型以及对应的类型处理器如下：
 
-可以重写已有的类型处理器，或创建你自己的类型处理器，来处理不支持的或非标准的类型。 具体做法为：
+| 类型处理器            | Java 类型                 | JDBC 类型                     |
+| :-------------------- | :------------------------ | :---------------------------- |
+| BooleanTypeHandler    | java.lang.Boolean/boolean | 数据库兼容的 BOOLEAN          |
+| ByteTypeHandler       | java.lang.Byte/byte       | 数据库兼容的 NUMERIC/BYTE     |
+| ShortTypeHandler      | java.lang.Short/short     | 数据库兼容的 NUMERIC/SMALLINT |
+| IntegerTypeHandler    | java.lang.Integer/int     | 数据库兼容的 NUMERIC/INTEGER  |
+| LongTypeHandler       | java.lang.Long/long       | 数据库兼容的 NUMERIC/BIGINT   |
+| FloatTypeHandler      | java.lang.Float/float     | 数据库兼容的 NUMERIC/FLOAT    |
+| DoubleTypeHandler     | java.lang.Double/double   | 数据库兼容的 NUMERIC/DOUBLE   |
+| BigDecimalTypeHandler | java.math.BigDecimal      | 数据库兼容的 NUMERIC/DECIMAL  |
+| StringTypeHandler     | java.lang.String          | CHAR/VARCHAR                  |
+
+…
+
+除了使用内置的类型处理器，还可以重写已有的类型处理器，或创建你自己的类型处理器，来处理不支持的或非标准的类型。 
+
+具体做法为：
 
 * 实现 `org.apache.ibatis.type.TypeHandler` 接口；
 * 或继承 `org.apache.ibatis.type.BaseTypeHandler`， 并且可以（可选地）将它映射到一个 JDBC 类型。
+
+…
 
 比如：
 
 ```java
 import java.sql.Array;
-
 @MappedJdbcTypes({JdbcType.INTEGER, JdbcType.FLOAT, JdbcType.DOUBLE, JdbcType.CHAR, JdbcType.VARCHAR}) // 指定关联的 JDBC 类型，处理这些类型的数组
 public class ArrayTypeHandler extends BaseTypeHandler<Object[]> {
     // 插入数据时会调用 setNonNullParameter
@@ -90,8 +101,7 @@ public class ArrayTypeHandler extends BaseTypeHandler<Object[]> {
             );
          </insert>
          当 MyBatis 解析到 #{arr, jdbcType=INTEGER, typeHandler=com.demo.handler.ArrayTypeHandler} 这句代码，
-         就会调用 ArrayTypeHandler 来处理 arr 这个列，并传入 jdbcType=INTEGER 等相关数据。
-
+         就会调用 ArrayTypeHandler 来处理 arr 这个列。
          在这里使用 jdbcType.name() 我们会获取到 @MappedJdbcTypes 中预定义的 JDBC 类型名称，
          java.sql.Connection.createArrayOf 会根据传入的 typeName 参数创建不同类型的 PGArray 对象。
          PGArray 对象是 java.sql.Array 的子类。
@@ -121,6 +131,8 @@ public class ArrayTypeHandler extends BaseTypeHandler<Object[]> {
     }
 }
 ```
+
+…
 
 自定义好 TypeHandler 之后就可以开始配置：
 
@@ -166,18 +178,26 @@ mybatis-plus:
 
 接下来就可以使用 `insertWithArray` 和 `selectWithArray` 这两个方法测试了。
 
+…
+
 ---
 
 TypeHandler 如期工作，你可能会对它是如何工作的产生疑问。接下来继续深入。
 
-以 SpringBoot 集成 MyBatis 为例，在 `MybatisAutoConfiguration#sqlSessionFactory` 方法中设置 TypeHandler：
+…
+
+以 SpringBoot 集成 MyBatis 为例，在
+
+* `MybatisAutoConfiguration#sqlSessionFactory`
+
+方法中设置 TypeHandler：
 
 ```java
 if (StringUtils.hasLength(this.properties.getTypeHandlersPackage())) {
     factory.setTypeHandlersPackage(this.properties.getTypeHandlersPackage());
 }
 if (!ObjectUtils.isEmpty(this.typeHandlers)) {
-    factory.setTypeHandlers(this.typeHandlers);
+    factory.setTypeHandlers(this.typeHandlers); // setTypeHandlers
 }
 ```
 
@@ -185,9 +205,9 @@ if (!ObjectUtils.isEmpty(this.typeHandlers)) {
 
 ![image-20230915171408121](./assets/image-20230915171408121.png)
 
-从调用栈不妨大胆猜测一番：
+调用栈流程如下：
 
-1、执行器执使用 PreparedStatementHandler 处理需要调用的 SQL 语句；
+1、执行器 SimpleExcutor 使用 PreparedStatementHandler 处理需要调用的 SQL 语句；
 
 2、PreparedStatementHandler 调用 DefaultResultSetHandler 处理返回值；
 
@@ -195,7 +215,7 @@ if (!ObjectUtils.isEmpty(this.typeHandlers)) {
 
 4、最后调用 BaseTypeHandler 来处理 JDBC 与 Java 数据类型的关系映射。
 
-接下来在调用栈的关键方法处打上断点查阅关键代码，印证猜想：
+接下来在调用栈的关键方法处打上断点查阅关键代码，印证：
 
 * SimpleExecutor 执行器使用 PreparedStatementHandler 处理需要调用的 SQL 语句；PreparedStatementHandler 调用 DefaultResultSetHandler 处理返回值。
 
@@ -397,7 +417,7 @@ public ResultMapping buildResultMapping(
 private List<Wallet> wallets;
 ```
 
-@TableField 注解以*拼接*的方式来实现 TypeHandler 的添加。
+@TableField 注解以**拼接**的方式来实现 TypeHandler 的添加。
 
 具体可以看 `com.baomidou.mybatisplus.core.metadata.TableFieldInfo#TableFieldInfo` 方法：
 
@@ -438,7 +458,9 @@ public static String mappingTypeHandler(Class<? extends TypeHandler<?>> typeHand
 
 ---
 
-## SpringBoot Intergrate
+<br>
+
+## SpringBoot 集成
 
 SpringBoot 中根据配置初始化 MyBatis 的方法是：
 
@@ -464,10 +486,12 @@ protected SqlSessionFactory buildSqlSessionFactory() throws Exception {
 }
 ```
 
+…
 
+---
 
+<br>
 
+## 参考
 
-> **参考**
->
-> * https://mybatis.org/mybatis-3/zh/configuration.html
+* https://mybatis.org/mybatis-3/zh/configuration.html

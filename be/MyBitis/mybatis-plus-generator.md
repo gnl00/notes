@@ -2,13 +2,9 @@
 isPublish: false
 ---
 
-
-
 # mybatis-plus-generator
 
-
-
-## MyBatis Plus 代码生成器
+## 代码生成
 
 **依赖**
 
