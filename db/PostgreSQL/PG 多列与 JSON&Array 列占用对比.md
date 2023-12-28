@@ -74,7 +74,15 @@ select pg_column_size('{"sensor":{"sensor_1":3.396,"sensor_2":3.35,"sensor_3":3.
 
 2120 byte
 
-虽然但是，没想到结果居然…
+…
+
+虽然但是，没想到结果居然…JSON 列占用的空间差不多是多列存储的 2 倍。
+
+一条数据多 1kb，一个 sensor 一个月大概有 250 万条数据= 1kb * 250w = 25000000kb ≈ 2440MB ≈ 2GB。
+
+一个 sensor 一个月多 2GB，目前有 50 个 sensor = 100GB，将来还要上到 100 个 sensor = 200GB。
+
+多出来的空间占用还是比较大的。
 
 …
 
