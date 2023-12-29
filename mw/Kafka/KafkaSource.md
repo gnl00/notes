@@ -15,9 +15,9 @@ main 线程将消息发送给 RecordAccumulator；Sender 线程不断从 RecordA
 - `batch.size` 数据积累到 `batch.size` 之后， Sender 才会发送数据
 - `linger.ms` 如果数据迟迟未达到 `batch.size`， Sender 等待 `linger.time` 后发送数据
 
+…
 
-
-<br>
+---
 
 ### KafkaProducer
 
@@ -43,7 +43,9 @@ main 线程将消息发送给 RecordAccumulator；Sender 线程不断从 RecordA
 
 9、将记录添加到缓冲器中
 
-10、如果添加记录后批次已满，或者已创建新批次，则唤醒 sender 线程进行数据发送
+10、如果添加记录后批次已满，或者已创建新批次，则唤醒 Sender 线程进行数据发送
+
+…
 
 ```java
 public Future<RecordMetadata> send(ProducerRecord<K, V> record, Callback callback) {

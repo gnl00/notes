@@ -1,47 +1,56 @@
 #  Kafka
 
-<br>
+> Kafka 是一个分布式流处理平台，基于发布/订阅模式的消息队列，主要应用于大数据实时处理领域。使用 Kafka 可以帮助进行解耦、异步、削峰等操作。
 
-## 前言
-
-Kafka 是一个分布式流处理平台，基于发布/订阅模式的消息队列，主要应用于大数据实时处理领域。使用 Kafka 可以帮助进行解耦、异步、削峰等操作。
-
-
-
-<br>
+…
 
 ## 基础架构
 
-![img](./assets/基础架构.png)
+…
 
+![Kafka 架构图](./assets/modb_20211015_476caa98-2dac-11ec-9591-fa163eb4f6be.png)
 
+…
+
+---
 
 <br>
 
-## 相关概念
+## 基本概念
+
+### 相关角色
+
+…
+
+- Zookeeper，用来维护 Kafka 集群信息。
+
+- Broker，一个 Kafka 服务就是一个 Broker，一个集群由多个 Broker 组成。
+
+- Topic，Topic 可以分成多个分区存在于多个 Broker 上。一个 Broker 可以容纳多个 Topic。
 
 - Producer，消息生产者。
 
 - Consumer，消息消费者，从 Broker 拉取消息。
 
-- *Consumer Group*，消费者组，组内每个消费者负责消费不同分区的数据，一个分区只能由一个组内消费者消费。所有的消费者都属于某个消费者组，消费者组是逻辑上的一个订阅者。
+- *Consumer Group*，消费者组，所有的消费者都属于某个消费者组，消费者组是逻辑上的一个订阅者。
+
+  > 组内每个消费者负责消费不同分区的数据，一个分区只能由一个组内消费者消费。
 
   ![img](./assets/consumer-groups.png)
 
-- Broker，一个 Kafka 服务就是一个 Broker，一个 Broker 可以容纳多个 Topic，一个集群由多个 Broker 组成。
-
-- Topic，Topic 可以分成多个分区存在于多个 Broker 上。
-
-- Partition，一个 Topic 可以分为多个 Partition，每个 Partition 是一个有序的队列。
+- Partition，每个 Partition 是一个有序的队列，一个 Topic 可以分为多个 Partition。
 
   > Topic 是逻辑上的概念，Partition 是物理上的概念。
 
   ![img](./assets/streams-and-tables-p1_p4.png)
 
+…
 
+> Partition 相当于 RocketMQ 中的 MessageQueue。
 
+…
 
-<br>
+---
 
 ### Zookeeper 与 Nameserver
 
@@ -50,7 +59,7 @@ Kafka 是一个分布式流处理平台，基于发布/订阅模式的消息队�
 > * Zookeeper 用来管理分布式应用。主要作用是维护和管理分布式应用的配置、命名、分布式同步和群组服务等，同时它还具有分布式锁和分布式队列等功能。
 >* Nameserver 是轻量级的命名服务，管理所有生产者和消费者信息，包括主题、队列、消费组等。Nameserver 通过将生产者和消费者注册到其管理的主题中，使得生产者和消费者能够互相发现和通信。
 > 
-> <br>
+> …
 >
 > |              | Zookeeper                                        | Nameserver                               |
 >| ------------ | ------------------------------------------------ | ---------------------------------------- |
@@ -60,20 +69,33 @@ Kafka 是一个分布式流处理平台，基于发布/订阅模式的消息队�
 > | 可用性和容错 | 高度可用性和容错性                               | 容错性较弱                               |
 > | 应用场景     | 分布式应用程序                                   | 分布式消息系统                           |
 
+…
 
-
-<br>
+---
 
 ### 消费模式
 
-* 点对点。一对一，生产者生产消息发送到消息队列，消费者从队列中主动拉取并消费消息。消息消费后，队列中不再存储。一个消息队列支持多个消费者进行消费，但是一条消息只有一个消费者可以消费。
-* 发布/订阅。一对多，消息被消费后不会被清除。消息生产者将消息发布到 Topic 中，同时可以有多个消费者订阅该 Topic。和点对点方式不同，发布到 Topic 的消息被消费后不会被清除，会被所有订阅者消费。
+消息的消费模式分为两种：点对点和发布/订阅模式。
 
+…
 
+**点对点**
+
+一对一，生产者生产消息发送到消息队列，消费者从队列中主动拉取并消费消息。消息消费后，队列中不再存储。一个消息队列支持多个消费者进行消费，但是一条消息只有一个消费者可以消费。
+
+…
+
+**发布/订阅**
+
+一对多，消息被消费后不会被清除。消息生产者将消息发布到 Topic 中，同时可以有多个消费者订阅该 Topic。和点对点方式不同，发布到 Topic 的消息被消费后不会被清除，会被所有订阅者消费。
+
+…
+
+---
 
 <br>
 
-## 安装与启动
+## 启动
 
 **Docker**
 
@@ -117,13 +139,15 @@ CMD ["sh", "-c", "$KAFKA_HOME/bin/zookeeper-server-start.sh $KAFKA_HOME/config/z
 # -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092 配置 kafka 监听端口
 ```
 
+…
 
+---
 
 <br>
 
 ##  基本操作
 
-> [operations](https://kafka.apachecn.org/documentation.html#operations)
+> [documentation#operations](https://kafka.apachecn.org/documentation.html#operations)
 
 ```shell
 # 创建 topic
@@ -154,27 +178,35 @@ kafka-console-producer.sh --topic topic_name --bootstrap-server localhost:9092
 kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic topic_name --from-beginning
 ```
 
+…
 
+---
 
 <br>
 
 ## 消息生产
 
-<br>
+…
 
 ### 生产者 ACK
 
 为保证生产者发送的数据能可靠的发送到指定的 Topic，对应分区收到消息后会根据 ACK 策略向生产者发送 ACK。如果生产者收到 ACK，就会进行下一轮的发送，否则重新发送上一条消息。
 
+…
+
 **何时发送 ACK？**
 
 确保有 Follower 与 Leader 同步完成，Leader 再发送 ACK。这样才能保证 Leader 故障后仍有完整的数据保存在 Follower 中，才能选举出新的 Leader。
+
+…
 
 **有多少个 Follower 同步完成发送 ACK？**
 
 1、半数以上的 Follower 同步完成，可发送 ACK。
 
 2、全部的 Follower 同步完成，才发送 ACK。
+
+…
 
 **Kafka 选用第二种方式**。如果只要求半数副本成功就发送 ACK，存在以下问题：
 
@@ -183,9 +215,7 @@ kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic topic_name -
 
 第二种方式缺点是增加了延迟，但是 Kafka 作为一个分布式系统，数据可靠才是最重要的。
 
-
-
-<br>
+…
 
 **生产者 ISR**
 
@@ -197,44 +227,50 @@ Leader 维护了一个动态的 ISR（*In-Sync Replica Set*），同步状态的
 
 > ISR 还有一个作用：当 Leader 发生故障，Kafka 就会从 ISR 中选举新的 Leader。
 
-
-
-<br>
+…
 
 **ACK 策略/级别**
 
-对于不太重要的数据，对数据的可靠性要求不高，能够容忍数据少量丢失，不必等 ISR 中的 Follower 全部接收成功。Kafka 为用户提供了三种级别 ACK：
+对于不太重要的数据，对数据的可靠性要求不高，能够容忍数据少量丢失，不必等 ISR 中的 Follower 全部接收成功。
+
+Kafka 为用户提供了三种级别 ACK：
 
 * `ack=0`
 
-  生产者不等 Broker 的 ACK，提供最低的延迟。Broker 接收消息到还没有写入磁盘就已经返回 ACK，Broker 故障时有可能丢失数据
+
+生产者不等 Broker 的 ACK，提供最低的延迟。Broker 接收消息到还没有写入磁盘就已经返回 ACK，Broker 故障时有可能丢失数据。
 
 * `ack=1`
 
-  等到 Leader 落盘成功后返回 ACK。如果在 Follower 同步成功之前 Leader 故障，将会丢失数据
+
+等到 Leader 落盘成功后返回 ACK。如果在 Follower 同步成功之前 Leader 故障，将会丢失数据。
 
 * `ack=-1（all）`
 
-  等到 Leader 和 ISR 的 Follower 全部落盘成功后才返回  ACK。如果在 Follower 同步完成后，在 Broker 发送 ACK 之前 Leader 发生故障，会造成数据重复
+等到 Leader 和 ISR 的 Follower 全部落盘成功后才返回  ACK。如果在 Follower 同步完成后，在 Broker 发送 ACK 之前 Leader 发生故障，会造成数据重复。
 
+…
 
-
-<br>
+---
 
 ### 生产者分区
 
-> **原因**
->
-> * 提高并发，以分区为单位读写，多个分区可以处理更多的读操作
-> * 方便在集群中扩展，每个分区可调整以适应它所在的机器
+**原因**
 
-> **分区策略**
->
-> 1. 指明分区的情况下，直接发送到对应的分区
-> 2. 没有指明分区，但有 key 时，将 key 的 hash 值与分区数进行取余操作，得到存储的分区号
-> 3. 既没有指明分区，又没有 key 时，第一次调用：随机生成一个整数（后面每次调用在这个整数上自增），将其与 Topic 可用的分区总数取余得到发送到的分区号，即 round-robin 算法
+* 提高并发，以分区为单位读写，多个分区可以处理更多的读操作；
+* 方便在集群中扩展，每个分区可调整以适应它所在的机器。
 
+…
 
+**分区策略**
+
+1. 指明分区的情况下，直接发送到对应的分区；
+2. 没有指明分区，但有 key 时，将 key 的 hash 值与分区数进行取余操作，得到存储的分区号；
+3. 既没有指明分区，又没有 key 时，第一次调用：随机生成一个整数（后面每次调用在这个整数上自增），将其与 Topic 可用的分区总数取余得到发送到的分区号，即 round-robin 算法。
+
+…
+
+---
 
 <br>
 
@@ -242,54 +278,75 @@ Leader 维护了一个动态的 ISR（*In-Sync Replica Set*），同步状态的
 
 ### 消费方式
 
-- 拉模式
-
-  拉模式从 Broker 中读取数据。如果 Broker 没有数据，消费者可能会陷入循环中，一直返回空数据。针对这一点，Kafka 在拉模式消费中定义了一个超时参数。消费者拉取消息，如果有消息马上返回；如果没有消息，消费者等待直到超时，再次发起拉消息请求。拉模式可以根据 Consumer 的消费能力以适当的速率消费消息。
-
-- 推模式
-
-  消息推送速率由 Broker 决定，Broker 尽可能以最快速度传递消息，但消费者消费速度可能跟不上。
+- **拉模式**
 
 
+拉模式从 Broker 中读取数据。如果 Broker 没有数据，消费者可能会陷入循环中，一直返回空数据。针对这一点，Kafka 在拉模式消费中定义了一个超时参数。消费者拉取消息，如果有消息马上返回；如果没有消息，消费者等待直到超时，再次发起拉消息请求。拉模式可以根据 Consumer 的消费能力以适当的速率消费消息。
 
-<br>
+- **推模式**
+
+消息推送速率由 Broker 决定，Broker 尽可能以最快速度传递消息，但消费者消费速度可能跟不上。
+
+…
+
+---
 
 ### 消费者分区
 
 **分区分配再平衡机制**
 
-> 分区分配再平衡指的是在消费者订阅的 Topic 发生变化时发生的一种分区重分配机制。一般有三种情况会触发再平衡：
->
-> - 消费者组中的新增或删除某个消费者，导致其所消费的分区需要分配到组内其他的消费者上
->- 消费者订阅的 Topic 发生变化，比如订阅的 Topic 采用的是正则表达式的形式，如 `topic-*`，此时如果有一个新建了一个 `topic-user`，这个 Topic 的所有分区也会自动分配给当前消费者
-> - 消费者所订阅的 Topic 发生了新增分区的行为，新增的分区就会分配给当前的消费者
+分区分配再平衡指的是在消费者订阅的 Topic 发生变化时发生的一种分区重分配机制。一般有三种情况会触发再平衡：
+
+- 消费者组中的新增或删除某个消费者，导致其所消费的分区需要分配到组内其他的消费者上
+- 消费者订阅的 Topic 发生变化，比如订阅的 Topic 采用的是正则表达式的形式，如 `topic-*`，此时如果有一个新建了一个 `topic-user`，这个 Topic 的所有分区也会自动分配给当前消费者
+- 消费者所订阅的 Topic 发生了新增分区的行为，新增的分区就会分配给当前的消费者
+
+…
 
 > [Kafka 再平衡机制详解](https://zhuanlan.zhihu.com/p/86718818)
 
-<br>
+…
 
 **分区分配策略**
 
-> 一个消费者组中有多个消费者，一个 Topic 有多个分区，消费时需要确定哪个分区由哪个消费者来消费。有两种分配策略：
->
-> - round-robin 轮询
->- range
+一个消费者组中有多个消费者，一个 Topic 有多个分区，消费时需要确定哪个分区由哪个消费者来消费。
 
+有两种分配策略：
 
+- round-robin 轮询
+- range
 
-<br>
+…
+
+---
 
 ### 消费 Offset
 
-> 消费者在出现故障恢复后，需要从故障前的位置的继续消费，所以消费者需要实时记录自己消费到了哪个 Offset，以便故障恢复后继续消费。
->
-> 消费者默认将 Offset 保存在 Kafka 名为 `__consumer_offsets` 的内置 Topic 中。
+消费者在出现故障恢复后，需要从故障前的位置的继续消费，所以消费者需要实时记录自己消费到了哪个 Offset，以便故障恢复后继续消费。
 
+消费者默认将 Offset 保存在 Kafka 名为 `__consumer_offsets` 的内置 Topic 中。
 
+…
+
+---
 
 <br>
 
 ## 消息操作
+
+### 消息流向
+
+Kafka 中消息是以 Topic 进行分类的，消息的生产和消费都是面向 Topic 的。**Topic 是逻辑上的概念，而 Partition 是物理上的概念**。
+
+每个 Partition 对应于一个 log 文件，该 log 文件中存储的就是生产者生产的数据（Topic = N partition，partition = log）。
+
+Producer 生产的数据会被不断追加到该 log 文件末端，且每条数据都有自己的 Offset。消费者组中的每个消费者会实时记录自己消费到了哪个 Offset，以便出错恢复时从上次的位置继续消费。
+
+> 生产者 -> Topic（实际上是 Partition Log File） -> 消费者
+
+…
+
+---
 
 ### 消息存储
 
@@ -308,39 +365,25 @@ Leader 维护了一个动态的 ISR（*In-Sync Replica Set*），同步状态的
 00000000000000239430.log
 ```
 
-
+…
 
 ![image-20210802170907770](./assets/image-20210802170907770.png)
 
+…
 
-
-<br>
+---
 
 ### 消息日志删除
 
-由于不删除消息，硬盘有被占满的时刻，Kakfa 提供了几种策略解决：一是基于时间；二是基于起始偏移量；三是基于分区文件的大小。
+Kakfa 提供了三种删除策略：一是基于时间；二是基于起始偏移量；三是基于分区文件的大小。
 
-* 日志删除任务会检查当前日志文件中是否有保留时间超过设定的阈值来寻找可删除的日志分段文件集合
-* 一般情况下，日志文件的起始偏移量 logStartOffset 等于第一个日志分段的 baseOffset。基于日志起始偏移量的保留策略的判断依据是某日志分段的起始偏移量 baseOffset 是否小于等于 logStartOffset，若是，则可以删除此日志分段
-* 日志删除任务会检查当前日志的大小是否超过设定的阈值来寻找可删除的日志分段的文件集合
+* 日志删除任务会检查当前日志文件中是否有保留时间超过设定的阈值来寻找可删除的日志分段文件集合。
+* 一般情况下，日志文件的起始偏移量 logStartOffset 等于第一个日志分段的 baseOffset。基于日志起始偏移量的保留策略的判断依据：某日志分段的起始偏移量 baseOffset 是否小于等于 logStartOffset，若是，则可以删除此日志分段。
+* 日志删除任务会检查当前日志的大小是否超过设定的阈值来寻找可删除的日志分段的文件集合。
 
+…
 
-
-
-
-<br>
-
-### 消息流向
-
-Kafka 中消息是以 Topic 进行分类的，消息的生产和消费都是面向 Topic 的。**Topic 是逻辑上的概念，而 Partition 是物理上的概念**。
-
-每个 Partition 对应于一个 log 文件，该 log 文件中存储的就是生产者生产的数据（Topic = N partition，partition = log）。
-
-Producer 生产的数据会被不断追加到该 log 文件末端，且每条数据都有自己的 Offset。消费者组中的每个消费者会实时记录自己消费到了哪个 Offset，以便出错恢复时从上次的位置继续消费。
-
-> 生产者 -> Topic（实际上是 Partition Log File） -> 消费者
-
-
+---
 
 <br>
 
@@ -350,15 +393,17 @@ Producer 生产的数据会被不断追加到该 log 文件末端，且每条数
 
 **Leader**
 
-一个分区只有一个 Leader，领导一个或多个副本。一个 Partition 的数据只能由 Leader 来处理。生产者发送数据的对象，以及消费者消费数据的对象都是 Leader。
+一个分区只有一个 Leader，一个或多个副本。一个 Partition 的数据只能由 Leader 来处理。生产者发送数据的对象，以及消费者消费数据的对象都是 Leader。
+
+…
 
 **Follower**
 
 实时从 Leader 中同步数据，Leader 发生故障时，从 ISR 列表中的 Follower 中选出新的 Leader。
 
+…
 
-
-
+---
 
 <br>
 
@@ -370,18 +415,27 @@ Producer 生产的数据会被不断追加到该 log 文件末端，且每条数
 >
 > * HW（High Watermark）高水位，指的是消费者能见到的最大的 Offset，ISR 队列中最小的 LEO
 
+…
+
 ![image-20210803102155773](./assets/image-20210803102155773.png)
 
-
+…
 
 **Follower 故障和 Leader 故障**
 
-- Follower 故障：Follower 发生故障后会被**临时**踢出 ISR，待该 Follower 恢复后，Follower 会读取本地磁盘记录的上次的 HW，并将 log 文件高于 HW 的部分截取掉，从 HW 开始向 Leader 进行同步。等该Follower 的 HW 追上 Leader 之后，就可以重新加入 ISR
-- Leader 故障：会从 ISR 中选出一个新的 Leader，为保证多个副本之间的数据一致性， 其余的 Follower 会先将各自的 log 文件高于 HW 的部分截掉，然后从新的 Leader 同步数据
+- Follower 故障
 
-> **注意**：这只能保证副本之间的数据一致性，并不能保证数据不丢失或者不重复
+Follower 发生故障后会被**临时**踢出 ISR，待该 Follower 恢复后，Follower 会读取本地磁盘记录的上次的 HW，并将 log 文件高于 HW 的部分截取掉，从 HW 开始向 Leader 进行同步。等该Follower 的 HW 追上 Leader 之后，就可以重新加入 ISR。
 
+- Leader 故障
 
+会从 ISR 中选出一个新的 Leader，为保证多个副本之间的数据一致性， 其余的 Follower 会先将各自的 log 文件高于 HW 的部分截掉，然后从新的 Leader 同步数据。
+
+> **注意**：这只能保证副本之间的数据一致性，并不能保证数据不丢失或者不重复。
+
+…
+
+---
 
 <br>
 
@@ -389,19 +443,19 @@ Producer 生产的数据会被不断追加到该 log 文件末端，且每条数
 
 **消息发送语义**
 
-- 将 ACK 级别设置为 -1（all），可以保证生产者到 Broker 之间不会丢失数据，保证生产者消息至少发送一次，即 *At Least Once* 语义
-- 将 ACK 级别设置为 0，可以保证生产者每条消息只会被发送一次，即 *At Most Once* 语义
+- 将 ACK 级别设置为 -1（all），消息全部落盘。可以保证生产者到 Broker 之间不会丢失数据，保证生产者消息至少发送一次，即 *At Least Once* 语义。
+- 将 ACK 级别设置为 0，不等消息落盘。可以保证生产者每条消息只会被发送一次，即 *At Most Once* 语义。
 - **消息持久化幂等性**。就是指生产者不论发送多少次重复数据，Broker 只会持久化一条。将生产者的参数 `enable.idempotence` 设置为 `true` 即可启用幂等性支持。Kafka 幂等性实现其实就是将原来下游需要做的去重放在了数据上游。
-
-<br>
-
-**何时需要 ExactlyOnce？**
-
-*At Least Once* 可以保证数据不丢失，但是不能保证数据不重复；*At Most Once* 可以保证数据不重复，但是不能保证数据不丢失。但是对于一些非常重要的消息，比如说**交易消息**，要求数据既不重复也不丢失，即 *Exactly Once* 语义。
 
 幂等性结合 *At Least Once* 语义，构成 Kafka 的 *Exactly Once* 语义。`At Least Once + 幂等性 = Exactly Once`。
 
-<br>
+…
+
+**何时需要 ExactlyOnce？**
+
+*At Least Once* 可以保证数据不丢失，但是不能保证数据不重复；*At Most Once* 可以保证数据不重复，但是不能保证数据不丢失。但是对于一些非常重要的消息，比如说**交易消息**，要求数据既不重复也不丢失，此时就需要 *Exactly Once* 语义。
+
+…
 
 **ExactlyOnce 不可跨分区跨会话**
 
@@ -409,7 +463,9 @@ Producer 生产的数据会被不断追加到该 log 文件末端，且每条数
 
 但服务重启 PID 就会变化，不同的分区具有不同主键，所以幂等性无法保证跨分区跨会话的 *Exactly Once*。
 
+…
 
+---
 
 <br>
 
@@ -419,118 +475,134 @@ Producer 生产的数据会被不断追加到该 log 文件末端，且每条数
 
 **生产者事务**
 
-> 为了实现跨分区跨会话的事务，需要引入一个全局唯一的 `Transaction ID`，并将生产者的 PID 和 *Transaction ID* 绑定。生产者重启后就可以通过正在进行的 *Transaction ID* 获得原来的 PID。
->
-> 为了管理事务，Kafka 引入了一个新的组件 *Transaction Coordinator*。生产者通过和 *Transaction Coordinator* 交互获得 *Transaction ID* 对应的任务状态。
->
-> *Transaction Coordinator* 还负责将所有事务写入 Kafka 的一个内部 Topic，这样即使整个服务重启，进行中的事务状态依然可以恢复进行。
+为了实现跨分区跨会话的事务，需要引入一个全局唯一的 `Transaction ID`，并将生产者的 PID 和 *Transaction ID* 绑定。如果生产者重启，可以通过正在进行的 *Transaction ID* 获得原来的 PID。
+
+为了管理事务，Kafka 引入了一个新的组件 *Transaction Coordinator*。生产者通过和 *Transaction Coordinator* 交互获得 *Transaction ID* 对应的任务状态。
+
+*Transaction Coordinator* 还负责将所有事务写入 Kafka 的一个内部 Topic，这样即使整个服务重启，进行中的事务状态依然可以恢复进行。
+
+…
 
 **消费者事务**
 
-> 对于消费者而言，事务的保证就会相对较弱，尤其是无法保证 commit 的信息被精确消费。这是因为消费者可以通过 Offset 访问任意信息，而且不同的 Segment File 生命周期不同，同一事务的消息可能会出现重启后被删除的情况。
+对于消费者而言，事务的保证就会相对较弱，尤其是无法保证 commit 的信息被精确消费。这是因为消费者可以通过 Offset 访问任意信息，而且不同的 Segment File 生命周期不同，同一事务的消息可能会出现重启后被删除的情况。
 
+…
 
+---
 
 <br>
 
 ## 高效读写
 
-<br>
+…
 
 ### 顺序写磁盘
 
-> Kafka 的生产者生产数据，会写入到 log 文件中，写的过程是一直追加到文件末端，为顺序写。顺序写**省去了大量磁头寻址的时间**。
->
-> 实际上不管是内存还是磁盘，快或慢关键在于寻址的方式。磁盘分为顺序读写与随机读写，内存也一样分为顺序读写与随机读写。顺序读写性能高于随机读写。
+Kafka 的生产者生产数据，会写入到 log 文件中，写的过程是一直追加到文件末端，为顺序写。顺序写**省去了大量磁头寻址的时间**。
 
-> 收到生产者消息后 Kafka 会把数据写入文件末尾，这种方法有一个缺陷：无法删除某条数据。所以 Kafka 会把所有的数据都保留下来，每个消费者对每个 Topic 都有一个 Offset 用来表示 读取到了第几条数据。
+实际上不管是内存还是磁盘，快或慢关键在于寻址的方式。磁盘分为顺序读写与随机读写，内存也一样分为顺序读写与随机读写。顺序读写性能高于随机读写。
 
+…
 
+> 收到生产者消息后 Kafka 会把数据写入文件末尾，这种方法有一个缺陷：无法删除某条数据。所以 Kafka 会把所有的数据都保留下来，每个消费者对每个 Topic 都有一个 Offset 用来表示读取到了第几条数据。
 
-<br>
+…
 
 ### Page Cache
 
-> 为了优化读写性能，Kafka 利用了操作系统本身的 *Page Cache*，用于缓存磁盘上的消息：
->
-> - 避免 Object 消耗，如果是使用 Java 堆，Java 对象的内存消耗比较大，通常是所存储数据的两倍甚至更多
-> - 避免 GC 问题，随着 JVM 中数据不断增多，垃圾回收会变得复杂/缓慢，使用系统缓存就不会存在 GC 问题
->
-> Kafka 将消息写入磁盘时，也会将其缓存在 *Page Cache* 中。当应用程序需要访问这些消息时，*Page Cache* 会将它们从磁盘加载到内存中，以便更快读取。
->
-> 相比于使用 JVM 或 *In-Memory Cache* 等，利用操作系统的 *Page Cache* 更加简单可靠：
->
-> * 操作系统层面的缓存利用率会更高，存储的都是紧凑的字节结构而不是独立的对象
->
-> * 操作系统本身对 *Page Cache* 做了优化，提供 *write-behind/read-ahead/flush* 等多种机制
->
-> * 即使服务进程重启，系统缓存依然存在，避免 *In-Process Cache* 重建缓存的过程
+为了优化读写性能，Kafka 利用了操作系统本身的 *Page Cache*，用于缓存磁盘上的消息：
 
+- 避免 Object 消耗，如果是使用 Java 堆，Java 对象的内存消耗比较大，通常是所存储数据的两倍甚至更多；
+- 避免 GC 问题，随着 JVM 中数据不断增多，垃圾回收会变得复杂/缓慢，使用系统缓存就不会存在 GC 问题。
 
+…
 
-<br>
+Kafka 将消息写入磁盘时，也会将其缓存在 *Page Cache* 中。当应用程序需要访问这些消息时，*Page Cache* 会将它们从磁盘加载到内存中，以便更快读取。
+
+相比于使用 JVM 或 *In-Memory Cache* 等，利用操作系统的 *Page Cache* 更加简单可靠：
+
+* 操作系统层面的缓存利用率会更高，存储的都是紧凑的字节结构而不是独立的对象；
+
+* 操作系统本身对 *Page Cache* 做了优化，提供 *write-behind/read-ahead/flush* 等多种机制；
+
+* 即使服务进程重启，系统缓存依然存在，避免 *In-Process Cache* 重建缓存的过程。
+
+…
+
+---
 
 ### 零拷贝技术
 
-> Linux 操作系统零拷贝机制使用了 sendfile 方法，允许操作系统将数据从 *Page Cache* 直接发送到网络。只需要最后一步的 copy 操作将数据复制到 NIC（*Network Interface Controller*） 网络接口控制器缓冲区， 避免重新复制数据。通过零拷贝机制，*Page Cache* 结合 sendfile 方法，Kafka 消费端的性能也大幅提升。
->
-> ![零复制技术](assets/14.png)
->
-> 
->
-> 从 File => PageCache => ApplicationCache => SocketCache => NIC，
->
-> 变成 File => PageCache  => NIC
-
-<br>
+…
 
 当 Kafka 客户端从服务器读取数据时，如果不使用零拷贝技术，那么大致需要经历这样的一个过程：
 
 1. 操作系统将数据从磁盘上读入到内核空间的读缓冲区中
-2. 应用程序（也就是 Kafka）从内核空间的读缓冲区将数据拷贝到用户空间的缓冲区中
-3. 应用程序将数据从用户空间的缓冲区再写回到内核空间的 socket 缓冲区中
-4. 操作系统将 socket 缓冲区中的数据拷贝到 NIC 缓冲区中，然后通过网络发送给客户端
+2. 应用程序（Kafka）从内核空间的读缓冲区将数据拷贝到用户空间的缓冲区中
+3. 对数据进行修改之后，应用程序将数据从用户空间的缓冲区再写回到内核空间的 socket 缓冲区中
+4. 操作系统将 socket 缓冲区中的数据拷贝到 NIC（*Network Interface Controller*） 缓冲区中，然后通过网络发送给客户端
 
 数据在内核空间和用户空间之间穿梭了两次，能否避免这个多余的过程呢？
 
 Kafka 使用了零拷贝技术，直接将数据从内核空间的读缓冲区直接拷贝到内核空间的 socket 缓冲区，再写入到 NIC 缓冲区，避免了在内核空间和用户空间之间穿梭。
 
-> *注意：这里的零拷贝并非指一次拷贝都没有，而是避免了在内核空间和用户空间之间的拷贝*
+…
 
+Linux 提供 sendfile 系统调用方法，允许操作系统将数据从 *Page Cache* 直接发送到网络。只需要最后一步的 copy 操作将数据复制到 NIC 网络接口控制器缓冲区。
 
+通过 *Page Cache* 结合 sendfile 方法进行零拷贝，Kafka 消费端的性能也大幅提升。
 
-<br>
+![零复制技术](assets/14.png)
+
+…
+
+> 从 File => PageCache => ApplicationCache => SocketCache => NIC，
+>
+> 变成 File => PageCache  => NIC
+
+…
+
+> *注意：这里的零拷贝并非指一次拷贝都没有，而是避免了在内核空间和用户空间之间的拷贝*。
+
+> 同样的 RocketMQ 也使用到了 PageCache 和零拷贝。
+
+…
+
+---
 
 ### 分区分段 + 索引
 
 > Topic => Partition => Segment
->
-> 通过这种分区分段的设计，Kafka 的消息实际上是分布式存储在一个个的 Segment 中的，每次文件操作也是直接操作的 Segment。
->
-> 为了进一步的查询优化，Kafka 默认为分段后的数据文件建立了索引文件，就是 `.index` 文件。这种分区分段+索引的设计，提升了数据读取的效率，也提高了数据操作的并行度。
 
+通过分区分段的设计，Kafka 的消息实际上是分布式存储在一个个的 Segment 中的，每次文件操作也是直接操作的 Segment。
 
+为了进一步的查询优化，Kafka 默认为分段后的数据文件建立了索引文件，就是 `.index` 文件。这种分区分段+索引的设计，提升了数据读取的效率，也提高了数据操作的并行度。
 
-<br>
+…
+
+---
 
 ### 批量读写
 
 > Kafka 数据读写是批量的而不是单个的。在向 Kafka 写入数据时，启用批次写入可以避免在网络上频繁传输单个消息带来的延迟和带宽开销。
 >
 
+…
 
-
-<br>
+---
 
 ### 批量压缩
 
-> 在很多情况下，系统的瓶颈不是 CPU 或磁盘，而是网络 IO。可以考虑进行数据压缩，虽然会消耗少量的 CPU 资源，不过对于 Kafka 而言，网络 IO 更应该需要考虑：
->
-> 1. 如果每个消息都压缩，但是压缩率相对很低，Kafka 使用了批量压缩，多个消息一起压缩
-> 2. Kafka 允许使用递归的消息集合，批量的消息可以通过压缩的形式传输并且在日志中也可以保持压缩格式，直到被消费者解压
-> 3. Kafka 支持多种压缩协议，包括 Gzip 和 Snappy 压缩协议
+在很多情况下，系统的瓶颈不是 CPU 或磁盘，而是网络 IO。可以考虑进行数据压缩，虽然会消耗少量的 CPU 资源，不过对于 Kafka 而言，网络 IO 更应该需要考虑：
 
+1. 如果每个消息都压缩，但是压缩率相对很低，Kafka 使用了批量压缩，多个消息一起压缩
+2. Kafka 允许使用递归的消息集合，批量的消息可以通过压缩的形式传输并且在日志中也可以保持压缩格式，直到被消费者解压
+3. Kafka 支持多种压缩协议，包括 Gzip 和 Snappy 压缩协议
 
+…
+
+---
 
 <br>
 
@@ -540,11 +612,9 @@ Kafka 使用了零拷贝技术，直接将数据从内核空间的读缓冲区�
 >
 > ![Leader选举流程](assets/15.png)
 
+…
 
-
-
-
-
+---
 
 <br>
 
@@ -552,7 +622,7 @@ Kafka 使用了零拷贝技术，直接将数据从内核空间的读缓冲区�
 
 ### 生产者
 
-<br>
+…
 
 #### 异步生产者
 
@@ -581,7 +651,7 @@ producer.send(new ProducerRecord<>("test-topic", "test-key",
 producer.close();
 ```
 
-<br>
+…
 
 ##### 带回调函数生产者
 
@@ -605,7 +675,7 @@ producer.send(new ProducerRecord<>("test-cb-topic", "test-key-" + i,
 producer.close();
 ```
 
-<br>
+…
 
 ##### 自定义分区生产者
 
@@ -626,21 +696,17 @@ public class MyPartitioner implements Partitioner {
 }
 ```
 
-
-
-<br>
+…
 
 #### 同步生产者
 
-> 消息发送之后，会阻塞当前线程，直至返回 ack。由于 send 方法返回的是一个 Future 对象，根据 Futrue 对象的特点，也可以实现同步发送的效果，只需再调用 Future 对象的 get 方法即可
+> 消息发送之后，会阻塞当前线程，直至返回 ack。由于 send 方法返回的是一个 Future 对象，根据 Futrue 对象的特点，也可以实现同步发送的效果，只需再调用 Future 对象的 get 方法即可。
 
-
-
-<br>
+…
 
 #### 生产拦截器
 
-> 生产者拦截器主要用于实现客户端的定制化控制逻辑
+> 生产者拦截器主要用于实现客户端的定制化控制逻辑。
 
 生产拦截器能在消息发送前，以及生产者回调逻辑执行前，能对消息做一些定制化需求。比如修改消息内容、校验消息等。生产者允许指定多个拦截器，拦截器可以按序作用于同一条消息从而形成一个拦截链（*Interceptor Chain*）。
 
@@ -655,7 +721,9 @@ Intercetpor 的实现接口是 `ProducerInterceptor`，其定义的方法包括
 
 > *注意：生产者仅捕获每个拦截器可能抛出的异常并记录到错误日志中，不会向上传递。*
 
+…
 
+---
 
 <br>
 
@@ -685,15 +753,15 @@ while (true) {
 }
 ```
 
-<br>
+…
 
 #### Offset 提交
 
-> 消费者消费数据时的可靠性是很容易保证的，因为在 Kafka 中数据是持久化保存的，不用担心数据丢失.
+> 消费者消费数据时的可靠性是很容易保证的，因为在 Kafka 中数据是持久化保存的，不用担心数据丢失。
 
 因为消费者在消费过程中可能会出现故障，恢复后需要从故障前的位置的继续消费，所以消费者需要实时记录自己的消费 Offset，以便恢复后继续消费。Offset 的维护是消费者必须考虑的问题。
 
-<br>
+…
 
 ##### 自动提交 Offset
 
@@ -708,7 +776,7 @@ props.put("group.id", "abcd");
 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
 ```
 
-<br>
+…
 
 ##### 手动提交 Offset
 
@@ -723,7 +791,7 @@ KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
 
 **不同点**是，commitSync 会阻塞当前线程，直到提交成功，并且会自动失败重试；而 commitAsync 没有失败重试机制，有可能提交 Offset 失败。
 
-<br>
+…
 
 **同步提交 Offset**
 
@@ -746,7 +814,7 @@ while (true) {
 }
 ```
 
-<br>
+…
 
 **异步提交 Offset**
 
@@ -774,9 +842,7 @@ while (true) {
 }
 ```
 
-
-
-<br>
+…
 
 #### Offset 存储
 
@@ -837,9 +903,7 @@ public class CustomSaveOffset {
 }
 ```
 
-
-
-<br>
+…
 
 #### 遗漏消费和重复消费
 
@@ -848,7 +912,9 @@ public class CustomSaveOffset {
 * 先提交 Offset 后消费，有可能造成数据的漏消费
 * 先消费后提交 Offset，有可能会造成数据的重复消费
 
+…
 
+---
 
 <br>
 
@@ -930,7 +996,9 @@ public class KafkaConsumerMain {
 }
 ```
 
+…
 
+---
 
 <br>
 
@@ -943,11 +1011,15 @@ docker pull nickzurich/kafka-eagle:latest
 docker run --name eagle -p 8048:8048 -e EFAK_CLUSTER_ZK_LIST=localhost:2181 -d nickzurich/kafka-eagle:latest
 ```
 
+…
 
+---
 
 <br>
 
 ## 参考
+
+[Kafka 架构图](https://www.modb.pro/db/137170)
 
 [Kafka学习笔记](https://my.oschina.net/jallenkwong/blog/4449224)
 

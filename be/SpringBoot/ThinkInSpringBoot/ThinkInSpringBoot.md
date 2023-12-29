@@ -481,7 +481,7 @@ public ConfigurableApplicationContext run(String... args) {
 
 <br>
 
-观察 SpringBoot 源码我们还可以发现，有一个 ApplicationEvent 接口，在应用启动的时候也有它的身影，只是藏得比较深。因此我们**还可以从 ApplicationEvent 入手分析 SpringBoot 应用的生命周期**。
+观察 SpringBoot 源码我们还可以发现，有一个 ApplicationEvent 接口，在应用启动的时候也有它的身影。因此我们**还可以从 ApplicationEvent 入手分析 SpringBoot 应用的生命周期**。
 
 SpringApplicationEvent 是 ApplicationEvent 的一个实现类，SpringApplicationEvent 的子类就代表着 SpringBoot 应用启动期间会发布的事件，我们也**可以使用发布出来的事件来描述 SpringBoot 应用的生命周期**。
 
@@ -581,6 +581,8 @@ SpringApplicationRunListeners 是 SpringApplicationRunListener 接口的合集�
 <br>
 
 ### Bean 的注册流程
+
+> 准确来说应该是注册了 BeanDefinition。
 
 我们来聊一聊 **Spring 中 Bean 的创建流程，或者说 Bean 的生命周期**。首先要知道，在 Spring IoC 容器中，我们都是借助 BeanFactory 来创建 Bean 的。在启动的过程中需要先把 Bean 定义注册到 BeanFactory 中，后续需要创建/实例化的时候从 BeanFactory 中获取 Bean 信息，然后再进行实例化操作。
 
@@ -1033,7 +1035,7 @@ User user = ac.getBean(User.class);
 
 9、DefaultSingletonBeanRegistry#getSingleton(String, boolean)
 
-分析一些 DefaultListableBeanFactory#resolveNamedBean(ResolvableType, Object[], boolean) 这个方法：
+分析一下 DefaultListableBeanFactory#resolveNamedBean(ResolvableType, Object[], boolean) 这个方法：
 
 ```java
 private <T> NamedBeanHolder<T> resolveNamedBean(
@@ -1424,9 +1426,11 @@ AutoConfigurationImportSelector 是一个自动配置导入选择器，继承自
 
 <br>
 
-先讲 *.imports 文件。SpringBoot 在启动的过程中会检查 spring-boot-autoconfigure 模块中的 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件，文件中包含了一系列需要 SpringBoot 自动导入的类。
+先讲 *.imports 文件。SpringBoot 在启动的过程中会检查 spring-boot-autoconfigure 模块中的 
 
-比如我们导入了一个 spring-boot-starter-web 模块，SpringBoot 在启动的时候会扫描 Classpath 路径，如果发现存在 AutoConfiguration.imports 中定义的类，比如：
+* `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件，
+
+该文件中包含了一系列需要 SpringBoot 自动导入的类。比如我们导入了一个 spring-boot-starter-web 模块，SpringBoot 在启动的时候会扫描 Classpath 路径，如果发现存在 AutoConfiguration.imports 中定义的类，比如：
 
 ```
 org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration
@@ -1558,7 +1562,9 @@ public ConfigurableApplicationContext create(WebApplicationType webApplicationTy
 }
 ```
 
-假设我们引入了 spring-boot-starter-web 就会拿到 AnnotationConfigServletWebServerApplicationContext 实例，同时它还是 ServletWebServerApplicationContext 的子类（接下来要分析），接下来我们需要关注的是，**Tomcat 如何启动？**
+假设我们引入了 spring-boot-starter-web 就会拿到 AnnotationConfigServletWebServerApplicationContext 实例，
+
+同时它还是 ServletWebServerApplicationContext 的子类（接下来要分析），接下来我们需要关注的是，**Tomcat 如何启动？**
 
 <br>
 

@@ -97,13 +97,7 @@ public void start(final boolean startFactory) throws MQClientException {
 public void start() throws MQClientException {
     setConsumerGroup(NamespaceUtil.wrapNamespace(this.getNamespace(), this.consumerGroup)); // 设置消费者所属的消费者组
     this.defaultMQPushConsumerImpl.start();
-    if (null != traceDispatcher) {
-        try {
-            traceDispatcher.start(this.getNamesrvAddr(), this.getAccessChannel());
-        } catch (MQClientException e) {
-            log.warn("trace dispatcher start failed ", e);
-        }
-    }
+    // ...
 }
 ```
 
@@ -117,7 +111,9 @@ public void start() throws MQClientException {
 
 4、设置并启动 ConsumeMessageService（MessageListenerOrderly or MessageListenerConcurrently）
 
-5、在 MQClientInstance 客户端实例中注册当前消费者，并启动 MQClientInstance。MQClientInstance#start 还会启动 MQClientAPIImpl，PullMessageService，RebalanceService 等服务
+5、在 MQClientInstance 客户端实例中注册当前消费者，并启动 MQClientInstance。
+
+MQClientInstance#start 还会启动 MQClientAPIImpl，PullMessageService，RebalanceService 等服务
 
 ```java
 // MQClientInstance#start
