@@ -797,15 +797,15 @@ Lock writeLock();
 
 > **可重入性**
 > 
-> ReentrantReadWriteLock 的读写锁都是可重入锁。写线程可以获得读锁，但反之则不能。如果占有了读锁，在获取写锁时需要先释放读锁。
-> 
-> 当写锁中调用或回调那些在读锁下进行读取的方法时，重入是有用的。换言之，占有写锁的同时可以重入读锁。
+> ReentrantReadWriteLock 的读写锁都是可重入锁。写线程可以获得读锁，反之则不能。如果占有了读锁，在获取写锁时需要先释放读锁。
 > 
 > 读锁和写锁最高支持 65535 次重入，超过抛出 Error
 
 > **锁降级**
-> 
-> 写锁可以通过获取读锁，降级为读锁。先获取写锁，再获取读锁，最后释放写锁，就完成降级。但是从读锁升级为写锁是不被允许的
+>
+> 写锁可以通过获取读锁，降级为读锁。先获取写锁，再获取读锁，最后释放写锁，就完成降级。但是**从读锁升级为写锁是不被允许的**。
+>
+> 写锁降级读锁：持有写锁 –> 获取读锁 –> 释放写锁 –> 最后释放读锁
 
 > **锁获取过程中断**
 > 
@@ -1402,10 +1402,12 @@ public ReentrantReadWriteLock.ReadLock  readLock()  { return readerLock; }
 > 同样的，StampedLock 提供了 tryXXX 方法，这些方法不遵循公平规则，只要锁处于空闲状态都会尝试去获取。StampedLock 没有内置的等待队列，而是通过尝试获取读锁或写锁来实现并发控制，不支持 Condition
 
 > **可重入性**
-> 
-> StampedLock 不可重入，在使用 StampedLock 的时候，如果一个线程已经持有了写锁，则其它线程就不能获取读锁或者写锁，直到持有写锁的线程释放锁。如果一个线程已经持有了写锁，再次尝试获取写锁会导致死锁。如果一个线程已经持有了读锁，再次尝试获取写锁也会导致死锁。
-> 
+>
+> **StampedLock 不可重入**。在使用 StampedLock 的时候，如果一个线程已经持有了写锁，则其它线程就不能获取读锁或者写锁，直到持有写锁的线程释放锁。如果一个线程已经持有了写锁，再次尝试获取写锁会导致死锁。如果一个线程已经持有了读锁，再次尝试获取写锁也会导致死锁。
+>
 > 尽管可以将 stamp 作为参数传入 tryConvertToWriteLock 尝试进行锁的转换，但是重入是不被允许的。
+>
+> 因为重入后获取到的是新的 stamp，而 StampedLock  需要根据 stamp 判断锁的持有者，重入后的 stamp 和原来的 stamp 是不一致的。
 
 > **Stamp 取值**
 > 
@@ -2581,35 +2583,28 @@ void runTasks(List<Runnable> tasks) {
 }
 ```
 
-> ...
+…
+
+---
 
 <br>
 
 ## 并发集合
 
-### ConcurrentHashMap
+* ConcurrentHashMap
 
-### CopyOnWriteArrayList
+* CopyOnWriteArrayList
 
-### ConcurrentSkipListMap
+* ConcurrentSkipListMap
 
-### ConcurrentSkipListSet
+*  ConcurrentSkipListSet
 
+…
+
+---
 
 <br>
 
 ## Atomic
 
-### AtomicInteger
-
-### AtomicLong
-
-### AtomicReference
-
-### AtomicReferenceArray
-
-### AtomicStampedReference
-
-### DoubleAdder
-
-### LongAdder
+…
