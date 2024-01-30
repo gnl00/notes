@@ -499,6 +499,16 @@ Spring 的 IOC 容器中存在多种不同生命周期的 bean：singleton、pro
 
 ---
 
+### 依赖循环
+
+* [三级缓存解决依赖循环](https://developer.aliyun.com/article/766880)
+* [Spring 如何解决循环依赖](https://segmentfault.com/a/1190000039091691)
+* [解决 Spring 循环依赖](https://www.skjava.com/article/1377399227)
+
+…
+
+---
+
 <br>
 
 ## AOP
