@@ -499,6 +499,17 @@ Spring 的 IOC 容器中存在多种不同生命周期的 bean：singleton、pro
 
 ---
 
+### BeanFactory 与 FactoryBean
+
+从名字上可以看出：
+
+* BeanFactory 保存了一系列的 Bean 定义，是用来创建 Bean 的工厂，实际上 Spring 的 IOC 容器就是 BeanFactory 的实现。
+* FactoryBean 是一个特殊的 Bean，它本身是一个 Bean，并且能以工厂模式来创建出其他指定的 Bean。想要获取到 BeanFactory 本身需要加上一个 “&” 前缀，以 `getBeanByName("&" + beanName)` 的形式来获取。
+
+…
+
+---
+
 ### 依赖循环
 
 * [三级缓存解决依赖循环](https://developer.aliyun.com/article/766880)
@@ -810,6 +821,24 @@ Spring 事务只会在遇到运行时异常和未受检查异常时会滚，也�
 5、Spring 事务 `rollback` 策略默认是 `RuntimeException` 及其子类和 `Error` 及其之类，其他情况如果未提前定义则事务失效；
 
 6、数据库不支持事务。
+
+…
+
+---
+
+<br>
+
+## 资源加载
+
+Spring 通过  spring-core 模块下面的 `org.springframework.core.io` 包来获取配置文件，包含核心接口 Resource 和 InputStreamSource。
+
+此外，Spring 还提供了多种实现，如 `ClassPathResource`、`FileSystemResource` 和 `UrlResource` 等。
+
+Spring 提供了 `ResourceLoader` 接口，该接口在应用上下文中广泛使用，以便加载资源。`ResourceLoader` 的默认实现是 `DefaultResourceLoader`，它基于 `Resource` 接口实现了资源加载功能。
+
+PlaceholderConfigurerSupport 和 PropertySourcesPlaceholderConfigurer 处理配置文件中出现的占位符。
+
+> PropertySourcesPlaceholderConfigurer 在 Spring 5.2 后才出现，此前使用的是 PropertyPlaceholderConfigurer。
 
 
 
