@@ -303,6 +303,32 @@ show variables like '%long_query_time%';
 
 …
 
+**开启 binlog**
+
+```
+#第一种方式:
+#开启binlog日志
+log_bin=ON
+#binlog日志的基本文件名
+log_bin_basename=/var/lib/mysql/mysql-bin
+#binlog文件的索引文件，管理所有binlog文件
+log_bin_index=/var/lib/mysql/mysql-bin.index
+#配置serverid
+server-id=1
+
+#第二种方式:
+#此一行等同于上面log_bin三行
+log-bin=/var/lib/mysql/mysql-bin
+#配置serverid
+server-id=1
+```
+
+> * [开启 binlog&三种 binlog 格式对比](https://www.jianshu.com/p/8e7e288c41b1)
+> * [binlog 详解](https://www.zsythink.net/archives/1286)
+> * [binlog 删除](https://www.jianshu.com/p/2de9f8529b44)
+
+…
+
 > [MySQL 日志与备份](https://juejin.cn/post/7072904284643262501)
 
 …
@@ -310,6 +336,8 @@ show variables like '%long_query_time%';
 #### 配置文件
 
 用于存放 MySQL 所有的配置信息文件，比如 `my.cnf`、`my.ini`等。
+
+> 通常位于 /etc/my.cnf
 
 …
 
@@ -2273,9 +2301,10 @@ mysql> UNLOCK TABLES;
 
 2、从库有两个线程 I/O 线程和 SQL 线程。I/O 线程请求主库的 binlog，并将获取到的 binlog 日志写到 relaylog （中继日志）中。SQL 线程负责读取 relay log 中的内容并在从库上重放日志上的操作，从而保证主从数据库中数据的最终一致。
 
-> 同步流程、同步策略（同步复制、半同步复制、异步复制）。参考：
+> 同步流程、同步策略（异步复制、同步复制、半同步复制）。参考：
 >
 > * https://cloud.tencent.com/developer/article/1837795
+> * https://www.cnblogs.com/jimoer/p/14673646.html
 
 ---
 
@@ -2355,6 +2384,19 @@ mysql> UNLOCK TABLES;
 * 本地事务变成了**分布式事务**；
 * 由于记录被切分到不同的数据库和不同的数据表中，**多表关联**查询需要第三方工具辅助。
 * 跨库查询还会受到**网络**影响。
+
+…
+
+**分区和分片**
+
+* 数据库分片是在多台机器上存储大型数据库的过程。一台计算机或数据库服务器只能存储和处理有限数量的数据，数据库分片通过将数据拆分为更小的块（称为分片）并将其存储在多个数据库服务器上来克服此限制。
+* 分区是将数据库表拆分为多个组的过程。将表被分成不同的子集，但保存在一个数据库中。
+
+…
+
+## MySQL 配置详解
+
+[配置详解](https://open.alipay.com/portal/forum/post/147801025)
 
 …
 
