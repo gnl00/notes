@@ -428,13 +428,12 @@ Elasticsearch 把数据存放到一个或者多个索引中，索引就是相似
 
 <br>
 
-## 安装启动
+## 安装
 
-**Docker**
+**ES7**
 
 ```shell
 # es
-
 # 1、拉取镜像
 docker pull elasticsearch:7.6.2
 # 2、创建挂载的目录
@@ -461,7 +460,6 @@ docker run --name es --net esnet -p 9200:9200 -p 9300:9300 -e "discovery.type=si
 
 ```shell
 # kibana
-
 # 1、拉取镜像
 docker pull kibana:7.6.2
 
@@ -487,6 +485,62 @@ i18n.locale: "Zh-CN"
 
 # 5、访问页面
 # http://IP地址:5601/app/kibana
+```
+
+**ES8**
+
+> 按照[官方教程](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html)
+
+elastic 密码和 kibana token 初始化
+
+```shell
+# 获取新密码
+docker exec -it es /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic
+
+# 获取 token
+docker exec -it es /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+```
+
+关闭 https
+
+```yml
+# es8^ 需要访问 https://localhost:9200 按照官方教程输入账号密码
+# 可以在 elasticsearch.yml 配置中关闭 https 要求
+xpack.security.enabled: false
+```
+
+关闭 es 的 https 访问之后还需要修改 kibana 配置，`/usr/share/kibana/config/kibana.yml`
+
+```yml
+elasticsearch.hosts: ['http://host:9200']
+
+xpack.fleet.outputs: [{id: fleet-default-output, name: default, is_default: true, is_default_monitoring: true, type: elasticsearch, hosts: ['http://host:9200'], ca_trusted_fingerprint: 3768bd6bfa7bd9b3dbab4de7fcbb591e585a399fc77114e53fccc55849881e9a}]
+```
+
+重启 kibana
+
+<br>
+
+**测试数据集**
+
+下载并解压
+
+```shell
+curl -O https://download.elastic.co/demos/kibana/gettingstarted/8.x/shakespeare.json && \
+curl -O https://download.elastic.co/demos/kibana/gettingstarted/8.x/accounts.zip && \
+curl -O https://download.elastic.co/demos/kibana/gettingstarted/8.x/logs.jsonl.gz && \
+unzip accounts.zip && \
+gunzip logs.jsonl.gz
+```
+
+导入测试数据
+
+```shell
+# 首先修改配置文件，设置 xpack.security.enabled: false
+# 进入数据集下载的目录
+curl -u elastic:密码 -H 'Content-Type: application/x-ndjson' \
+-XPOST 'http://127.0.0.1:9200/shakespeare/_bulk?pretty' \
+--data-binary @shakespeare.json
 ```
 
 <br>
@@ -784,7 +838,12 @@ PUT /user/_mapping
 GET user/_mapping
 ```
 
+## IK 分词器
 
+* [下载](https://github.com/infinilabs/analysis-ik)
+* 复制到 /usr/share/elasticsearch/plugins
+* 重启 es
+* 查看插件列表 `bin/elasticsearch-plugin list`
 
 <br>
 

@@ -1491,7 +1491,11 @@ SpringFactoriesLoader 加载 spring.factories 可以看成是 Java SPI 的变种
 
 如果配置比较简单，可以将两个模块合并成一个。
 
+…
 
+### AutoConfigurationImportSelector#selectImports
+
+> [方法解析](https://juejin.cn/post/7006909137925701639)
 
 <br>
 
