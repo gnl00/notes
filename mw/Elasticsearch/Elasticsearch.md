@@ -491,6 +491,12 @@ i18n.locale: "Zh-CN"
 
 > 按照[官方教程](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html)
 
+更新内存限制
+
+```shell
+docker update --memory=4g es
+```
+
 elastic 密码和 kibana token 初始化
 
 ```shell
@@ -845,17 +851,112 @@ GET user/_mapping
 * 重启 es
 * 查看插件列表 `bin/elasticsearch-plugin list`
 
+…
+
+**生效测试**
+
+```json
+GET /_analyze
+{
+  "text": "中华人民共和国国歌",
+  "analyzer": "ik_smart"
+}
+```
+
+响应结果类似
+
+```json
+{
+  "tokens": [
+    {
+      "token": "中华人民共和国",
+      "start_offset": 0,
+      "end_offset": 7,
+      "type": "CN_WORD",
+      "position": 0
+    },
+    {
+      "token": "国歌",
+      "start_offset": 7,
+      "end_offset": 9,
+      "type": "CN_WORD",
+      "position": 1
+    }
+  ]
+}
+```
+
+创建 _mapping
+
+```json
+PUT /user/_mapping
+{
+  "properties": {
+      "name":{
+        "type": "text", # 可进行模糊查询
+        "index": true, # 默认 true
+        "analyzer": "ik_max_word" #全文索引才需设置，keyword 无需
+      },
+      "gender":{
+        "type": "keyword", # 必须全文匹配才有结果
+        "index": true
+      },
+      "tel":{
+        "type": "keyword",
+        "index": false # 当前字段不作为索引使用
+      }
+  }
+}
+```
+
+…
+
+<br>
+
+## es_rejected_execution_exception
+
+向 es 罐数据的时候如果设置的内存限制太小可能会遇到下面这个错误：
+
+```txt
+rejected execution of coordinating operation [coordinating_and_primary_bytes=0, replica_bytes=0, all_bytes=0, coordinating_operation_bytes=121067851, max_coordinating_and_primary_bytes=107374182]
+```
+
+有两种解决办法：
+
+1、给 es 分配更大的内存
+
+2、修改配置
+
+```yml
+indexing_pressure.memory.limit: 15% # 默认是 heap 内存的 10%，并且 es 官方不建议修改
+# 进一步了解可以搜索关键词 [es indexing-pressure、es indexing-pressure]
+```
+
+重启 es 即可。
+
+…
+
+<br>
+
+## must/should/filter
+
+[三者的区别](https://malaoshi.top/show_1IX1mBBF35cT.html)
+
+…
+
 <br>
 
 ## 集群
 
-> 单台 Elasticsearch 服务器提供服务，往往都有最大的负载能力，超过这个阈值，服务器性能就会大大降低甚至不可用。单点服务器存在以下问题
->
-> - 单台机器存储容量有限
-> - 单服务器容易出现单点故障，无法实现高可用
-> - 单服务的并发处理能力有限
+单台 Elasticsearch 服务器存在以下问题
 
-> 一个 Elasticsearch 集群有一个唯一的名字标识，集群默认名称为 elasticsearch。一个节点只能通过指定某个集群的名字，来加入集群
+- 单台机器存储容量有限
+- 单服务器容易出现单点故障，无法实现高可用
+- 单服务的并发处理能力有限
+
+…
+
+> 一个 Elasticsearch 集群有一个唯一的名字标识，集群默认名称为 elasticsearch。一个节点可以通过指定集群的名字，来加入对应的集群。
 
 
 
