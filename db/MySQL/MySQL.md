@@ -2408,6 +2408,17 @@ mysql> UNLOCK TABLES;
 
 …
 
+## MySQL 全文索引
+
+> 全局参数 ngram_token_size，这个参数的默认值为 2，表示分词最短长度为 2，也就意味着必须要有两个字符才能查询出结果。
+
+…
+
+* https://www.yiibai.com/mysql/ngram-full-text-parser.html
+* https://www.docs4dev.com/docs/zh/mysql/5.7/reference/fulltext-search-ngram.html
+
+…
+
 ---
 
 <br>
