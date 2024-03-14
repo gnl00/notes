@@ -2410,6 +2410,16 @@ mysql> UNLOCK TABLES;
 
 ## MySQL 全文索引
 
+> Ngram 是一种基于统计语言模型的算法。
+
+Ngram **基本思想**：是将文本里面的内容按照字节进行大小为 N 的滑动窗口操作，形成了长度是 N 的字节片段序列。每一个字节片段称为 gram，对所有 gram 的出现频度进行统计，并且按照事先设定好的阈值进行过滤，形成关键 gram 列表，也就是这个文本的向量特征空间，列表中的每一种 gram 就是一个特征向量维度。
+
+> 空间换时间的思路，初次生成关键词列表耗费时间也比较久
+
+该模型基于这样一种假设，第 N 个词的出现只与前面 N-1 个词相关，而与其它任何词都不相关，整句的概率就是各个词出现概率的乘积。
+
+这些概率可以通过直接从语料中统计 N 个词同时出现的次数得到。常用的是二元的Bi-Gram（二元语法）和三元的Tri-Gram（三元语法）。
+
 > 全局参数 ngram_token_size，这个参数的默认值为 2，表示分词最短长度为 2，也就意味着必须要有两个字符才能查询出结果。
 
 …
@@ -2448,3 +2458,5 @@ https://blog.csdn.net/wangfeijiu/article/details/112454405
 https://segmentfault.com/a/1190000021464570
 
 https://blog.csdn.net/SCUTJAY/article/details/104653599
+
+[Ngram 基本思想](https://mp.weixin.qq.com/s?__biz=MzI2NDY1MTA3OQ%3D%3D&chksm=eaa82d7edddfa4682a2ff4de9465d8d6fc99a6f925c3f018c0e77b6ee8f59406c687854648cf&idx=1&mid=2247484758&scene=21&sn=1fa663c5f8b85a82ef25f8453af88394#wechat_redirect)
