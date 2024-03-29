@@ -1432,6 +1432,10 @@ show variables like 'tx_isolation';
 
 ### 事务的实现
 
+[**原子性与隔离性**](https://juejin.cn/post/7336870259582386195)
+
+
+
 #### 读写锁
 
 读锁，又称共享锁；写锁，又称排他锁。
