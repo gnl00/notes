@@ -428,13 +428,12 @@ Elasticsearch 把数据存放到一个或者多个索引中，索引就是相似
 
 <br>
 
-## 安装启动
+## 安装
 
-**Docker**
+**ES7**
 
 ```shell
 # es
-
 # 1、拉取镜像
 docker pull elasticsearch:7.6.2
 # 2、创建挂载的目录
@@ -461,7 +460,6 @@ docker run --name es --net esnet -p 9200:9200 -p 9300:9300 -e "discovery.type=si
 
 ```shell
 # kibana
-
 # 1、拉取镜像
 docker pull kibana:7.6.2
 
@@ -487,6 +485,68 @@ i18n.locale: "Zh-CN"
 
 # 5、访问页面
 # http://IP地址:5601/app/kibana
+```
+
+**ES8**
+
+> 按照[官方教程](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html)
+
+更新内存限制
+
+```shell
+docker update --memory=4g es
+```
+
+elastic 密码和 kibana token 初始化
+
+```shell
+# 获取新密码
+docker exec -it es /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic
+
+# 获取 token
+docker exec -it es /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+```
+
+关闭 https
+
+```yml
+# es8^ 需要访问 https://localhost:9200 按照官方教程输入账号密码
+# 可以在 elasticsearch.yml 配置中关闭 https 要求
+xpack.security.enabled: false
+```
+
+关闭 es 的 https 访问之后还需要修改 kibana 配置，`/usr/share/kibana/config/kibana.yml`
+
+```yml
+elasticsearch.hosts: ['http://host:9200']
+
+xpack.fleet.outputs: [{id: fleet-default-output, name: default, is_default: true, is_default_monitoring: true, type: elasticsearch, hosts: ['http://host:9200'], ca_trusted_fingerprint: 3768bd6bfa7bd9b3dbab4de7fcbb591e585a399fc77114e53fccc55849881e9a}]
+```
+
+重启 kibana
+
+<br>
+
+**测试数据集**
+
+下载并解压
+
+```shell
+curl -O https://download.elastic.co/demos/kibana/gettingstarted/8.x/shakespeare.json && \
+curl -O https://download.elastic.co/demos/kibana/gettingstarted/8.x/accounts.zip && \
+curl -O https://download.elastic.co/demos/kibana/gettingstarted/8.x/logs.jsonl.gz && \
+unzip accounts.zip && \
+gunzip logs.jsonl.gz
+```
+
+导入测试数据
+
+```shell
+# 首先修改配置文件，设置 xpack.security.enabled: false
+# 进入数据集下载的目录
+curl -u elastic:密码 -H 'Content-Type: application/x-ndjson' \
+-XPOST 'http://127.0.0.1:9200/shakespeare/_bulk?pretty' \
+--data-binary @shakespeare.json
 ```
 
 <br>
@@ -706,6 +766,8 @@ GET phone/_search
 
 #### 高亮查询
 
+单字段
+
 ```json
 GET phone/_search
 {
@@ -721,6 +783,34 @@ GET phone/_search
   }
 }
 ```
+
+多字段
+
+```json
+GET phone/_search
+{
+	"query":{
+		"match":{
+			"name" : "小米"
+		}
+	},
+  "highlight": {
+    "require_field_match": "false", // 设置为 false
+    "fields": {
+      "title": {
+        "pre_tags": ["<strong>"],
+        "post_tags": ["</strong>"]
+      },
+      "name": {
+        "pre_tags": ["<strong>"],
+        "post_tags": ["</strong>"]
+      }
+    }
+  }
+}
+```
+
+> match 与 match phrase: https://zhuanlan.zhihu.com/p/142641300
 
 #### 聚合查询
 
@@ -784,19 +874,105 @@ PUT /user/_mapping
 GET user/_mapping
 ```
 
+## IK 分词器
 
+* [下载](https://github.com/infinilabs/analysis-ik)
+* 复制到 /usr/share/elasticsearch/plugins
+* 重启 es
+* 查看插件列表 `bin/elasticsearch-plugin list`
+
+…
+
+**生效测试**
+
+```json
+GET /_analyze
+{
+  "text": "中华人民共和国国歌",
+  "analyzer": "ik_smart"
+}
+```
+
+响应结果类似
+
+```json
+{
+  "tokens": [
+    {
+      "token": "中华人民共和国",
+      "start_offset": 0,
+      "end_offset": 7,
+      "type": "CN_WORD",
+      "position": 0
+    },
+    {
+      "token": "国歌",
+      "start_offset": 7,
+      "end_offset": 9,
+      "type": "CN_WORD",
+      "position": 1
+    }
+  ]
+}
+```
+
+创建 _mapping
+
+```json
+PUT /user/_mapping
+{
+  "properties": {
+      "name":{
+        "type": "text", # 可进行模糊查询
+        "index": true, # 默认 true
+        "analyzer": "ik_max_word" #全文索引才需设置，keyword 无需
+      },
+      "gender":{
+        "type": "keyword", # 必须全文匹配才有结果
+        "index": true
+      },
+      "tel":{
+        "type": "keyword",
+        "index": false # 当前字段不作为索引使用
+      }
+  }
+}
+```
+
+…
 
 <br>
 
-## 集群
+## es_rejected_execution_exception
 
-> 单台 Elasticsearch 服务器提供服务，往往都有最大的负载能力，超过这个阈值，服务器性能就会大大降低甚至不可用。单点服务器存在以下问题
->
-> - 单台机器存储容量有限
-> - 单服务器容易出现单点故障，无法实现高可用
-> - 单服务的并发处理能力有限
+向 es 罐数据的时候如果设置的内存限制太小可能会遇到下面这个错误：
 
-> 一个 Elasticsearch 集群有一个唯一的名字标识，集群默认名称为 elasticsearch。一个节点只能通过指定某个集群的名字，来加入集群
+```txt
+rejected execution of coordinating operation [coordinating_and_primary_bytes=0, replica_bytes=0, all_bytes=0, coordinating_operation_bytes=121067851, max_coordinating_and_primary_bytes=107374182]
+```
+
+有两种解决办法：
+
+1、给 es 分配更大的内存
+
+2、修改配置
+
+```yml
+indexing_pressure.memory.limit: 15% # 默认是 heap 内存的 10%，并且 es 官方不建议修改
+# 进一步了解可以搜索关键词 [es indexing-pressure、es indexing-pressure]
+```
+
+重启 es 即可。
+
+…
+
+<br>
+
+## must/should/filter
+
+[三者的区别](https://malaoshi.top/show_1IX1mBBF35cT.html)
+
+…
 
 
 
@@ -1362,20 +1538,34 @@ public class ServiceTest {
 }
 ```
 
-
+…
 
 <br>
 
-## 思考
+## 集群
 
-**Elasticsearch 的优化**
+单台 Elasticsearch 服务器存在以下问题
 
-Elasticsearch 个人使用得不是很频繁，暂时只能从以下几个方面出发：
+- 单台机器存储容量有限
+- 单服务器容易出现单点故障，无法实现高可用
+- 单服务的并发处理能力有限
+
+…
+
+> 一个 Elasticsearch 集群有一个唯一的名字标识，集群默认名称为 elasticsearch。一个节点可以通过指定集群的名字，来加入对应的集群。
+
+…
+
+<br>
+
+## 优化
+
+暂时从以下几个方面出发：
 
 * mapping，创建 index 的时候连带创建好对应的映射
 * 副本，大量读操作的情况下，通过增加副本量可以增加吞吐量，但副本数量不是越多越好，要视情况而定，可打开自适应副本
 
-
+…
 
 <br>
 

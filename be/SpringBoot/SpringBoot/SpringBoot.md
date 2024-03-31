@@ -1167,7 +1167,9 @@ public class MyApplicationReadyEventListener implements ApplicationListener<Appl
 > 如果想要在程序启动时自动注册监听器，可以在 `META-INF/spring.factories` 文件中添加事件监听器
 >
 > ```
-> org.springframework.context.ApplicationListener=com.example.MyListener
+> org.springframework.context.ApplicationListener=\
+> com.example.MyListener,\
+> com.example.MyListener2
 > ```
 
 …

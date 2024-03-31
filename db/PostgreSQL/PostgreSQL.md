@@ -1034,6 +1034,15 @@ EXPLAIN SELECT * FROM tenk1 WHERE unique1 = 42;
 
 ---
 
+## 行式存储与列式存储
+
+* [行式存储与列式存储](https://www.malaoshi.top/show_1IX3JJg7xEje.html)
+* [列数据压缩](https://www.infoq.cn/article/gypd17t6lh36k5wg4ssh)
+
+…
+
+---
+
 # 分区/分表/分库
 
 随着数据量的增长，不免会带来查询速度变慢的问题。这时候可能就会想到分区、分表与分库了。

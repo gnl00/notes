@@ -96,6 +96,14 @@ nohup sh bin/mqbroker -n NameServer-IP:9876 -c conf/broker.conf autoCreateTopicE
 tail -f ~/logs/rocketmqlogs/broker.log 
 ```
 
+> **生产环境强烈建议管理所有主题的生命周期，关闭 autoCreateTopicEnable 自动创建参数**，以避免生产集群出现大量无效主题，无法管理和回收，造成集群注册压力增大，影响生产集群的稳定性。
+
+4.5、通过 mqadmin 创建 Topic
+
+```shell
+sh bin/mqadmin updatetopic -n localhost:9876 -t TestTopic -c DefaultCluster
+```
+
 5、关闭服务
 
 ```sh

@@ -470,11 +470,11 @@ public final void setDaemon(boolean on) {}
 > 
 > 
 > 
-> 如果线程一直不终止，ThreadLocal 变量将会一直存放在 Thread#threadLocals 中。因此当一个 ThreadLocal 变量不再需要的时候，需要调用 ThreadLocal#remove 方法将其删除。
+> 如果线程一直不终止，ThreadLocal 变量将会一直存放在 Thread#threadLocals 中，可能会造成内存泄漏。因此当一个 ThreadLocal 变量不再需要的时候，需要调用 ThreadLocal#remove 方法将其删除。
 > 
 > 
 > 
-> 只要线程处于活跃状态，并且 ThreadLocal 实例可以被访问，每个线程都持有 ThreadLocal 变量副本的隐式引用；线程离开后，它所有的 ThreadLocal 实例的副本都会被作为垃圾回收（除非还存在对这些副本的其他引用）
+> 只要线程处于活跃状态，并且 ThreadLocal 实例可以被访问，每个线程都会持有 ThreadLocal 变量副本的隐式引用；线程离开后，它所有的 ThreadLocal 实例的副本都会被作为垃圾回收（除非还存在对这些副本的其他引用）
 
 ```java
 public class ThreadLocal<T>
