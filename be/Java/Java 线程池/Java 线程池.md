@@ -400,6 +400,14 @@ public class ThreadPoolExecutor extends AbstractExecutorService
 >
 > * FixedThreadPool 和 SingleThreadPool 工作队列最大长度为 Integer.MAX_VALUE，可能会堆积大量任务请求，导致 OOM
 > * CacheThreadPool 和 ScheduleThreadPool 允许创建的最大线程数量为 Integer.MAX_VALUE，可能会创建大量的线程，导致 OOM
+>
+> …
+>
+> 这里的 OOM 是哪个位置的 OOM 呢？
+>
+> 可以这样考虑：1、工作队列长度允许 Integer.MAX_VALUE 就会创建很多个队列元素对象；2、允许创建的最大线程数量为 Integer.MAX_VALUE 就会创建很多线程对象。
+>
+> 都是**创建**，所以指的应该是堆内存的 OOM。
 
 ```java
 // 一般根据 CPU 核心数设置 corePoolSize = Runtime.getRuntime().availableProcessors() * 2
