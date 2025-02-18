@@ -4,15 +4,15 @@
 
 …
 
-**为何需要多线程**
+**为何需要**
 
-为了提高性能和并发能力。多线程是指多个线程可以在同一时间内同时执行。多线程能够更充分地利用计算机的 CPU 和其他硬件资源，提高程序的执行效率和响应速度。
+为了提高性能和并发能力。多线程能够更充分地利用计算机的 CPU 和其他硬件资源，提高程序的执行效率和响应速度。
 
 …
 
-**存在的问题**
+**引发问题**
 
-CPU、内存、I/O 设备的读写速度差异极大，为合理利用 CPU 的高性能，平衡三者的速度差异，计算机体系结构、操作系统、编译程序都做出了贡献：
+CPU、内存、I/O 设备的读写速度差异极大。为合理利用 CPU 的高性能，平衡三者的速度差异，计算机体系结构、操作系统、编译程序都做出了贡献：
 
 1、CPU 增加缓存，以均衡与内存的速度差异。导致**可见性**问题。
 
@@ -21,7 +21,6 @@ CPU、内存、I/O 设备的读写速度差异极大，为合理利用 CPU 的�
 3、编译程序优化指令执行次序，使得缓存能够得到更加合理地利用。导致**有序性**问题。
 
 …
-
 
 > 可见性、原子性、有序性，称为**[并发三要素][1]**。如果多个线程对同一个共享数据进行访问，而且不采取同步操作，就可能会出现并发三要素中的问题，导致操作结果与期望不一致。
 
@@ -38,31 +37,26 @@ CPU、内存、I/O 设备的读写速度差异极大，为合理利用 CPU 的�
 ## 并发三要素
 ### 可见性
 
-每个线程有自己的本地内存，当一个线程修改了一个变量的值时，其他线程不一定能立即看到修改后的值。
+每个线程有自己的本地内存，当一个线程修改了一个变量的值时，其他线程不一定能立即看到修改后的值。例如下面的代码：
 
-> 例如下面的代码：
-> 
-> ```java
-> int i = 0; // 线程共享变量 i
-> i = 10; // 线程 1
-> j = i; // 线程 2
-> ```
-> 
-> 执行线程 1 的是 CPU1，执行线程 2 的是 CPU2。当线程 1 执行 `i = 10` 时，会先把 i 的初始值加载到 CPU1 的高速缓存中，赋值为 10。虽然在 CPU1 的高速缓存中 i 的值变为 10 了，当没有立即写回到主存。
-> 
-> 此时线程 2 执行 `j = i`，它会先去主存读取 i 的值并加载到 CPU2 的缓存当中，此时内存中 i 的值还是 0，那么 j 得到的值仍为 0，而不是 10。
-> 
-> 线程 1 对变量 i 修改了之后，线程 2 没有立即看到线程 1 修改的值，这就是可见性问题。
+```java
+int i = 0; // 线程共享变量 i
+i = 10; // 线程 1
+j = i; // 线程 2
+/*
+执行 线程1 的是 CPU1，执行 线程2 的是 CPU2。当 线程1 执行 `i = 10` 时，会先把 i 的初始值加载到 CPU1 的高速缓存中，赋值为 10。在 CPU1 的高速缓存中 i 的值变为 10 了，但`i = 10`没有立即写回到主存。
+此时 线程2 执行 `j = i`，它会先去主存读取 i 的值并加载到 CPU2 的缓存当中，此时内存中 i 的值还是 0，那么 j 得到的值仍为 0，而不是 10。
+线程1 对变量 i 修改了之后，线程2 没有立即看到 线程1 修改的值，这就是可见性问题。
+*/
+```
 
 <br>
 
-**如何解决？**
+**Java 保证可见性操作**
 
-1、在 Java 中可通过同步机制或者 `volatile` 变量来保证可见性。当一个共享变量被 volatile 修饰时，它会保证变量值更新后立即被写回主存。当其他线程读取时，会去内存中读取新值；普通的共享变量不能保证可见性，因为普通共享变量被修改之后，什么时候被写入主存是不确定的。其他线程去读取时，主存中的可能是旧值；
+1、在 Java 中可通过 `volatile` 变量来保证可见性。当一个共享变量被 volatile 修饰时，它会保证变量值更新后立即被写回主存。当其他线程读取时，会去内存中读取新值；普通共享变量不能保证可见性，因为普通共享变量被修改之后，什么时候被写入主存是不确定的。其他线程去读取时，主存中的可能是旧值；
 
 2、通过 `synchronized` 和 `Lock` 也能够保证可见性。 synchronized 和 Lock 能保证同一时刻只有一个线程获取到锁，并且在释放锁之前会把对变量的修改刷新到主存。
-
-
 
 <br>
 
@@ -70,9 +64,10 @@ CPU、内存、I/O 设备的读写速度差异极大，为合理利用 CPU 的�
 
 多线程环境下，多个线程同时修改同一个变量可能会产生竞争条件，导致一些操作只完成了一部分。保证原子性就是保证一个操作或者多个操作全部执行成功，或全部执行失败。
 
-> 比如从账户 A 向账户 B 转 1000 元，包括 2 个操作：从账户 A 减去 1000 元；往账户 B 加上 1000 元。
-> 
-> 如果这 2 个操作不具备原子性，就可能产生下面的问题：从账户 A 减去 1000 元之后操作突然中止，账户 B 没有收到转过来的 1000 元。
+```text
+比如从 账户A 向 账户B 转 1000 元，包括 2 个操作：从 账户A 减去 1000 元；往 账户B 加上 1000 元。
+如果这 2 个操作不具备原子性，就可能产生下面的问题：从 账户A 减去 1000 元之后操作突然中止，账户B 没有收到转过来的 1000 元。
+```
 
 <br>
 
@@ -81,10 +76,17 @@ CPU、内存、I/O 设备的读写速度差异极大，为合理利用 CPU 的�
 在 Java 中，对基本数据类型的变量的**读取和赋值**（必须是将数值赋值给变量才是原子操作）操作是原子性操作，这些操作是不可被中断的，要么执行成功，要么执行失败。
 
 ```java
-x = 10; // 直接将数值 10 赋值给 x，线程执行这个语句时会直接将 10 写入到工作内存中
+/*
+Java 保证单个赋值语句的原子性
+直接将数值 10 赋值给 x，线程执行这个语句时会直接将 10 写入到工作内存中
+*/
+x = 10; // Java 保证基本数据类型赋值操作的原子性
+x = someObject; // 将对象引用赋值给变量的操作是原子的
 
-// 包含 2 个操作，先读取 x 的值，再将 x 的值写入工作内存，
-// 虽然读取 x 的值以及将 x 的值写入工作内存这 2 个操作都是原子性操作，但是合起来不是原子性操作。
+/*
+包含 2 个操作，先读取 x 的值，再将 x 的值写入工作内存，
+虽然读取 x 的值以及将 x 的值写入工作内存这 2 个操作都是原子性操作，但是合起来不是原子性操作。
+*/
 y = x; 
 
 // 包括 3 个操作：读取 x 的值，再进行 x 加 1 操作，最后将新值写入工作内存
@@ -96,56 +98,49 @@ x = x + 1;
 
 <br>
 
-**如何解决**
+**Java 保证原子性操作**
 
 Java 内存模型（JMM）只保证基本读取和赋值是原子性操作，如果要实现更大范围的原子性操作，可以通过 synchronized 和 Lock 来实现。synchronized 和 Lock 能够保证任一时刻只有一个线程执行该代码块，从根源上解决原子性问题。
-
-
 
 <br>
 
 ### 有序性
 
-因为 CPU 和编译器为了提高性能可能会对指令进行重排，而重排后的指令执行顺序不一定与源代码中的顺序一致，需要使用 volatile 修饰变量或者 synchronized 来保证有序性。
+因为 CPU 和编译器为了提高性能可能会对指令进行重排，而重排后的指令执行顺序不一定与源代码中的顺序一致，需要使用 volatile 修饰变量或者 synchronized 来保证有序性。以下面的代码为例：
 
-> 以下面的代码为例：
-> 
-> ```java
-> int i = 0;
-> boolean flag = false; 
-> i = 1; // 1
-> flag = true; // 2
-> ```
-> 
-> 从顺序上看，语句 1 是在语句 2 前面的，但是 JVM 在执行这段代码时不保证语句 1 一定会在语句 2 前面执行。因为这里可能会发生**指令重排**（*Instruction Reorder*）。
+```java
+int i = 0;
+boolean flag = false;
+i = 1; // 1
+flag = true; // 2
+```
+
+从顺序上看，语句 1 是在语句 2 前面的，但是 JVM 在执行这段代码时不保证语句 1 一定会在语句 2 前面执行。因为这里可能会发生**指令重排**（*Instruction Reorder*）。
 
 <br>
 
-> 在程序执行时为了提高性能，编译器和处理器会对指令做重排序。重排序分三种类型：
->
-> 1. **编译器**优化的重排序。编译器在不改变单线程程序语义的前提下，重新调整语句的执行顺序；
->
-> 2. **处理器**指令的重排序。处理器重排（*Processor Reordering*）是计算机硬件层面的优化技术，主要用于提高指令级并行度（*Instruction-Level Parallelism*，ILP）。在处理器重排的情况下，处理器可能会改变指令的执行顺序。
->
->    处理器重排的优化效果显著，可以大大提高程序的性能和执行效率。但是，如果处理器重排不当，可能会导致各种问题，例如多线程程序中的数据竞争和算法中的异常行为等。
->
-> 3. **内存**系统的重排序。内存系统可能会对指令读写内存的顺序进行重排，例如为了避免读写阻塞、提高缓存命中率，对读写操作进行重排。
->
-> <br>
->
-> 从 Java 源代码到最终实际执行的指令序列，会分别经历下面三种重排序：
->
-> ```
-> │SourceCode│-->│1 Compiler│-->│2 CUP│-->│3 Memory│-->│FinalExecute│
-> ```
->
-> 上述的 1 属于编译器重排序，2 属于处理器重排序，3 属于内存系统重排序。这些重排序都可能会导致多线程程序出现内存可见性问题。
+在程序执行时为了提高性能，编译器和处理器会对指令做重排序。重排序分三种类型：
+
+1. **编译器**优化的重排序。编译器在不改变单线程程序语义的前提下，重新调整语句的执行顺序；
+
+2. **处理器**指令的重排序。处理器重排（*Processor Reordering*）是计算机硬件层面的优化技术，主要用于提高指令级并行度（*Instruction-Level Parallelism*，ILP）。在处理器重排的情况下，处理器可能会改变指令的执行顺序。
+
+处理器重排的优化效果显著，可以大大提高程序的性能和执行效率。但是，如果处理器重排不当，可能会导致各种问题，例如多线程程序中的数据竞争和算法中的异常行为等。
+
+3. **内存**系统的重排序。内存系统可能会对指令读写内存的顺序进行重排，例如为了避免读写阻塞、提高缓存命中率，对读写操作进行重排。
 
 <br>
 
+从 Java 源代码到最终实际执行的指令序列，会分别经历下面三种重排序：
+```
+│SourceCode│-->│1 Compiler│-->│2 CUP│-->│3 Memory│-->│FinalExecute│
+ ```
 
+上述的 1 属于编译器重排序，2 属于处理器重排序，3 属于内存系统重排序。这些重排序都可能会导致多线程程序出现内存可见性问题。
 
-**代码层面如何解决**
+<br>
+
+**Java 禁止指令重排操作**
 
 Java 可以通过 volatile 关键字来保证一定的有序性，volatile 关键字会禁止所修饰变量的指令重排序，来保证代码语句按照顺序执行。
 
@@ -156,10 +151,6 @@ Java 可以通过 volatile 关键字来保证一定的有序性，volatile 关�
 * 对于编译器重排序，JMM 的编译器重排序规则会禁止特定类型的编译器重排序（不是所有的编译器重排序都要禁止）；
 * 对于处理器指令重排序，JMM 的处理器重排序规则会要求 Java 编译器在生成指令序列时，插入特定类型的内存屏障指令（*Memory Barriers*/*Memory Fence*），通过内存屏障指令来禁止特定类型的处理器重排序（不是所有的处理器重排序都要禁止）；
 * 对于内存重排序，在 JVM 实现上，加锁的过程中使用到了内存屏障和缓存同步等技术，也避免了内存系统重排序的问题；还可以使用 `final` 关键字修饰的成员变量，一旦初始化后就不能被修改，这种不可变性保证了多线程环境下的安全性和稳定性，避免了内存系统重排序的问题。
-
-
-
-
 
 <br>
 
@@ -242,32 +233,36 @@ public enum State {
   
     RUNNABLE, // 可运行状态。线程正在 Java 虚拟机中执行，但可能正在等待来自操作系统的其他资源，例如处理器等资源。
   
-    // 阻塞状态 
-  	// 等待获取同步监视器锁，阻塞状态往往是无法进入同步方法/代码块
+    /*
+      阻塞状态
+      等待获取同步监视器锁，阻塞状态的线程是无法进入同步方法/代码块的
+     */
     BLOCKED,
-  
-    // 等待状态，处于等待状态的线程正在等待另一个线程执行特定操作。
-  	// 由于调用以下方法之一，线程处于等待状态。
-    // Object.wait with no timeout
-  	// Thread.join with no timeout
-  	// LockSupport.park
+
+    /*
+      等待状态，等待另一个线程执行特定操作，等待锁资源被释放。
+      调用以下方法之一，线程处于等待状态：
+      - Object.wait with no timeout
+      - Thread.join with no timeout
+      - LockSupport.park
+     */
     WAITING,
-  
-    // 具有指定等待时间的等待状态。 
-  	// 由于以指定的正等待时间调用以下方法之一，因此线程处于定时等待状态。
-    // Thread.sleep 
-  	// Object.wait with timeout
-  	// Thread.join with timeout
-  	// LockSupport.parkNanos 
-  	// LockSupport.parkUntil
+
+    /*
+      具有指定等待时间的等待状态。 
+      调用以下方法之一，线程处于定时等待状态：
+      - Thread.sleep
+      - Object.wait with timeout
+      - Thread.join with timeout
+      - LockSupport.parkNanos
+      - LockSupport.parkUntil
+     */
     TIMED_WAITING,
   
     // 终止状态
     TERMINATED;
 }
 ```
-
-
 
 **线程状态转换**
 
@@ -277,17 +272,15 @@ public enum State {
 
 ### Java 线程分类
 
-* **用户线程**，用户创建的普通线程；
+* **用户线程**，用户创建的普通线程，也叫非守护线程；
 
 * **守护线程**，为其他线程服务的线程，Java 的垃圾回收线程就是一个典型的守护线程。
 
-在 Java 中，**所有非守护线程都执行完毕后，无论有没有守护线程，虚拟机都会自动退出**。因此**守护线程不能持有任何需要关闭的资源**，例如文件操作等，因为虚拟机退出时，守护线程没有任何机会来关闭文件。将导致数据丢失。
+在 Java 中，**所有非守护线程都执行完毕后，无论有没有守护线程，虚拟机都会自动退出**。因此**守护线程不能持有任何需要关闭的资源**，例如文件操作。因为虚拟机退出时，守护线程没有任何机会来关闭文件。将导致数据丢失。
 
 <br>
 
 用户线程与守护线程的区别：守护线程和用户线程几乎每个方面都是相同的，**唯一的区别是 JVM 何时退出**。所有非守护线程都执行完毕后 ，虚拟机退出。
-
-
 
 <br>
 
@@ -303,8 +296,6 @@ public interface Runnable {
     public abstract void run();
 }
 ```
-
-
 
 <br>
 
@@ -330,8 +321,6 @@ public interface Runnable {
 class Thread implements Runnable
 ```
 
-
-
 > There are two ways to create a new thread of execution. One is to declare a class to be a subclass of Thread. This subclass should override the run method of class Thread. An instance of the subclass can then be allocated and started.
 > 
 > ```java
@@ -352,8 +341,6 @@ class Thread implements Runnable
 > t.start();
 > ```
 
-
-
 ##### 内部属性
 
 ```java
@@ -364,13 +351,12 @@ static {
     registerNatives();
 }
 
-
 private volatile String name; // 线程名
 private int priority; // 线程优先级
 
-// 主要用于线程转储和分析工具
-// 如 jstack、jmap、jconsole 等，这些工具需要使用这个属性来获取线程堆栈信息。
 /**
+ * 主要用于线程转储和分析工具，如 jstack、jmap、jconsole 等，这些工具需要使用这个属性来获取线程堆栈信息。
+ * 
  * 以下方法会使用到 eetop 属性来获取线程栈的栈顶：
  * Thread.dumpThreads()，native 方法，将当前虚拟机中所有线程的堆栈信息打印出来
  * Thread.getAllStackTraces()，返回一个包含所有活跃线程的堆栈跟踪信息的 Map 对象
@@ -383,11 +369,10 @@ private long eetop; // 表示线程的栈顶
  * 由 LockSupport.setBlocker 设置
  * 由 LockSupport.getBlocker 获取
  * 
- * 当一个线程由于调用 park 或 await 方法被阻塞时，会将 threadQ 设置为导致阻塞的对象
- * 当线程被 unpark 或 signal 方法唤醒时，会将 threadQ 重置为 null
+ * 当一个线程由于调用 park 或 await 方法被阻塞时，记录导致阻塞的对象
+ * 当线程被 unpark 或 signal 方法唤醒时，重置为 null
  */
 volatile Object parkBlocker; // 记录导致线程阻塞的对象
-private Thread threadQ;
 
 private long tid; // Thread ID
 
@@ -417,8 +402,6 @@ ThreadLocal.ThreadLocalMap threadLocals = null;
  */
 ThreadLocal.ThreadLocalMap inheritableThreadLocals = null;
 ```
-
-
 
 ##### 方法细节
 
@@ -460,19 +443,13 @@ public static void sleep(long millis, int nanos) throws InterruptedException {}
 public final void setDaemon(boolean on) {}
 ```
 
-
-
 <br>
 
 #### ThreadLocal
 
 > ThreadLocal 是除了加锁之外的一种保证线程安全的方法。使用 ThreadLocal 创建的变量只能被当前线程访问，其他线程则无法访问和修改。访问这个变量的每个线程都会在自己本地内存中保存有这个变量的一个副本，在实际多线程操作的时候，操作的是自己本地内存中的变量，从而规避了线程安全问题。
 > 
-> 
-> 
 > 如果线程一直不终止，ThreadLocal 变量将会一直存放在 Thread#threadLocals 中，可能会造成内存泄漏。因此当一个 ThreadLocal 变量不再需要的时候，需要调用 ThreadLocal#remove 方法将其删除。
-> 
-> 
 > 
 > 只要线程处于活跃状态，并且 ThreadLocal 实例可以被访问，每个线程都会持有 ThreadLocal 变量副本的隐式引用；线程离开后，它所有的 ThreadLocal 实例的副本都会被作为垃圾回收（除非还存在对这些副本的其他引用）
 
@@ -480,13 +457,12 @@ public final void setDaemon(boolean on) {}
 public class ThreadLocal<T>
 ```
 
-
-
 ##### 内部属性
 
 ```java
 // 为每个 ThreadLocal 对象生成一个唯一的 hash 值，用于在 ThreadLocalMap 中查找相应的 entry
 private final int threadLocalHashCode = nextHashCode(); // final 修饰的变量在编译期会被确定
+// ThreadLocal 在添加 K-V 的时候使用的是 nextHashCode() 方法计算下一个 K 的 hash 值，如果遇到哈希碰撞，则使用线性探测法来获取下一个可用的 hash 值。这是 ThreadLocal 类可以优化的一个点
 private static AtomicInteger nextHashCode = new AtomicInteger();
 private static final int HASH_INCREMENT = 0x61c88647;
 
@@ -499,8 +475,6 @@ static class ThreadLocalMap {} // 静态内部类 ThreadLocalMap
 // SuppliedThreadLocal 是一个帮助 ThreadLocal 设置默认值的扩展类
 static final class SuppliedThreadLocal<T> extends ThreadLocal<T> {}
 ```
-
-
 
 ##### 方法细节
 
@@ -560,8 +534,6 @@ public void remove() {
 }
 ```
 
-
-
 ##### How to use
 
 **Example 1**
@@ -600,8 +572,6 @@ public class ThreadLocalTest {
 }
 ```
 
-
-
 **Example 2**
 
 ```java
@@ -633,15 +603,13 @@ public class ThreadLocalTest {
 }
 ```
 
-
-
 <br>
 
 #### 线程协作方法
 
 ##### wait/notify/notifyAll
 
-* 定义在 Object 类中，只能用在同步方法或者同步控制块中使用，否则会在运行时抛出 IllegalMonitorStateExeception；
+* 定义在 Object 类中，**只能用在同步方法或者同步控制块中使用**，否则会在运行时抛出 IllegalMonitorStateExeception；
 * 线程调用 wait 会被挂起进入等待状态，其它线程可调用 notify/notifyAll 唤醒被挂起的线程。**如果有多个线程在等待，会唤醒优先级较高的线程**；
 * 使用 wait 挂起期间，线程会释放锁。如果没有释放锁，其它线程就无法进入对象的同步方法或者同步控制块中，就无法执行 notify/notifyAll 来唤醒挂起的线程，会造成死锁。
 
@@ -1395,8 +1363,6 @@ Java 中的重量级锁是一种传统的互斥锁，是一种阻塞锁。当一
 
 ---
 
-
-
 ### 锁的比较
 
 | 锁       | 优点                               | 缺点                                                         | 使用场景                   |
@@ -1408,8 +1374,6 @@ Java 中的重量级锁是一种传统的互斥锁，是一种阻塞锁。当一
 …
 
 ---
-
-
 
 ### 锁升级
 
@@ -1436,8 +1400,6 @@ Java 中的重量级锁是一种传统的互斥锁，是一种阻塞锁。当一
 …
 
 ---
-
-
 
 ### 锁优化
 

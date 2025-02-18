@@ -2,8 +2,6 @@
 
 > JUC 指的是 `java.util.concurrent` 包及其子包下用于并发场景的类
 
-
-
 ## 基础框架
 
 <br>
@@ -13,8 +11,7 @@
 > 线程独占的同步器，为锁和相关同步器的创建提供基础框架。
 
 ```java
-public abstract class AbstractOwnableSynchronizer
-    implements java.io.Serializable
+public abstract class AbstractOwnableSynchronizer implements java.io.Serializable
 ```
 
 **内部属性/方法**
@@ -41,15 +38,11 @@ protected final void setExclusiveOwnerThread(Thread thread) {
 > * 子类还可以维护除了 state 之外的其他变量，但是只有使用 getState/setState 和 compareAndSetState 方法更新 state 值才会被当作同步机制的实现逻辑，进行同步状态跟踪。
 > * 子类应该定义为非公开的内部辅助类，用于实现其封闭父类的同步属性。
 
-
-
 > **锁的两种模式**
 >
 > AQS 同时支持独占和共享模式，在不同模式下排队的线程使用的都是同一个 FIFO 队列，可以使用 isHeldExclusively 方法来检查当前线程是否独占有锁资源。
 >
 > 通常来说子类可以只实现两种模式中的一种，未实现的模式的方法不需要实现。子类也可以同时支持两种模式，如 ReadWriteLock。
-
-
 
 > **Condition**
 >
@@ -57,13 +50,9 @@ protected final void setExclusiveOwnerThread(Thread thread) {
 >
 > 可以使用 getState 获取到的 state 作为参数，根据 Condition 条件调用 release/acquire 方法释放或者重入锁资源。
 
-
-
 > **序列化与反序列化**
 >
 > 对 AQS 进行序列化操作会把 state 设置为 0，即无锁模式，线程等待队列不会进行序列化。需要自定义 readObject 方法，反序列化时将 state 和等待队列恢复。
-
-
 
 > **自定义同步器**
 >
@@ -79,15 +68,11 @@ protected final void setExclusiveOwnerThread(Thread thread) {
 >
 > 自定义实现时要求必须是内部线程安全的，并且调用流程应该是短暂，不阻塞的。重写这几个方法是使用 AQS 的唯一方法，因为除此之外的其他方法基本上都是 final 声明的，不可被重写。
 
-
-
 > **公平与非公平**
 >
 > * 虽然 AQS 同步机制的实现依赖于内部的 FIFO 队列，但它并不强制使用 FIFO 来获取锁资源
 > * 子类的实现为公平锁时，需要严格按照 FIFO 队列的要求来实现同步机制；子类的实现为非公平锁时，不需要按照 FIFO 要求实现同步机制。所以非公平模式下，新获取的线程可能会在其他被阻塞和排队的线程之前获取到锁
 > * 默认情况下（非公平模式），允许线程之间进行锁资源的争夺，此时吞吐量和可扩展性比较高。因为没获取到锁的线程会先进行自旋，并在自旋中尝试获取锁，自旋获取失败才会进入阻塞队列等待
-
-
 
 #### 内部类
 
@@ -115,8 +100,6 @@ protected final void setExclusiveOwnerThread(Thread thread) {
 static final class Node
 ```
 
-
-
 **内部属性**
 
 ```java
@@ -131,7 +114,6 @@ static final Node EXCLUSIVE = null;
  * CANCELLED
  * CONDITION
  * PROPAGATE
- *
  * 普通同步机制下默认值是 0；如果使用 condition 则默认值是 CONDITION = -2
  */
 volatile int waitStatus; // 
@@ -205,11 +187,11 @@ private static final long tailOffset;
 private static final long waitStatusOffset;
 private static final long nextOffset;
 
-/**
- * 与多线程相关属性的获取通常会使用 unsafe.objectFieldOffset 方法，因为多线程环境下，想要访问或者修
- * 改对象的属性值通常需要加锁来保证线程安全，而 unsafe.objectFieldOffset 方法可以直接获取某个属性值
- * 在内存上的偏移量，避免了对对象的加锁操作，可以提高程序的性能。
- */
+/*
+与多线程相关属性的获取通常会使用 unsafe.objectFieldOffset 方法，因为多线程环境下，想要访问或者修
+改对象的属性值通常需要加锁来保证线程安全，而 unsafe.objectFieldOffset 方法可以直接获取某个属性值
+在内存上的偏移量，避免了对对象的加锁操作，可以提高程序的性能。
+*/
 static {
     try {
         stateOffset = unsafe.objectFieldOffset
@@ -367,8 +349,6 @@ final boolean acquireQueued(final Node node, int arg) {
 }
 ```
 
-
-
 > 这篇[文章](https://mp.weixin.qq.com/s/hvku5GPxkfQ5GffLjiUAYw)中关于 AQS 节点切换图可以看看。
 
 <br>
@@ -441,8 +421,6 @@ public static void unpark(Thread thread) {
         UNSAFE.unpark(thread);
 }
 ```
-
-
 
 ### AbstractQueuedLongSynchronizer
 
@@ -2485,8 +2463,6 @@ public class CyclicBarrierTest {
     }
 }
 ```
-
-
 
 <br>
 
