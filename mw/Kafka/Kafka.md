@@ -710,34 +710,17 @@ IO 更应该需要考虑：
 
 ```java
 Properties props = new Properties();
-props.
-
-put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-props.
-
-put(ProducerConfig.ACKS_CONFIG, "all"); // ack 级别 all
-props.
-
-put(ProducerConfig.RETRIES_CONFIG, 1); // 重试次数
-props.
-
-put(ProducerConfig.LINGER_MS_CONFIG, 1); // 等待时间
+props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+props.put(ProducerConfig.ACKS_CONFIG, "all"); // ack 级别 all
+props.put(ProducerConfig.RETRIES_CONFIG, 1); // 重试次数
+props.put(ProducerConfig.LINGER_MS_CONFIG, 1); // 等待时间
 // 消息 k-v 序列化器
-props.
-
-put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-props.
-
-put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
 
 Producer<String, String> producer = new KafkaProducer<>(props);
-producer.
-
-send(new ProducerRecord<>("test-topic", "test-key",
-        "test-value"));
-        producer.
-
-close();
+producer.send(new ProducerRecord<>("test-topic", "test-key","test-value"));
+producer.close();
 ```
 
 …
@@ -749,25 +732,20 @@ close();
 Properties props = new Properties();
 // set props 设置生产者配置
 Producer<String, String> producer = new KafkaProducer<>(props);
-producer.
-
-send(new ProducerRecord<>("test-cb-topic", "test-key-"+i,
-        "callback-test-value-"+i), new
-
-Callback() {
-    // 回调函数，在 Producer 收到 ack 时调用
-    @Override
-    public void onCompletion (RecordMetadata metadata, Exception exception){
-        if (null == exception) {
-            System.out.println(metadata.toString());
-        } else {
-            exception.printStackTrace();
-        }
-    }
-});
-        producer.
-
-close();
+producer.send(
+    new ProducerRecord<>("test-cb-topic", "test-key-" + i, "callback-test-value-" + i), 
+    new Callback() {
+      // 回调函数，在 Producer 收到 ack 时调用
+      @Override
+      public void onCompletion (RecordMetadata metadata, Exception exception){
+          if (null == exception) {
+              System.out.println(metadata.toString());
+          } else {
+              exception.printStackTrace();
+          }
+      }
+    });
+producer.close();
 ```
 
 …
@@ -835,40 +813,26 @@ Intercetpor 的实现接口是 `ProducerInterceptor`，其定义的方法包括
 
 ```java
 Properties props = new Properties();
-props.
-
-put("bootstrap.servers","127.0.0.1:9092");
-props.
-
-put("group.id","aaa");
-props.
-
-put("enable.auto.commit","true"); // 自动提交 offset 功能
-props.
-
-put("auto.commit.interval.ms","1000"); // 自动提交 offset 时间间隔
-props.
-
-put("key.deserializer",
-            "org.apache.kafka.common.serialization.StringDeserializer");
-props.
-
-put("value.deserializer",
-            "org.apache.kafka.common.serialization.StringDeserializer");
+props.put("bootstrap.servers","127.0.0.1:9092");
+props.put("group.id","aaa");
+props.put("enable.auto.commit","true"); // 自动提交 offset 功能
+props.put("auto.commit.interval.ms","1000"); // 自动提交 offset 时间间隔
+props.put("key.deserializer",
+                  "org.apache.kafka.common.serialization.StringDeserializer");
+props.put("value.deserializer", 
+                  "org.apache.kafka.common.serialization.StringDeserializer");
 
 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
 
 // 设置订阅的 topic
-consumer.
-
-subscribe(Arrays.asList("test-topic"));
-        while(true){
-ConsumerRecords<String, String> records = consumer.poll(100);
-    for(
-ConsumerRecord<String, String> record :records){
-        // do something with record
-        }
-        }
+consumer.subscribe(Arrays.asList("test-topic"));
+while(true) {
+  ConsumerRecords<String, String> records = consumer.poll(100);
+  for (
+    ConsumerRecord<String, String> record :records){
+    // do something with record
+  }
+}
 ```
 
 …
@@ -889,12 +853,8 @@ Offset，以便恢复后继续消费。Offset 的维护是消费者必须考虑�
 public static final String AUTO_OFFSET_RESET_CONFIG = "auto.offset.reset";
 Properties props = new Properties();
 // ...
-props.
-
-put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-props.
-
-put("group.id","abcd");
+props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+props.put("group.id","abcd");
 
 // ...
 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
@@ -927,21 +887,17 @@ props.put("enable.auto.commit","false"); //关闭自动提交 offset
 
 // ...
 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
-consumer.
-
-subscribe(Arrays.asList("first-topic")); //消费者订阅主题
-        while(true){
-// 消费者拉取数据
-ConsumerRecords<String, String> records =
-        consumer.poll(100);
-  for(
-ConsumerRecord<String, String> record :records){
-        // handle message record
-        }
-        // 同步提交，当前线程会阻塞直到 offset 提交成功
-        consumer.
-
-commitSync();
+consumer.subscribe(Arrays.asList("first-topic")); //消费者订阅主题
+while(true) {
+  // 消费者拉取数据
+  ConsumerRecords<String, String> records =
+  consumer.poll(100);
+  for (
+    ConsumerRecord<String, String> record :records){
+    // handle message record
+  }
+  // 同步提交，当前线程会阻塞直到 offset 提交成功
+  consumer.commitSync();
 }
 ```
 
@@ -956,27 +912,23 @@ props.put("enable.auto.commit","false"); // 关闭自动提交 offset
 
 // ...
 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
-consumer.
-
-subscribe(Arrays.asList("first-topic")); // 消费者订阅主题
-        while(true){
-ConsumerRecords<String, String> records = consumer.poll(100); // 消费者拉取数据
+consumer.subscribe(Arrays.asList("first-topic")); // 消费者订阅主题
+while(true){
+  ConsumerRecords<String, String> records = consumer.poll(100); // 消费者拉取数据
   for(
-ConsumerRecord<String, String> record :records){
-        // handle message record
-        }
-        // 异步提交
-        consumer.
-
-commitAsync(new OffsetCommitCallback() {
+    ConsumerRecord<String, String> record :records){
+    // handle message record
+  }
+  // 异步提交
+  consumer.commitAsync(new OffsetCommitCallback() {
     @Override
-    public void onComplete (Map < TopicPartition, OffsetAndMetadata > offsets, Exception exception){
-        if (exception != null) {
-            System.err.println("Commit failed for" + offsets);
-        }
+    public void onComplete (Map < TopicPartition, OffsetAndMetadata > offsets, Exception exception) {
+      if (exception != null) {
+          System.err.println("Commit failed for" + offsets);
+      }
     }
-});
-        }
+  });
+}
 ```
 
 …
@@ -1039,8 +991,7 @@ public class CustomSaveOffset {
     }
 
     // 提交该消费者所有分区的 offset
-    private static void commitOffset(Map<TopicPartition, Long> currentOffset) {
-    }
+    private static void commitOffset(Map<TopicPartition, Long> currentOffset) {}
 }
 ```
 
