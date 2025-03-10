@@ -6,11 +6,7 @@ tag:
   - 后端
 ---
 
-
-
 # Spring
-
-
 
 ## IOC
 
@@ -20,9 +16,9 @@ tag:
 
 ### IOC 底层原理
 
-> xml 解析、工厂模式、反射
+> XML 解析、工厂模式、反射
 
-1、解析 xml 配置文件，创建配置的对象
+1、解析 XML 配置文件，创建配置的对象
 
 ```java
 <bean id="user" class="com.demo.bean.User"></bean>
@@ -52,7 +48,7 @@ BeanFactory 是 IOC 容器的基本实现，**是 Spring 内部使用的接口**
 BeanFactory bf = new ClassPathXmlApplicationContext("/spring-bean-context.xml");
 // 当获取容器中的对象时才会创建对象
 User user = bf.getBean("user", User.class);
-System.out.println(user.toString());
+System.out.println(user);
 ```
 
 …
@@ -64,7 +60,7 @@ ApplicationContext 是 BeanFactory 的子接口，提供更多更强大的功能
 ApplicationContext ac = new ClassPathXmlApplicationContext("/spring-bean-context.xml");
 // 获取容器中的对象
 User user = ac.getBean("user", User.class);
-System.out.println(user.toString());
+System.out.println(user);
 ```
 
 …
@@ -91,7 +87,7 @@ class：类全路径，通过全路径找到对应的类
 
 2、依赖注入/属性值注入（DI）
 
-① setter 注入
+① Setter 注入
 
 ```xml
 <bean id="user" class="com.demo.bean.User">
@@ -110,10 +106,10 @@ class：类全路径，通过全路径找到对应的类
     <property name="address" value="&lt;&gt;<<男>>">
     </property>
     
-    <!-- 对User对象的某个属性设置特殊值<<南宁>> -->
+    <!-- 对User对象的某个属性设置特殊值<<Beijing>> -->
     <property name="address">
         <!-- 把带特殊符号的内容写到CDATA -->
-    	<value><![CDATA[<<南宁>>]]></value>
+    	<value><![CDATA[<<Beijing>>]]></value>
     </property>
 </bean>
 ```

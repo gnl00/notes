@@ -2,8 +2,6 @@
 
 ## 前言
 
-
-
 <br>
 
 ### 特点
@@ -29,21 +27,15 @@
 
 5、[渐进式 Rehash](##渐进式哈希)
 
-
-
 <br>
 
 **Redis 与线程**
 
 > Redis 是一个 Key-Value 对的非关系型数据库，Redis 单线程主要是指网络 IO 和 KV 的读写是由一个主线程来完成的。但 Redis 的其他功能，比如说持久化、异步删除、集群数据同步，其实是开启了额外的线程来完成的。
 
-
-
 <br>
 
-## **常用命令**
-
-
+## 常用命令
 
 ```shell
 # 切换数据库0-15
@@ -97,15 +89,11 @@ sort list by it:* desc get it:*
 sort list by it:* desc get it:* store sorc:result
 ```
 
-
-
 <br>
 
 ## 内部结构
 
 > Redis 内部使用一个 `redisObject` 对象来表示所有的 key-value
-
-
 
 **redisObject 内部属性**
 
@@ -118,17 +106,13 @@ type=string，表示 value 存储的是一个普通字符串， encoding 可以�
 
 ![image-20210528110958956](./assets/image-20210528110958956.png)
 
-
-
 <br>
 
 ## 数据类型
 
 ### String
 
-> String 是 Redis 最基本的类型，String 类型是二进制安全的，意思是 Redis 的 String 类型可以包含任何数据，比如 jpg 图片或者序列化的对象。String 类型的值最大能存储 512M
-
-
+> String 是 Redis 最基本的类型。String 类型是二进制安全的，意思是 Redis 的 String 类型可以包含任何数据，比如 jpg 图片或者序列化的对象。String 类型的值最大能存储 512M
 
 **操作**
 
@@ -177,8 +161,6 @@ OK
 "baa"
 ```
 
-
-
 **String key设置约定**
 
 ```shell
@@ -187,15 +169,11 @@ OK
 user:id:1001:name aaa
 ```
 
-
-
 <br>
 
 ### List
 
 > 字符串列表，按照插入顺序排序，可以添加一个元素到列表的头部（左边）或者尾部（右边）。
-
-
 
 **实现方式**
 
@@ -222,8 +200,6 @@ typedef struct list {
     unsignedlong len;
 } list;
 ```
-
-
 
 **操作**
 
@@ -267,15 +243,11 @@ lrem key count value
 lset key index newValue
 ```
 
-
-
 <br>
 
 ### Hash
 
 > 键值对集合，适合存储对象。
-
-
 
 **数据结构**
 
@@ -290,8 +262,8 @@ typedef struct dictht {
 typedef struct dict {
     dictType *type;
     void *privdata;
-    dictht ht[2]; // 内部有两个 dictht 结构
-    long rehashidx; /* rehashing not in progress if rehashidx == -1 */
+    dictht ht[2]; // 内部有两个 dictht 结构（rehash 的时候会用上两个 dictht）
+    long rehashidx; /* rehashing not in progress if rehashidx == -1, else rehashidx == 0 */
     unsigned long iterators; /* number of iterators currently running */
 } dict;
 
@@ -306,8 +278,6 @@ typedef struct dictEntry {
     struct dictEntry *next; // 指向下个哈希表节点，形成链表
 } dictEntry;
 ```
-
-
 
 **操作**
 
@@ -351,51 +321,51 @@ hincrbyfloat key field
 hdel key field
 ```
 
-
-
 <br>
 
 #### 渐进式哈希
 
-> 在 Redis 中，键值对是由**字典（Dict）**保存的，而字典底层是通过**哈希表**来实现的。通过哈希表中的节点保存字典中的键值对。以 HashMap 为例，当发生哈希冲突时，会进行 Resize 的操作，Redis 也一样
+> 在 Redis 中，K-V 对是由**dict**保存的，dict 底层是通过**哈希表**来实现的，通过哈希表中的节点保存字典中的键值对。Java 中的 HashMap 容量不足的时候会进行 Resize 的操作，Redis 也一样。
 
-在 Redis 的具体实现中，使用**渐进式哈希（Rehash）**机制来**提高字典的缩放效率**，避免 Redis 对服务器性能造成影响。假如 Redis 中有大量的 key，一次性对全部的数据进行 Rehash，可能会导致 Redis 在一段时间内停止服务。在 Redis中，哈希表扩容需要维护两个哈希表，分别是 *哈希表 0* 和 *哈希表 1*。Rehash 过程需要将哈希表 0 里面的所有键值对 Redis 到哈希表 1 中。Rehash 动作是分多次、渐进式地完成的。
+在 Redis 的具体实现中，使用 **渐进式哈希（Rehash）** 机制来提高扩容/缩容效率。假如 Redis 中有大量的 key，一次性对全部的数据进行 Rehash 可能会导致 Redis 在一段时间内停止服务。在 Redis中，哈希表扩容需要维护两个哈希表，分别是 *哈希表0* 和 *哈希表1*。
+```c
+typedef struct dict {
+    dictType *type;
+    void *privdata;
+    dictht ht[2]; // 内部有两个 dictht 结构（分别是哈希表0/1）
+    long rehashidx;
+    unsigned long iterators;
+} dict;
+```
+Rehash 过程需要将 哈希表0 里面的所有键值对 Rehash 到 哈希表1 中。Rehash 过程是分多次、渐进式地完成的。
 
 * 扩容
 
-
-当 Redis 的哈希槽数量不足以存放当前的键值对数量时，需要扩容。扩容时，Redis 会创建容量为旧哈希槽两倍大小的新哈希槽，并将原有的键值对重新分布到新的哈希槽中。
+当 Redis 的哈希槽数量不足时扩容。扩容时 Redis 会创建容量为旧哈希表 2 倍大小的新哈希表，并将原有的键值对重新 Rehash 存放到新的哈希表中。
 
 * 缩小
 
-
-当 Redis 的哈希槽数量过多，但其中的某些哈希槽中没有键值对时，可以考虑缩容。缩容时，Redis 会合并一些相邻的哈希槽，并将其合并后的键值对重新分布到新的哈希槽中。
-
-
+当 Redis 空闲的哈希槽数量过多时，可以考虑缩容。缩容时，Redis 会合并一些相邻的哈希槽，并将其合并后的键值对重新 Rehash 保存到新的哈希槽中。
 
 <br>
 
 **Rehash 步骤**
 
-1、为哈希表 1 分配空间，且空间大小为哈希表 0 的两倍，让字典同时持有哈希表 0 和哈希表 1 两个哈希表
+1、为 哈希表1 分配空间，且空间大小为 哈希表0 的 2 倍，让字典同时持有 哈希表0 和 哈希表1 两个哈希表
 
 2、在字典中维持一个索引计数器变量 *rehashidx*（哈希表的下标），并将它的值设置为 0，表示 Rehash 工作正式开始
 
-3、在 Rehash 进行期间，每次对字典执行 CRUD 操作时，程序除了执行指定的操作以外，还会顺带将哈希表 0 在 *rehashidx* 索引上的键值对 Rehash，并放到哈希表 1。 当 Rehash 工作完成之后，程序将 rehashidx 属性的值加上 1
+3、在 Rehash 进行期间，每次对字典执行 CRUD 操作时，程序除了执行指定的操作以外，还会顺带将哈希表 0 在 *rehashidx* 索引上的键值对 Rehash，并放到哈希表 1。 当 Rehash 工作完成之后，将 rehashidx 属性的值加上 1
 
 4、随着字典操作的不断执行，哈希表 0 的所有键值对都会被 Rehash 至哈希表 1，这时程序将 *rehashidx* 属性的值设为 -1 ，表示 Rehash 操作已完成。
-
-
 
 <br>
 
 **Rehash 期间的 CRUD 操作**
 
-因为在进行渐进式 Rehash 的过程中，字典会同时使用哈希表 0 和哈希表 1 两个哈希表，所以在渐进式 Rehash 进行期间， **CRUD 操作会在两个哈希表上同时进行**。
+因为在进行渐进式 Rehash 的过程中，字典会同时使用 哈希表0 和 哈希表1 两个哈希表，所以在渐进式 Rehash 进行期间， **CRUD 操作会在两个哈希表上同时进行**。
 
-在渐进式 Rehash 执行期间，新添加到字典的键值对会被保存到哈希表 1，而哈希表 0 不再进行任何添加操作。这一措施保证哈希表 0 包含的键值对数量会只减不增，并随着 Rehash 操作的执行而最终变成空表。要在字典里面查找一个键的话，程序会先在哈希表 0 里面进行查找，如果没找到，就会到哈希表 1 中进行查找。
-
-
+在渐进式 Rehash 执行期间，新添加到字典的键值对会被保存到 哈希表1，而 哈希表0 不再进行任何添加操作。这一措施保证 哈希表0 包含的键值对数量会只减不增，并随着 Rehash 操作的执行而最终变成空表。Rehash 期间在字典里面查找一个 Key，程序会先在 哈希表0 里面进行查找，如果没找到，就会到 哈希表1 中进行查找。
 
 <br>
 
@@ -403,15 +373,11 @@ hdel key field
 
 渐进式哈希避免了 Redis 阻塞，但是需要分配一个新的哈希表，同时有两个哈希表在使用，会使内存使用量增加。如果当前 Redis 结点的内存占用量达到 *maxmemory*，会触发内存淘汰机制，导致大量的 Key 被驱逐。
 
-
-
 <br>
 
 ### Set
 
 > Set 是无序集合。集合是通过 hashtable 实现的
-
-
 
 **操作**
 
@@ -449,8 +415,6 @@ sunionstore destination key [ key ......]
 sdiffstore destination key [ key ......]
 ```
 
-
-
 <br>
 
 ### ZSet
@@ -458,8 +422,6 @@ sdiffstore destination key [ key ......]
 > ZSet 和 Set 一样是无重复元素集合，且插入是有序的，即自动排序。和 Set 相比，ZSet（Sorted Set）关联了一个 Double 类型权重的参数 Score，使得集合中的元素能够按照 Score 进行有序排列。Redis 正是通过 Score 来为集合中的成员进行从小到大的排序
 
 ZSet 的内部使用 HashMap 和跳跃表（SkipList）来保证数据的存储和有序。HashMap 存储的是成员与 Score 的映射；跳跃表里存放的是所有的成员，排序依据是 HashMap 里存的 Score。使用跳跃表的结构可以获得比较高的查找效率，并且在实现上比较简单
-
-
 
 **操作**
 
@@ -515,8 +477,6 @@ zunionstore destination key [ key ......]
 zdiffstore destination key [ key ......]
 ```
 
-
-
 <br>
 
 **跳跃表**
@@ -553,14 +513,10 @@ typedefstruct zskiplist {
 } zskiplist;
 ```
 
-
-
 关于排序问题，我们也很容易就想到 **红黑树/平衡树** 这样的**树形结构，为什么 Redis 不使用这样一些结构呢？**
 
 1. 性能考虑：在高并发的情况下，树形结构需要执行 rebalance 这样的可能涉及整棵树的操作，相对来说跳跃表的变化只涉及局部；
 2. 实现考虑：在复杂度与红黑树相同的情况下，跳跃表实现起来更简单。
-
-
 
 <br>
 
@@ -573,8 +529,6 @@ typedefstruct zskiplist {
 [Redis 数据结构——跳跃表](https://www.cnblogs.com/hunternet/p/11248192.html)
 
 [Redis 系列](https://juejin.cn/post/6991080701365846046)
-
-
 
 <br>
 
@@ -640,8 +594,6 @@ geohash key member [member. . .]
 [5]> geohash china:city hangzhou
 1) "wtmkpjyuph0"
 ```
-
-
 
 <br>
 

@@ -6,8 +6,6 @@ tag:
   - 后端
 ---
 
-
-
 # Spring 原理探析
 
 ## IOC
@@ -18,7 +16,38 @@ IOC 容器实际上是一个 Map
 
 ```java
 // org.springframework.beans.factory.support.DefaultSingletonBeanRegistry
-private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
+
+/** Cache of singleton objects: bean name to bean instance. */
+private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256); // 一级缓存，缓存已创建好的单例 Bean
+
+/** Cache of early singleton objects: bean name to bean instance. */
+private final Map<String, Object> earlySingletonObjects = new HashMap<>(16); // 二级缓存，缓存未初始化的单例 Bean
+
+/** Cache of singleton factories: bean name to ObjectFactory. */
+private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16); // 三级缓存，缓存创建目标 Bean 的工厂对象，用于创建目标 Bean
+
+// 从缓存获取单例 Bean 的核心方法流程如下
+// DefaultSingletonBeanRegistry#getSingleton
+@Nullable
+protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+    Object singletonObject = this.singletonObjects.get(beanName); // 先从一级缓存获取
+    if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+        synchronized (this.singletonObjects) {
+            singletonObject = this.earlySingletonObjects.get(beanName); // 一级缓存不存在，判断 isSingletonCurrentlyInCreation（存在循环依赖），从二级缓存中获取
+            if (singletonObject == null && allowEarlyReference) {
+                ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName); // 二级缓存中不存在，从三级缓存中获取到 Bean 工厂创建出未初始化的 Bean
+                if (singletonFactory != null) {
+                    singletonObject = singletonFactory.getObject();
+                    this.earlySingletonObjects.put(beanName, singletonObject);
+                    this.singletonFactories.remove(beanName);
+                }
+            }
+        }
+    }
+    return singletonObject;
+}
+// 缓存获取失败，创建 Bean 核心流程如下（后面再解析）
+// org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#doCreateBean
 ```
 
 …
@@ -348,18 +377,17 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
   // 后置处理器锁
   // ...
 
-  // 非懒加载单例 bean 设置：允许循环引用，并加入 SingletonFactory
+  // 提前将 singletonBeanFactory 缓存，解决循环引用，addSingletonFactory 内部需要关注的就是 this.singletonFactories.put(beanName, singletonFactory)
   // Eagerly cache singletons to be able to resolve circular references
   // even when triggered by lifecycle interfaces like BeanFactoryAware.
   boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
                                     isSingletonCurrentlyInCreation(beanName));
   if (earlySingletonExposure) {
-    // 为解决潜在的循环引用，急切将 bean 缓存
-    // ...
+    // 解决潜在的循环引用
     addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
   }
 
-  // Initialize the bean instance. // 初始化 bean 实例
+  // Initialize the bean instance. // 下面开始初始化 bean 实例
   Object exposedObject = bean;
   try {
     populateBean(beanName, mbd, instanceWrapper); // 填充 bean 属性
@@ -418,9 +446,9 @@ private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256
 public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
   // Bean name must not be null
   synchronized (this.singletonObjects) { // 保证单例 bean 唯一
-    Object singletonObject = this.singletonObjects.get(beanName); // 先从缓存中获取
+    Object singletonObject = this.singletonObjects.get(beanName); // 先从一级缓存中获取
     
-    // 如果缓存中为 null 且当前 bean 处于被销毁的阶段，throw new BeanCreationNotAllowedException
+    // 如果一级缓存中为 null 且当前 bean 处于被销毁的阶段，throw new BeanCreationNotAllowedException
     if (singletonObject == null) {
       
       // if (this.singletonsCurrentlyInDestruction) // throw BeanCreationNotAllowedException

@@ -676,6 +676,20 @@ IO 更应该需要考虑：
 
 <br>
 
+## 经典三问
+
+> 有序消费、丟失、重复
+> 
+> https://www.cnblogs.com/coderacademy/p/18082553
+> 
+> https://www.cnblogs.com/yisany/p/14736360.html
+
+...
+
+---
+
+<br>
+
 ## Zookeeper 的作用
 
 > Kafka 集群中有一个 Broker 会被选举为 Controller，负责管理集群 Broker 的上下线，所有 Topic 的分区副本分配和 Leader
