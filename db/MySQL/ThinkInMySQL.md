@@ -349,8 +349,6 @@ TRACE: {
 
 如果是查询为主的场景，还可以引入 Elasticsearch 搜索引擎，将从 MySQL 获取数据改成从 Elasticsearch 获取数据。
 
-
-
 <br>
 
 **总结**
@@ -361,11 +359,7 @@ TRACE: {
 >
 > 实事求是，具体问题具体分析。
 
-
-
 > [MySQL 优化思路](https://smartan123.github.io/book/?file=001-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/002-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/0022-mysql%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)
-
-
 
 <br>
 

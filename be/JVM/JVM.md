@@ -594,7 +594,7 @@ Java 8 的元空间并不在虚拟机堆内存中，而是在本机的物理内�
 
 <br>
 
-HotSpot 虚拟机中采用的是第 2 种方式，被称为 **TLAB 分配**（*Thread Local Allocation Buffer*），这部分 Buffer 是从堆中划分出来的，是**本地线程独享**的。虽然说 TLAB 是线程独享的，但只是在“分配”这个动作上是线程独占的。至于在读取、垃圾回收等动作上都是线程共享的，而且在使用上也没有什么区别。
+HotSpot 虚拟机中采用的是第 2 种方式，被称为 **TLAB 分配**（*Thread Local Allocation Buffer*），这部分 Buffer 是从堆中划分出来的，是**本地线程独享**的。TLAB 是一块很小的区域，属于 Eden 区。虽然说 TLAB 是线程独享的，但只是在“分配”这个动作上是线程独占的。至于在读取、垃圾回收等动作上都是线程共享的，而且在使用上也没有什么区别。
 
 TLAB 仅作用于新生代的伊甸区，是否使用 TLAB 是可以选择的，可以通过 `-XX:+/-UseTLAB` 参数来设置。
 
@@ -774,7 +774,7 @@ public static void main(String[] args) {
 
 标记清除算法分为标记和清除两个阶段，先**标记（Marking）出要回收的对象**，然后再统一回收/清除（Sweep）这些对象。
 
-程序在运行期间，若可用内存被耗尽，GC 线程就会被触发。将程序暂停，将要回收的对象标记，最终统一回收被标记的对象，完成标记清除工作后应用程序恢复运行。
+程序在运行期间，若可用内存被耗尽，GC 线程就会被触发。将程序暂停（STW，Stop The World），将要回收的对象标记，最终统一回收被标记的对象，完成标记清除工作后应用程序恢复运行。
 
 **优点**：不需要像复制算法一样消耗额外空间。
 
@@ -877,7 +877,7 @@ public static void main(String[] args) {
 
 <br>
 
-### **垃圾回收过程**
+### _垃圾回收过程_
 
 对象被判定是否可回收，需要经历两个阶段：
 
@@ -1054,7 +1054,39 @@ CMS（*Concurrent Mark Sweep*） 收集器是一种并发垃圾收集器，以�
 
 > 关于 G1 还可以看看[这篇文章](https://tech.meituan.com/2016/09/23/g1.html)。
 
+<br>
 
+## JDK 命令
+
+除了最常用的 `java -jar` 命令，还有其他一些比较实用的命令。
+
+* `jps`：查看当前正在运行的进程。
+* `jstack` 查询 JVM 运行栈信息
+* `jmap` 查看 JVM 运行堆信息
+* `jstat`：查看 JVM 的运行状态。`jstat -gc <pid>` 可以查看当前进程的 GC 信息。
+```shell
+> jstat -gc 1381999
+S0C         S1C         S0U         S1U          EC           EU           OC           OU          MC         MU       CCSC      CCSU     YGC     YGCT     FGC    FGCT     CGC    CGCT       GCT   
+0.0     24576.0         0.0     23925.7     155648.0      81920.0      40960.0      38444.0   103424.0   102838.1   12928.0   12674.0     18     0.289     0     0.000     8     0.036     0.326
+# S0C Survivor 0 区的容量（Capacity），单位为 KB
+# S1C Survivor 1 区的容量（Capacity），单位为 KB
+# S0U Survivor 0 区的使用量（Used），单位为 KB
+# EC Eden 区的容量（Capacity），单位为 KB
+# OC Old 区的容量（Capacity），单位为 KB
+# MC Metaspace 的容量（Capacity），单位为 KB
+# CCSC Compressed Class Space 的容量（Capacity），单位为 KB
+# YGC 年轻代 GC 次数
+# YGCT 年轻代 GC 耗时（Time），单位为秒
+# FGC Full GC 次数
+# FGCT Full GC 耗时（Time），单位为秒
+# CGC Concurrent GC（并发垃圾回收）的次数
+# CGCT Concurrent GC（并发垃圾回收）的耗时（Time），单位为秒
+# GCT 垃圾回收总耗时（Time），单位为秒
+
+# 观察 GC 状态，时长为 500ms，输出 20 次
+> jstat -gc 1381999 500 20
+```
+* ...
 
 <br>
 
@@ -1075,8 +1107,6 @@ CMS（*Concurrent Mark Sweep*） 收集器是一种并发垃圾收集器，以�
 -XX:+PrintGCDetails 打印 GC 细节
 
 > 这里有一篇[文章](https://help.aliyun.com/document_detail/148851.html)较为完整
-
-
 
 <br>
 

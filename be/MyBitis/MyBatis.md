@@ -99,11 +99,11 @@ SqlSessionFactory 和 SqlSession 是 MyBatis 的核心接口。
 
 **SqlSessionFactory**
 
-主要负责创建 SqlSession，SqlSessionFactory 有两个实现类：
+SqlSessionFactory 有两个实现类，主要负责创建 SqlSession。
 
 - DefaultSqlSessionFactory
 
- SqlSessionFactory 的默认实现类，这个类的实例是全局共享的，只会在首次调用时生成一个实例（单例模式），就一直存在直到应用关闭。
+ 默认实现类，这个类的实例是全局共享的，只会在首次调用时生成一个实例（单例模式），就一直存在直到应用关闭。
 
 - SqlSessionManager
 
@@ -526,7 +526,7 @@ MyBatis 允许在映射语句执行过程中的某一时刻进行拦截调用，
 @Intercepts({@Signature(
   type= Executor.class,
   method = "update",
-  args = {MappedStatement.class,Object.class})})
+  args = {MappedStatement.class, Object.class})})
 public class ExamplePlugin implements Interceptor {
   private Properties properties = new Properties();
 
@@ -571,7 +571,7 @@ public class ExamplePlugin implements Interceptor {
 下面是一段从 XML 配置文件创建 SqlSessionFactory 和 SqlSession 的代码：
 
 ```java
-String resource = "mybatis-config.xml";
+String resource = "classpath:mybatis-config.xml";
 // MyBatis 提供 Resources 工具类，包含获取配置资源的方法
 InputStream inputStream = Resources.getResourceAsStream(resource);
 SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);// 创建 SqlSession
@@ -669,7 +669,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
 
 上述创建流程比较简单，得到 SqlSession 之后就可以进行数据库操作了。SqlSession 接口中定义了关于数据库操作的 CRUD 方法、获取 Mapper 映射的方法和事务有关的方法。
 
-思考一下，我们在 XML 中编写一条 SQL，在 Java 的接口中编写一个方法就能完成对数据库的操作，这是如何完成的？**mapper 标签中的 SQL 如何与 Java 接口方法对应起来？**接着往下看。
+思考一下，我们在 XML 中编写一条 SQL，在 Java 的接口中编写一个方法就能完成对数据库的操作，这是如何完成的？**mapper 标签中的 SQL 如何与 Java 接口方法对应起来**？接着往下看。
 
 …
 
@@ -894,7 +894,7 @@ public final class MappedStatement {
 > MyBatis 的主要接口，定义了 SQL 执行、Mapper 映射获取、事务管理等方法。
 
 ```java
-public interface SqlSession extends Closeable
+public interface SqlSession extends Closeable {}
 ```
 
 **内部方法**
