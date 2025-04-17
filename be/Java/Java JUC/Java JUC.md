@@ -350,6 +350,7 @@ final boolean acquireQueued(final Node node, int arg) {
 ```
 
 > 这篇[文章](https://mp.weixin.qq.com/s/hvku5GPxkfQ5GffLjiUAYw)中关于 AQS 节点切换图可以看看。
+> 这篇[文章](https://juejin.cn/post/6883824117775073294)中关于 AQS 节点等待获取锁可以看看。
 
 <br>
 

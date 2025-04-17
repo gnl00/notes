@@ -1018,7 +1018,7 @@ CMS（*Concurrent Mark Sweep*） 收集器是一种并发垃圾收集器，以�
 
 #### G1
 
-从 Java 7 开始使用，作为 CMS 的长期替代。G1 收集器是一个并行的、并发的、增量压缩的低暂停垃圾收集器，是一种面向服务端应用的垃圾收集器。它将堆内存划分为多个独立的区域，并且每个区域的大小相同，可以根据垃圾的分布情况，优先收集垃圾最多的区域。
+从 Java 7 开始使用，作为 CMS 的长期替代。G1 收集器是一个并行的、并发的、增量压缩的、低暂停垃圾收集器，是一种面向服务端应用的垃圾收集器。它将堆内存划分为多个独立的区域，并且每个区域的大小相同，可以根据垃圾的分布情况，优先收集垃圾最多的区域。
 
 <br>
 
@@ -1052,7 +1052,14 @@ CMS（*Concurrent Mark Sweep*） 收集器是一种并发垃圾收集器，以�
 
 <br>
 
-> 关于 G1 还可以看看[这篇文章](https://tech.meituan.com/2016/09/23/g1.html)。
+> 关于 G1 还可以看看[这篇文章1](https://tech.meituan.com/2016/09/23/g1.html)。
+> 关于 G1 还可以看看[这篇文章2](https://developer.aliyun.com/article/1502163)。
+> 关于 G1 还可以看看[这篇文章3](https://mp.weixin.qq.com/s/8vXENzg580R7F2iNjSdHFw)。
+
+<br>
+
+### ZGC
+> https://tech.meituan.com/2020/08/06/new-zgc-practice-in-meituan.html
 
 <br>
 
