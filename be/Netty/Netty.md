@@ -33,6 +33,7 @@ tag:
 >
 >   注意这里的并发连接和每秒请求数不同，虽然它们是相似的：每秒处理许多请求需要很高的吞吐量（快速处理它们），但是更大的数量并发连接需要高效的连接调度。
 >
+> * [零拷贝](https://mp.weixin.qq.com/s/kUkw-RoqLEEr1xuv2ex0FQ) 这里几张图很形象
 > * …
 
 <br>
@@ -1369,12 +1370,14 @@ public class GreenisChannelHandler extends ChannelDuplexHandler {
 
 ## 参考
 
-https://waylau.com/netty-4-user-guide
+* https://waylau.com/netty-4-user-guide
 
-https://waylau.com/essential-netty-in-action
+* https://waylau.com/essential-netty-in-action
 
-https://dongzl.github.io/netty-handbook
+* https://dongzl.github.io/netty-handbook
 
-https://mp.weixin.qq.com/s/zAh1yD5IfwuoYdrZ1tGf5Q
+* https://mp.weixin.qq.com/s/zAh1yD5IfwuoYdrZ1tGf5Q
 
-https://mp.weixin.qq.com/s/IuIsUtpiye13L8ZyHWvzXA
+* https://mp.weixin.qq.com/s/IuIsUtpiye13L8ZyHWvzXA
+
+* https://mp.weixin.qq.com/s/kUkw-RoqLEEr1xuv2ex0FQ
