@@ -534,6 +534,8 @@ public class FutureTask<V> implements RunnableFuture<V>
 
 ### CompletableFuture
 
+> [CompletableFuture原理与实践](https://tech.meituan.com/2022/05/12/principles-and-practices-of-completablefuture.html)
+
 > 一个明确会在将来完成的 Future。实现了 CompletionStage 接口，用于在异步任务进行时针对不同阶段进行不同操作。
 
 

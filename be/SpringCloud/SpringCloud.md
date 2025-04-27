@@ -2920,7 +2920,7 @@ Hystrix 存在问题
 
 ## Seata 处理分布式事务
 
-[[分布式事务-2PC 和 3PC 原理 ](https://www.cnblogs.com/qdhxhz/p/11167025.html)](https://www.cnblogs.com/qdhxhz/p/11167025.html)
+[分布式事务-2PC 和 3PC 原理 ](https://www.cnblogs.com/qdhxhz/p/11167025.html)
 
 [分布式事务之 2PC 和 3PC](https://blog.csdn.net/xiaomisolo/article/details/106631185)
 

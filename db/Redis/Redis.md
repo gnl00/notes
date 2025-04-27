@@ -1002,6 +1002,15 @@ Redis 会 fork 一个新进程来进行 AOF 重写操作（先写入临时文件
 **AOF 缺点**：对相同数据集的数据而言，AOF 文件要远大于 RDB 文件，恢复速度要慢于 RDB 文件。
 
 <br>
+> Since Redis 7.0.0, Redis uses a multi part AOF mechanism.
+
+从 Redis 7.0.0 开始，Redis 使用了 Multi Part AOF 机制。顾名思义，Multi Part AOF 就是将原来的单个 AOF 文件拆分成多个 AOF 文件。在 Multi Part AOF 中，AOF 文件被分为三种类型，分别为：
+
+* BASE：表示基础 AOF 文件，它一般由子进程通过重写产生，该文件最多只有一个。
+* INCR：表示增量 AOF 文件，它一般会在 AOF重写 开始执行时被创建，该文件可能存在多个。
+* HISTORY：表示历史 AOF 文件，它由 BASE 和 INCR AOF 变化而来，每次 AOF重写 成功完成时，本次 AOF重写 之前对应的 BASE 和 INCR AOF 都将变为 HISTORY，HISTORY 类型的 AOF 会被 Redis 自动删除。
+
+<br>
 
 ### 混合持久化
 
@@ -1013,7 +1022,7 @@ Redis 会 fork 一个新进程来进行 AOF 重写操作（先写入临时文件
 aof-use-rdb-preamble yes
 ```
 
-如果开启了混合持久化，AOF 在重写时不再是单纯将内存数据转换为 RESP 命令写入 AOF 文件，而是将重写这一刻之前的内存做 RDB 快照处理，并且将 RDB 快照内容和增量的 AOF 修改内存数据的命令存在一起，都写入新的 AOF 临时文件，重写完再对 aof 文件进行重命名，覆盖原有的 AOF 文件，完成新旧两个 AOF 文件的替换。
+如果开启了混合持久化，AOF 在重写时不再是单纯将内存数据转换为 RESP 命令写入 AOF 文件，而是将重写这一刻之前的内存做 RDB 快照处理，并且将 RDB 快照内容和增量的 AOF 修改内存数据的命令存在一起，都写入新的 AOF 临时文件，重写完再对 AOF 文件进行重命名，覆盖原有的 AOF 文件，完成新旧两个 AOF 文件的替换。
 
 在 Redis 重启的时候，可以**先加载 RDB 文件，再重放增量 AOF 日志**，就可以完全替代之前的 AOF 全量文件重放，重启效率得到提升并且数据完整性也得到保证。
 
@@ -1023,7 +1032,7 @@ aof-use-rdb-preamble yes
 
 ### 主从复制
 
-> 主机数据更新后根据配置和策略自动同步到备机的机制，Master 以写为主，Slave 以读为主，可以用作读写分离和容灾恢复。
+> 主机数据更新后根据配置和策略自动同步到备机的机制，master 以写为主，slave 以读为主，可以用作读写分离和容灾恢复。
 
 <br>
 
@@ -1067,9 +1076,9 @@ dbfilename dump端口号.rdb
 
 1. 命令行指定，每次与 master 断开之后，都需要重新连接
    
-   ```conf
+   ```shell
    # redis 客户端命令行
-   slaveOf 主机ip 主机port
+   slaveOf <master-ip> <master-port>
    ```
 
 2. 配置文件指定，在 `redis.conf` 中指定 master
@@ -1085,55 +1094,51 @@ info replication
 
 <br>
 
-**去中心化配置**（上一个 Slave 是下一个 Slave 的 Master）
+**去中心化配置**（上一个 slave 是下一个 slave 的 master）
 
-接力配置，Slave 同样可以接受其他 Slave 的连接和同步请求，中间的 Slave 作为链条中下一个 Slave的 Master，可以有效减轻 Master 的写压力。
+接力配置，slave 同样可以接受其他 slave 的连接和同步请求，中间的 slave 作为链条中下一个 Slave的 master，可以有效减轻 master 的写压力。
 
 > *注意*：中途变更两种不同的 master-slave 配置会清除之前的数据，重新建立拷贝最新的数据。
-
-
 
 配置步骤同一主多从，仅在 slaveOf 命令处有改动
 
 ```shell
-slaveOf 新主库ip 新主库port
+slaveOf <new-master-ip> <new-master-port>
 ```
 
 <br>
 
 **主从工作原理**
 
-1、为 Master 配置了一个 Slave 之后，不管这个 Slave 是否是第一次连接上 Master，它都会发送一个 `PSYNC` 命令给 Master 同步数据。
+1、为 master 配置了一个 slave 之后，不管这个 slave 是否是第一次连接上 master，它都会发送一个 `PSYNC` 命令给 master 同步数据。
 
-2、Master 收到 `PSYNC` 命令后，会在后台通过 `bgsave` 进行数据持久化，生成最新的 RDB 快照文件。持久化进行完毕以后，Master 会把持久化数据发给 Slave，Slave 接收到数据后加载到内存中。
+2、master 收到 `PSYNC` 命令后，会在后台通过 `bgsave` 进行数据持久化，生成最新的 RDB 快照文件。持久化进行完毕以后，master 会把持久化数据发给 slave，slave 接收到数据后加载到内存中。
 
-持久化期间，Master 会继续接收客户端的请求，它会把修改数据的请求缓存在内存中。最后 Master 再将之前缓存在内存中的命令发送给 Slave。
+持久化期间，master 会继续接收客户端的请求，它会把修改数据的请求缓存在内存中。最后 master 再将之前缓存在内存中的命令发送给 slave。
 
-3、当 Master 与 Slave 之间的连接由于某些原因而断开时，Slave 能够自动重连 Master，如果 Master 收到了多个 Slave 并发连接请求，它只会进行一次持久化，而不是一个连接一次，然后再把这一份持久化的数据发送给多个并发连接的 Slave
+3、当 master 与 slave 之间的连接由于某些原因而断开时，slave 能够自动重连 master，如果 master 收到了多个 slave 并发连接请求，它只会进行一次持久化，而不是一个连接一次，然后再把这一份持久化的数据发送给多个并发连接的 slave
 
-4、当 Master 和 Slave 断开重连后，一般都会对整份数据进行复制。从 Redis 2.8 开始，Master 和 Slave 断开重连后支持**部分复制**
+4、当 master 和 slave 断开重连后，一般都会对整份数据进行复制。从 Redis 2.8 开始，master 和 slave 断开重连后支持**部分复制**
 
 <br>
 
 **数据的复制**
 
-1、**全量复制**：Master 会在内存中创建一个**复制数据用的缓存队列**，缓存最近一段时间的数据。Master 和它的所有 Slave 都维护了复制的数据下标 offset 和 Master 的进程 id。当网络连接断开后，Slave 会请求 Master 继续进行未完成的复制，从所记录的数据下标开始。如果 Master 进程 id 变化了，或者从节点数据下标 offset 太旧，已经不在 Master 的缓存队列里了，将会进行一次全量数据的复制
+1、**全量复制**：master 会在内存中创建一个**复制数据用的缓存队列**，缓存最近一段时间的数据。master 和它的所有 slave 都维护了复制的数据下标 offset 和 master 的进程 id。当网络连接断开后，slave 会请求 master 继续进行未完成的复制，从所记录的数据下标开始。如果 master 进程 id 变化了，或者从节点数据下标 offset 太旧，已经不在 master 的缓存队列里了，将会进行一次全量数据的复制
 
-2、**增量复制**：Master 继续将新的所有收集到的修改命令一次传给 Slave，完成同步。但是只要是重新连接 Master，将会自动执行一次完全的同步（全量复制）
-
-
+2、**增量复制**：master 继续将新的所有收集到的修改命令一次传给 slave，完成同步。但是只要是重新连接 master，将会自动执行一次完全的同步（全量复制）
 
 <br>
 
 ### 哨兵模式
 
-> 哨兵（Sentinel）是特殊的 Redis 服务，**不提供读写服务，主要用来监控 Redis 实例节点**。能够后台监控主机是否故障，如果故障了根据投票数自动将从库转换为主库
+> 哨兵（Sentinel）是特殊的 Redis 服务，**不提供读写服务，主要用来监控 Redis 实例节点**。能够后台监控主机是否故障，如果故障了会使用投票机制根据投票数自动将从库转换为主库。
 
-哨兵架构下，客户端第一次从哨兵找到 Master 节点，后续就直接访问 Redis 的主节点，不会每次都通过哨兵访问  Master。当 Master 发生变化，哨兵会第一时间感知到，并且通知客户端
+哨兵架构下，客户端第一次从哨兵找到 master 节点，后续就直接访问 Redis 的主节点，不会每次都通过哨兵访问  master。当 master 发生变化，哨兵会第一时间感知到，并且通知客户端。
 
-在 Redis 3.0 以前要实现集群一般是借助 Sentinel 工具来监控 Master 节点的状态。<mark>如果 Master 节点异常，则会做主从切换，将某一台 Slave 作为 Master</mark>。
+在 Redis 3.0 以前要实现集群一般是借助 Sentinel 工具来监控 master 节点的状态。<mark>如果 master 节点异常，则会做主从切换，将某一台 slave 作为 master。</mark>
 
-哨兵的配置略微复杂，并且性能和高可用性等各方面表现一般，特别是在主从切换的瞬间存在访问瞬断的情况。而且哨兵模式只有一个主节点对外提供服务，没法支持很高的并发，且单个主节点内存也不宜设置得过大，否则会导致持久化文件过大，影响数据恢复或主从同步的效率
+哨兵的配置略微复杂，并且性能和高可用性等各方面表现一般，特别是在主从切换的瞬间存在访问瞬断的情况。而且哨兵模式只有一个主节点对外提供服务，没法支持很高的并发，且单个主节点内存也不宜设置得过大，否则会导致持久化文件过大，影响数据恢复或主从同步的效率。
 
 <br>
 
@@ -1143,10 +1148,10 @@ slaveOf 新主库ip 新主库port
 
 2. 自定义的 Redis 配置文件目录新建 `sentinel.conf` 文件
 
-3. 配置哨兵，一组 sentinel 能监控多个 Master
+3. 配置哨兵，一组 sentinel 能监控多个 master
    
    ```conf
-   # sentinel.conf 最后的数字 1 表示，主机挂掉后 Slave 投票，看谁得票多让谁接替成为主机
+   # sentinel.conf 最后的数字 1 表示，主机挂掉后 slave 投票，看谁得票多让谁接替成为主机
    sentinel minitor 被检控的主机名 主机ip 主机port 1
    ```
 
@@ -1157,115 +1162,108 @@ slaveOf 新主库ip 新主库port
    redis-sentinel /opt/redis/conf/sentinel.conf
    ```
 
-5. 注意，<mark>若是原 Master 宕机，就会从剩下的 Slave 中选出新的 Master。原 Master 重新启动之后不再是 Master，而是成为新 Master 的 Slave</mark>
+5. 注意，<mark>若是原 master 宕机，就会从剩下的 slave 中选出新的 master。原 master 重新启动之后不再是 master，而是成为新 master 的 slave。</mark>
 
 <br>
 
 **哨兵 Leader 选举流程**
 
-1、当一个 Sentinel 的 Master 服务被某 Sentinel 视为客观下线状态后，该 Sentinel 会与其他 Sentinel 协商选出 Sentinel 的 Leader 进行故障转移工作。
+1、当一个 Sentinel 的 Leader 服务被某 Sentinel 视为客观下线状态后，该 Sentinel 会与其他 Sentinel 协商选出 Sentinel 的 Leader 进行故障转移工作。
 
-2、每个发现 Master 服务器进入客观下线的 Sentinel 都可以要求其他 Sentinel 选自己为 Sentinel 的 Leader，选举是先到先得。同时每个 Sentinel 每次选举都会自增配置纪元（选举周期），每个周期只会选择一个Leader。
+2、每个发现 Leader 服务器进入客观下线的 Sentinel 都可以要求其他 Sentinel 选自己为 Sentinel 的 Leader，选举是先到先得。同时每个 Sentinel 每次选举都会自增配置纪元（选举周期），每个周期只会选择一个Leader。
 
-3、如果所有超过一半的 Sentinel 选举某 Sentinel 作为 Leader。之后该 Sentinel 进行故障转移操作，从存活的 Slave 中选举出新的 Master，这个选举过程跟集群的 Master 选举很类似
+3、如果所有超过一半的 Sentinel 选举某 Sentinel 作为 Leader。之后该 Sentinel 进行故障转移操作，从存活的 slave 中选举出新的 master，这个选举过程跟集群的 master 选举很类似。
 
-哨兵集群可以只有一个哨兵节点，Redis 的主从也能正常运行以及选举 Master，如果 Master 挂了，那唯一的那个哨兵节点就是哨兵 Leader 了，可以正常选举新 Master
+哨兵集群可以只有一个哨兵节点，Redis 的主从也能正常运行以及选举 master，如果 master 挂了，那唯一的那个哨兵节点就是哨兵 Leader 了，可以正常选举新 master。
 
-不过为了高可用一般都推荐至少部署三个哨兵节点。推荐奇数个哨兵节点原理跟集群奇数个 Master 节点类似
-
-
+不过为了高可用一般都推荐至少部署三个哨兵节点。推荐奇数个哨兵节点原理跟集群奇数个 master 节点类似。
 
 <br>
 
 ### Redis 集群
 
-> Redis 集群是一种**分布式去中心化的运行模式**，在 Redis 3.0 中推出 Redis 集群方案，它将数据分布在不同的服务器上，以此来降低系统对单主节点的依赖，从而提高 Redis 服务的读写性能，它具有复制、高可用和分片特性
+**分布式去中心化**
+
+Redis 集群是一种**分布式去中心化的运行模式**，在 Redis 3.0 中推出 Redis 集群方案。它将数据分布在不同的服务器上，以此来降低系统对单主节点的依赖，从而提高 Redis 服务的读写性能，它具有复制、高可用和分片特性。
+
+使用哨兵模式在数据上有副本数据做保证，在可用性上又有哨兵监控，一旦 master 宕机会选举 slave 节点为 slave 节点，这已经满足了我们的生产环境需要，**那为什么还需要使用集群模式呢？**
 
 <br>
 
-> 使用哨兵模式在数据上有副本数据做保证，在可用性上又有哨兵监控，一旦 Master 宕机会选举 Slave 节点为 Slave 节点，这已经满足了我们的生产环境需要，**那为什么还需要使用集群模式呢？**
->
-> **哨兵模式归根到底节点还是主从模式，在主从模式下我们可以通过增加 Slave 节点来扩展读并发能力，但是没办法扩展写能力和存储能力，存储能力只能是 Master 节点能够承载的上限。**<mark>为了扩展写能力和存储能力</mark>，引入集群模式
->
-> Redis 集群不需要哨兵也能完成节点移除和故障转移的功能。需要将每个节点设置成集群模式，这种集群模式没有中心节点，可水平扩展。**Redis 集群的性能和高可用性均优于哨兵模式，且配置非常简单**
+**为什么需要用集群模式**
+
+> _为了扩展写能力和存储能力_
+
+**哨兵模式归根到底节点还是主从模式**，在主从模式下我们可以通过增加 slave 节点来扩展读并发能力，但是没办法扩展写能力和存储能力，存储能力只能是 master 节点能够承载的上限。<mark>为了扩展写能力和存储能力</mark>，引入集群模式。
+
+Redis 集群不需要哨兵也能完成节点移除和故障转移的功能。需要将每个节点设置成集群模式，这种集群模式没有中心节点，可水平扩展。**Redis 集群的性能和高可用性均优于哨兵模式，且配置非常简单。**
 
 <br>
 
-> **Redis 集群在存储的时候如何确定选择哪个节点呢？**
->
-> Redis 集群采用的是**类一致性哈希算法**实现节点选择的。Redis 集群将所有数据分成 16384 个槽位（Slot），哈希槽类似于数据分区。每个节点负责其中一部分槽位，槽位的信息存储于每个节点中。
->
-> 当客户端连接集群时，它会得到一份集群的槽位配置信息，并将其缓存在客户端本地。当客户端要查找某个 key 时，可以直接定位到目标节点。因为槽位的信息可能会存在客户端与服务器不一致的情况，还需要纠正机制来实现槽位信息的校验调整。
+**Redis 集群在存储的时候如何确定选择哪个节点呢？**
+
+> 类一致性哈希算法
+
+Redis 集群采用的是**类一致性哈希算法**实现节点选择的。Redis 集群将所有数据分成 16384 个槽位（slot），哈希槽类似于数据分区。每个节点负责其中一部分槽位，槽位的信息存储于每个节点中。
+
+当客户端连接集群时，它会得到一份集群的槽位配置信息，并将其缓存在客户端本地。当客户端要查找某个 key 时，可以直接定位到目标节点。因为槽位的信息可能会存在客户端与服务器不一致的情况，还需要纠正机制来实现槽位信息的校验调整。
+
+**槽位定位算法**
+
+每个键值对都会根据它的 key，被映射到一个哈希槽中，具体执行过程分为两大步：
+- 根据键值对的 key，按照 CRC16 算法计算一个 16 bit 的值；
+- 再用 16 bit 值对 16384 取模，得到 `0 ~ 16383` 范围内的模数，每个模数代表一个相应编号的哈希槽，`HASH_SLOT = CRC16(key) mod 16384`。
+
+**槽位跳转重定位**
+
+当客户端向一个错误的节点发出了指令，该节点会发现指令的 key 所在的槽位并不归自己管理，这时它会向客户端发送一个特殊的跳转指令，并携带目标操作的节点地址，告诉客户端去连这个节点去获取数据。客户端收到指令后除了跳转到正确的节点上去操作，还会同步更新纠正本地的槽位映射表缓存，后续所有 key 将使用新的槽位映射表。
 
 <br>
 
-> **槽位定位算法**
->
-> 每个键值对都会根据它的 key，被映射到一个哈希槽中，具体执行过程分为两大步。
->
-> - 根据键值对的 key，按照 CRC16 算法计算一个 16 bit 的值。
-> - 再用 16 bit 值对 16384 取模，得到 `0 ~ 16383` 范围内的模数，每个模数代表一个相应编号的哈希槽，`HASH_SLOT = CRC16(key) mod 16384`
+**集群节点间通信机制**
 
+Redis 集群节点间采取 **`gossip` 协议**进行通信，维护集群的元数据有两种方式：<mark>集中式和`gossip`</mark>。
 
+- **集中式**优点在于元数据的更新和读取，时效性非常好，一旦元数据出现变更立即就会更新到集中式的存储中，其他节点读取的时候立即就可以立即感知到；不足在于所有的元数据的更新压力全部集中在一个地方，可能导致元数据的存储压力。
 
-**跳转重定位**
+- `gossip` 协议的优点在于元数据的更新比较分散，不是集中在一个地方，更新请求会陆陆续续，打到所有节点上去更新，**有一定的延时，降低了压力**；缺点在于元数据更新有延时可能导致集群的一些操作会有一些滞后。
 
-> 当客户端向一个错误的节点发出了指令，该节点会发现指令的 key 所在的槽位并不归自己管理，这时它会向客户端发送一个特殊的跳转指令携带目标操作的节点地址，告诉客户端去连这个节点去获取数据。客户端收到指令后除了跳转到正确的节点上去操作，还会同步更新纠正本地的槽位映射表缓存，后续所有 key 将使用新的槽位映射表。
+gossip 协议包含多种消息，包括 `ping/pong/meet/fail` 等：
 
-
-
-<br>
-
-**Redis 集群节点间的通信机制**
-
-Redis 集群节点间采取 **`gossip` 协议**进行通信，维护集群的元数据有两种方式：<mark>集中式和`gossip`</mark>
-
-1、**集中式**优点在于元数据的更新和读取，时效性非常好，一旦元数据出现变更立即就会更新到集中式的存储中，其他节点读取的时候立即就可以立即感知到；不足在于所有的元数据的更新压力全部集中在一个地方，可能导致元数据的存储压力
-
-2、`gossip` 协议的优点在于元数据的更新比较分散，不是集中在一个地方，更新请求会陆陆续续，打到所有节点上去更新，**有一定的延时，降低了压力**；缺点在于元数据更新有延时可能导致集群的一些操作会有一些滞后。
-
-gossip 协议包含多种消息，包括 `ping/pong/meet/fail` 等
-
-* `ping` 每个节点都会频繁给其他节点发送 `ping`，其中包含自己的状态以及维护的集群元数据
-* `pong` 返回 `ping` 和 `meet`，包含自己的状态和其他信息，也可以用于信息广播和更新
-* `fail` 某个节点判断另一个节点 `fail` 之后，就发送 `fail` 给其他节点，通知其他节点，指定的节点宕机
-* `meet` 某个节点发送 `meet` 给新加入的节点，让新节点加入集群中，然后新节点就会开始与其他节点进行通信，不需要发送形成网络的所需的所有 `CLUSTER MEET` 命令
-
-
-
-
+* `ping` 每个节点都会频繁给其他节点发送 `ping`，其中包含自己的状态以及维护的集群元数据。
+* `pong` 返回 `ping` 和 `meet`，包含自己的状态和其他信息，也可以用于信息广播和更新。
+* `fail` 某个节点判断另一个节点 `fail` 之后，就发送 `fail` 给其他节点，通知其他节点，指定的节点宕机。
+* `meet` 某个节点发送 `meet` 给新加入的节点，让新节点加入集群中，然后新节点就会开始与其他节点进行通信，不需要发送形成网络的所需的所有 `CLUSTER MEET` 命令。
 
 <br>
 
-**Redis 集群选举原理分析**
+**集群选举原理分析**
 
-当 Slave 发现自己的 Master 变为 `FAIL` 状态时，便尝试进行 Failover，以期成为新的 Master。由于挂掉的 Master 可能会有多个 Slave，从而存在多个 Slave 竞争成为 Master 节点的过程
+当 slave 发现自己的 master 变为 `FAIL` 状态时，便尝试进行 failover，以期成为新的 master。由于挂掉的 master 可能会有多个 slave，从而存在多个 slave 竞争成为 master 节点的过程
 
-1、Slave 发现自己的 Master 变为 `FAIL`
+1、slave 发现自己的 master 变为 `FAIL`
 
 2、将自己记录的集群 `currentEpoch` 加 1，并广播 `FAILOVER_AUTH_REQUEST` 信息
 
-3、其他节点收到该信息，只有 Master 响应，判断请求者的合法性，并发送 `FAILOVER_AUTH_ACK`，对每一个 epoch 只发送一次 ack
+3、其他节点收到该信息，只有 master 响应，判断请求者的合法性，并发送 `FAILOVER_AUTH_ACK`，对每一个 epoch 只发送一次 ack
 
-4、尝试 failover 的 Slave 收集 Master 返回的 `FAILOVER_AUTH_ACK`
+4、尝试 failover 的 slave 收集 master 返回的 `FAILOVER_AUTH_ACK`
 
-5、Slave 收到超过半数 Master 的 ack 后变成新 Master (集群为什么至少需要三个主节点？如果只有两个，当其中一个挂了，只剩一个主节点是不能选举成功的)
+5、slave 收到超过半数 master 的 ack 后变成新 master (集群为什么至少需要三个主节点？如果只有两个，当其中一个挂了，只剩一个主节点是不能选举成功的)
 
-6、Slave 广播 `pong` 消息通知其他集群节点
+6、slave 广播 `pong` 消息通知其他集群节点
 
-> Slave 节点并不是在 Master 节点一进入 `FAIL` 状态就马上尝试发起选举，而是有一定延迟。一定的延迟确保 `FAIL` 状态能在集群中传播。Slave 如果立即尝试选举，其它 Master 或许尚未意识到 `FAIL`状态，可能会拒绝投票
-
-
+> slave 节点并不是在 master 节点一进入 `FAIL` 状态就马上尝试发起选举，而是有一定延迟。一定的延迟确保 `FAIL` 状态能在集群中传播。slave 如果立即尝试选举，其它 master 或许尚未意识到 `FAIL`状态，可能会拒绝投票
 
 <br>
 
-**Redis 集群为什么至少需要三个 Master 节点，并且推荐节点数为奇数？**
+**集群节点数**
 
-因为新 Master 的选举需要大于半数的集群 Master 节点同意才能选举成功，如果只有两个 Master 节点，当其中一个挂了， 是达不到选举新 Master 的条件的。
+> 为什么至少需要三个 master 节点，并且推荐节点数为奇数？
 
-奇数个 Master 节点可以在满足选举该条件的基础上节省一个节点，比如三个 Master 节点和四个 Master 节点的集群相比：大家如果都挂了一个 Master 节点都能选举新 Master 节点，如果都挂了两个 Master 节点都没法选举新 Master 节点了，奇数的 Master 节点更多的是从节省机器资源角度出发
+因为新 master 的选举需要大于半数的集群 master 节点同意才能选举成功，如果只有两个 master 节点，当其中一个挂了， 是达不到选举新 master 的条件的。
 
-
+奇数个 master 节点可以在满足选举该条件的基础上节省一个节点，比如三个 master 节点和四个 master 节点的集群相比：大家如果都挂了一个 master 节点都能选举新 master 节点，如果都挂了两个 master 节点都没法选举新 master 节点了，奇数的 master 节点更多的是从节省机器资源角度出发。
 
 <br>
 
@@ -1275,17 +1273,13 @@ gossip 协议包含多种消息，包括 `ping/pong/meet/fail` 等
 
 稍作了解即可，生产中消息发布订阅交给MQ来处理
 
-
-
 <br>
 
 ## 缓存
 
-
-
 <br>
 
-### 缓存穿透
+### 缓存穿透(Cache Penetration)
 
 > 缓存穿透，指的是 key 值在**缓存和数据库中都不存在**，每次针对 key 的请求在缓存中不存在，请求都会到数据库，从而压垮数据库。
 
@@ -1295,11 +1289,9 @@ gossip 协议包含多种消息，包括 `ping/pong/meet/fail` 等
 2. **缓存空对象**，从缓存取不到的数据，在数据库中也没有取到，这时可以将 `key-value` 对写为`key-null`，缓存有效时间可以设置得短一点，如 30s（设置太长会导致正常情况也没法使用）。这样可以防止攻击用户反复用同一个 ID 暴力攻击
 3. **布隆过滤器**，将所有可能存在的数据哈希到一个足够大的 bitmap 中，一定不存在的数据会被会被这个 bitmap 拦截掉，从而减少了对底层存储系统的查询压力
 
-
-
 <br>
 
-### 缓存击穿
+### 缓存击穿(Hotspot Invalid)
 
 > 缓存击穿，指的是在**缓存过期后，有大量的请求并发的请求过期的键**，这时因为缓存已经过期，所有的请求都会发送到数据库中
 
@@ -1335,8 +1327,6 @@ public String getData(String key) {
 }
 ```
 
-
-
 <br>
 
 ### 缓存雪崩/缓存失效
@@ -1358,10 +1348,6 @@ public String getData(String key) {
 > **缓存标记**
 >
 > 记录缓存数据是否过期，如果过期会触发通知另外的线程在后台去更新缓存。将缓存数据的过期时间设置为缓存标记过期时间的二倍。当标记缓存 key 过期后，实际缓存还能把旧数据返回给调用端，直到另外的线程在后台更新完成，才会返回新缓存。
-
-
-
-
 
 <br>
 
@@ -1410,8 +1396,6 @@ Redis 可以设置内存的最大使用量 `maxmemory <bytes>`，内存使用到
 | allkeys-random                        | 当 `内存不足写入新数据` 时，淘汰 `随机选择` 数据           |
 | noeviction                            | 当 `内存不足写入新数据` 时，写入操作会报错，同时不删除数据 |
 
-
-
 <br>
 
 ## 分布式锁
@@ -1433,22 +1417,17 @@ Redis 可以设置内存的最大使用量 `maxmemory <bytes>`，内存使用到
 **MySQL 和 Redis 双写/读写不一致解决方案**
 
 1. 对于**并发几率很小**的数据（如个人维度的订单数据、用户数据等)，很少会发生缓存不一致，可以**给缓存数据加上过期时间**，每隔一段时间触发读的主动更新即可。
-
 2. **并发很高**，如果业务上**能容忍短时间的缓存数据不一致**（如商品名称，商品分类菜单等）**，缓存加上过期时间**依然可以解决大部分业务对于缓存的要求。
-
 3. 如果**不能容忍缓存数据不一致**，可以通过**加读写锁**保证并发读写或写写的时候按顺序排好队，读读的时候相当于无锁
+4. 也可以 **通过监听数据库的 binlog 日志**及时的去修改缓存（但是引入了新的中间件，增加了系统的复杂度）
 
-4. 也可以 **通过监听数据库的 binlog 日志**及时的去修改缓存，但是引入了新的中间件，增加了系统的复杂度
-
-   > 比如，阿里的 canal，工作原理就是**伪装成 MySQL Slave**，模拟 MySQL Slave 的交互协议向 MySQL Mater 发送 dump 请求，MySQL Mater 收到请求，推送 binary log 给 canal，canal 解析 binary log，再发送到存储目的地
+> 比如 阿里的 Canal，工作原理就是**伪装成 MySQL slave**，模拟 MySQL slave 的交互协议向 MySQL master 发送 dump 请求，MySQL master 收到请求，推送 binary log 给 canal，canal 解析 binary log，再发送到存储目的地
 
 以上针对的都是**读多写少**的情况加入缓存提高性能，如果**写多读多**的情况又不能容忍缓存数据不一致，那就没必要加缓存了，可以直接操作数据库。**放入缓存的数据应该是对实时性、一致性要求不是很高的数据。**
 
-
-
 <br>
 
-> 对于分布式应用，显然简单的读写锁是满足不了的，此时就需要用分布式锁来解决这个问题了。
+对于分布式应用，显然简单的读写锁是满足不了的，此时就需要用分布式锁来解决这个问题了。
 
 **分布式锁的特点**
 
@@ -1458,8 +1437,6 @@ Redis 可以设置内存的最大使用量 `maxmemory <bytes>`，内存使用到
 * 高性能和高可用：加锁和解锁需要高效，同时也需要保证高可用，防止分布式锁失效
 * 阻塞和非阻塞：能够及时从阻塞状态中被唤醒
 
-
-
 <br>
 
 ### 分布式锁实现
@@ -1467,8 +1444,6 @@ Redis 可以设置内存的最大使用量 `maxmemory <bytes>`，内存使用到
 > 4 种实现方式
 >
 > [基于Redis的分布式锁的实现](https://juejin.cn/post/6844903830442737671)
-
-
 
 #### 加锁的实现
 
@@ -1508,7 +1483,7 @@ public boolean tryLock_with_lua(String key, String UniqueId, int seconds) {
     values.add(UniqueId);
     values.add(String.valueOf(seconds));
     Object result = jedis.eval(lua_scripts, keys, values);
-    //判断是否成功
+    // 判断是否成功
     return result.equals(1L);
 }
 ```
@@ -1527,8 +1502,6 @@ public boolean tryLock_with_lua(String key, String UniqueId, int seconds) {
 SET key value [EX seconds] [PX milliseconds] [NX|XX]
 ```
 
-
-
 <br>
 
 #### 解锁的实现
@@ -1544,25 +1517,35 @@ public boolean releaseLock_with_lua(String key,String value) {
 }
 ```
 
-
-
-> ⚠ 使用 `set key value [EX seconds][PX milliseconds][NX|XX]` 命令实际上在 Redis 集群的时候也会出现问题，比如说 A 客户端在 Redis 的 master 节点上拿到了锁，但是这个加锁的 key 还没有同步到 slave 节点，master 故障，发生故障转移，一个 slave 节点升级为 master 节点，B 客户端也可以获取同个 key 的锁，但客户端 A 也已经拿到锁了，这就导致多个客户端都拿到锁
+> ⚠️ 使用
+>
+> `set key value [EX seconds][PX milliseconds][NX|XX]`
+>
+> 实际上在 Redis 集群的时候也会出现问题，比如说 客户端A 在 Redis 的 master 节点上拿到了锁，但是这个加锁的 key 还没有同步到 slave 节点，此时 master 故障，发生故障转移，一个 slave 节点升级为 master 节点。同时 客户端B 也可以获取同个 key 的锁，但 客户端A 也已经拿到锁了，这就导致多个客户端都拿到锁。
+> 
+> 可以使用一下方法来避免该问题：
+> 
+> 1、Redisson 分布式锁；
+> 
+> 2、`WAIT` 命令。Redis 提供了 WAIT 命令，用于确保写操作被同步到指定数量的从节点后才返回。
+> ```shell
+> SET lock_key unique_value NX EX 10
+> WAIT 1 1000 # WAIT 1 1000 表示等待锁同步到至少 1 个从节点，超时时间为 1000 毫秒
+> ```
 
 <br>
 
 #### Redisson
 
-> Redisson 是在 Redis 基础上实现的一款分布式服务相关工具。底层使用 Netty 框架，并提供了与 Java 对象相应的分布式对象，分布式集合和分布式锁和同步器，分布式服务等一系列 Redisson 分布式对象。
+Redisson 是在 Redis 基础上实现的一款分布式服务相关工具。底层使用 Netty，并提供了与 Java 对象相应的分布式对象，分布式集合和分布式锁和同步器，分布式服务等一系列 Redisson 分布式对象。
 
-对于 Java 而言，Jedis 是 Redis 的 Java 客户端，除了 Jedis 之外，Redisson 也是 Java 的客户端，Jedis 是阻塞式 IO，而 Redisson 底层使用 Netty 可以实现非阻塞 IO，该客户端封装了锁的实现，继承了 JUC 的 Lock 接口，所以可以像使用 ReentrantLock 一样使用 Redisson
+> 对于 Java 而言，Jedis 是 Redis 的 Java 客户端，除了 Jedis 之外，Redisson 也是 Java 的客户端，Jedis 是阻塞式 IO，而 Redisson 底层使用 Netty 可以实现非阻塞 IO，该客户端封装了锁的实现，继承了 JUC 的 Lock 接口，所以可以像使用 ReentrantLock 一样使用 Redisson。
 
+**工作流程**
 
-
-
-
-**Redlock 算法 与 Redisson 实现**
-
-
+1. 客户端尝试在多个独立的 Redis 实例上获取锁。
+2. 如果客户端能够在大多数实例上成功获取锁，并且总耗时小于锁的有效时间，则认为加锁成功。 
+3. 如果加锁失败，客户端需要释放所有已获取的锁。
 
 <br>
 
@@ -1572,8 +1555,6 @@ public boolean releaseLock_with_lua(String key,String value) {
 
 秒杀系统其实主要解决两个问题，**并发读和并发写**。并发读的核心优化理念是尽量减少用户到服务端读取数据，或者让用户读更少的数据。并发写的处理原则也一样，可以在数据库层独立出来一个库，做特殊处理。另外还要对秒杀系统做一些保护措施，针对意料之外情况的保底方案，防止最坏情况发生。
 
-
-
 **架构要求**
 
 1、**高性能**，秒杀设计大量的并发读和写，因此支持高并发访问这点是非常关键的。对应的方案比如动静分离方案（CDN）、热点的预热与隔离、请求的削峰与分层过滤、服务端的优化等。
@@ -1581,8 +1562,6 @@ public boolean releaseLock_with_lua(String key,String value) {
 2、**一致性**，秒杀中商品减库存的实现方式同样关键。可想而知，有限数量的商品在同一时刻被很多被的请求同时来减库存，减库存又分为拍下减库存和付款减库存以及预扣款等几种，在大并发更新的过程中都要保证数据的准确性。
 
 3、**高可用**，现实中难免会出现一些在系统设计时未考虑到的情况，所以要保证高可用的正确定，还要设计一个保底的方案，以便在最坏情况发生时仍然能够从容应对
-
-
 
 **前置步骤**
 
@@ -1592,49 +1571,32 @@ public boolean releaseLock_with_lua(String key,String value) {
 
 3、**结算阶段**，用户抢到订单后的后续操作，如何进行结算，异常问题处理，商品回仓处理等。
 
-
-
 **异步下单流程**
 
 1、用户发起秒杀请求
 
-1）检测验证码是否正确
-
-2）是否需要进行限流
-
+1）检测验证码是否正确；
+2）是否需要进行限流；
 3）发送 MQ
-
-
 
 2、异步处理秒杀订单
 
-1）判断活动是否结束
-
-2）判断请求是否属于黑名单
-
+1）判断活动是否结束；
+2）判断请求是否属于黑名单；
 3）扣减缓存中的库存数量
-
-
 
 <br>
 
 ## 参考
 
-[Redis 5.0 跳跃表](https://www.jianshu.com/p/c2841d65df4c)
-
-[Redis 跳跃表](https://mp.weixin.qq.com/s/Pc8GWsRbqpnUC6ExMXtX9g)
-
-[Redis 数据结构——跳跃表](https://www.cnblogs.com/hunternet/p/11248192.html)
-
-[Redis 系列](https://juejin.cn/post/6991080701365846046)
-
-[基于Redis的分布式锁实现](https://juejin.cn/post/6844903830442737671)
-
-[redis 分布式锁](https://juejin.cn/post/6844904134764658702)
-
-[Redis为什么这么快？](https://juejin.cn/post/7049148028875178020)
-
-[Redis 核心篇：唯快不破的秘密](https://mp.weixin.qq.com/s?__biz=MzkzMDI1NjcyOQ==&mid=2247487752&idx=1&sn=72a1725e1c86bb5e883dd8444e5bd6c4)
-
-[redis 数据类型](https://github.com/jmilktea/jtea/tree/master/redis)
+* [Redis 5.0 跳跃表](https://www.jianshu.com/p/c2841d65df4c)
+* [Redis 跳跃表](https://mp.weixin.qq.com/s/Pc8GWsRbqpnUC6ExMXtX9g)
+* [Redis 数据结构——跳跃表](https://www.cnblogs.com/hunternet/p/11248192.html)
+* [Redis 系列](https://juejin.cn/post/6991080701365846046)
+* [基于Redis的分布式锁实现](https://juejin.cn/post/6844903830442737671)
+* [redis 分布式锁](https://juejin.cn/post/6844904134764658702)
+* [Redis为什么这么快？](https://juejin.cn/post/7049148028875178020)
+* [Redis 核心篇：唯快不破的秘密](https://mp.weixin.qq.com/s?__biz=MzkzMDI1NjcyOQ==&mid=2247487752&idx=1&sn=72a1725e1c86bb5e883dd8444e5bd6c4)
+* [redis 数据类型](https://github.com/jmilktea/jtea/tree/master/redis)
+* [redis-persistence](https://github.com/Snailclimb/JavaGuide/blob/main/docs/database/redis/redis-persistence.md)
 

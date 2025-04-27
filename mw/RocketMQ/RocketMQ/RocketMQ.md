@@ -498,7 +498,9 @@ public enum MessageModel {
 
 **集群模式 CLUSTERING**
 
-> 或称负载均衡模式，使用集群消费模式时，RocketMQ 认为任意一条消息只需要被集群内的任意一个消费者处理即可
+或称负载均衡模式，使用集群消费模式时，RocketMQ 认为任意一条消息只需要被集群内的任意一个消费者处理即可。
+
+> 在 集群消费模式 （CLUSTERING）下，消费进度是由 Broker 维护的。每个消费者组（Consumer Group）在 Broker 上有一个全局的消费位点（Offset），所有属于该消费者组的消费者实例共享这个 Offset。
 
 ```java
 public class DefaultConsumer { // 消息消费者
@@ -532,7 +534,9 @@ public class DefaultConsumer { // 消息消费者
 
 **广播模式 BROADCASTING**
 
-> 当使用广播消费模式时，RocketMQ 会将每条消息推送给所有的消费者，保证消息至少被每个消费者消费一次
+当使用广播消费模式时，RocketMQ 会将每条消息推送给所有的消费者，保证消息至少被每个消费者消费一次
+
+> 在 广播消费模式 （BROADCASTING）下，消费进度是由消费者本地维护的。每个消费者实例独立存储自己的消费位点，通常保存在本地文件中。
 
 ```java
 // 设置消费模
