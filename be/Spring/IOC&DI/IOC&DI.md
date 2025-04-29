@@ -4,7 +4,7 @@
 
 ## IOC
 
-**IOC的底层实际上是很多个不同的 map，BeanFacroty 负责创建 bean，之后存到相应的 map 中，下次再需要某个 bean 时，直接从 map 中获取即可。**
+**IOC的底层实际上是很多个不同的 map，BeanFactory 负责创建 bean，之后存到相应的 map 中，下次再需要某个 bean 时，直接从 map 中获取即可。**
 
 例如，单例非懒加载的 bean 在第一次创建完成之后都存储在同一个类型为 CurrentHashMap 的 map 中交由 spring 管理，之后每次需要只要从 map 中获取即可。
 
@@ -77,10 +77,6 @@ public class MainConfig {
     
 }
 ```
-
-
-
-
 
 ### Bean注册
 
@@ -498,13 +494,7 @@ public class MainConfig {
        <bean id="myFactoryService" class="com.demo.spring.util.MyFactoryBean"></bean>
    ```
 
-   
-
-
-
 ### Bean创建流程
-
-
 
 **代码验证**
 
@@ -987,17 +977,9 @@ protected void addSingleton(String beanName, Object singletonObject) {
 
 ![bean创建流程](assets/bean创建流程.png)
 
-
-
-
-
 ### Bean装配
 
-
-
 #### 定义初始化和销毁逻辑
-
-
 
 ##### bean的初始化和销毁方法
 
@@ -1011,8 +993,6 @@ protected void addSingleton(String beanName, Object singletonObject) {
 或
 @PostConstruct和@PreDestroy
 ```
-
-
 
 ##### InitializingBean&DisposableBean
 

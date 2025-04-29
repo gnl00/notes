@@ -59,7 +59,7 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 SpringApplication 执行 ApplicationContext 刷新方法的时候对所有的非懒加载的单例 Bean 进行了初始化。
 
 ```
-org.springframework.context.ConfigurableApplicationContext#refresh // 加载并刷新 Java 代码配置或者 XMl 配置
+org.springframework.context.ConfigurableApplicationContext#refresh // 刷新 IOC 容器
 
 // 先初始化一些特殊上下文情况下的 Bean，比如 Servlet 或者 React 等 Web 上下文的特殊 Bean
 // Initialize other special beans in specific context subclasses.
@@ -131,7 +131,7 @@ protected <T> T doGetBean(
   // Eagerly check singleton cache for manually registered singletons.
   Object sharedInstance = getSingleton(beanName);
   if (sharedInstance != null && args == null) {
-    // if isSingletonCurrentlyInCreation(beanName) // 处理单例 Bean 创建循环引用
+    // if isSingletonCurrentlyInCreation(beanName) // 处理 单例Bean 创建循环引用
     // Returning eagerly cached instance of singleton bean +BeanName+ 
     // that is not fully initialized yet - a consequence of a circular reference
     // else Returning cached instance of singleton bean
@@ -143,7 +143,7 @@ protected <T> T doGetBean(
   }
 
   else {
-    // 处理原型 Bean 创建循环引用
+    // 处理 原型Bean 创建循环引用
     // Fail if we're already creating this bean instance:
     // We're assumably within a circular reference.
     if (isPrototypeCurrentlyInCreation(beanName)) {
@@ -207,14 +207,11 @@ protected <T> T doGetBean(
           registerDependentBean(dep, beanName);
           try {
             getBean(dep);
-          }
-          // 依赖 bean 定于缺失 // depends on missing bean
+          } catch(Exception ex) {/* 依赖 bean 定义缺失 // depends on missing bean */}
         }
       }
 
-      // 到这里说明 bean 依赖均已存在
-      // 开始创建单例 bean
-      // Create bean instance.
+      // 到这里说明 bean 依赖均已存在。开始创建单例 bean
       if (mbd.isSingleton()) {
         // 1、真正执行 bean 创建方法 createBean，创建完成之后将 bean 放入单例 bean 容器 // createBean 后续展开
         // 2、然后再执行 getSingleton 从单例 bean 容器中获取 bean // getSingleton 后续展开
@@ -382,8 +379,7 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
   // even when triggered by lifecycle interfaces like BeanFactoryAware.
   boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
                                     isSingletonCurrentlyInCreation(beanName));
-  if (earlySingletonExposure) {
-    // 解决潜在的循环引用
+  if (earlySingletonExposure) { // 解决潜在的循环引用
     addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
   }
 
