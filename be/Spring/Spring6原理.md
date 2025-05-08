@@ -147,6 +147,97 @@ public ConfigurableApplicationContext run(String... args) {
 
 <br>
 
+### 配置类扫描
+
+从 `@ComponentScan` 开始
+
+```shell
+org.springframework.context.support.AbstractApplicationContext#refresh
+|- org.springframework.context.support.AbstractApplicationContext#invokeBeanFactoryPostProcessors # 在容器上下文中注册 Bean。Invoke factory processors registered as beans in the context
+|- ...
+|- org.springframework.context.annotation.ConfigurationClassParser#processConfigurationClass
+|- org.springframework.context.annotation.ConfigurationClassParser#doProcessConfigurationClass
+|- org.springframework.context.annotation.ComponentScanAnnotationParser#parse
+|- org.springframework.context.annotation.ClassPathBeanDefinitionScanner#doScan
+```
+
+从配置的 basePackages 开始扫描
+
+```java
+// org.springframework.context.annotation.ClassPathBeanDefinitionScanner#doScan
+protected Set<BeanDefinitionHolder> doScan(String... basePackages) {
+    Set<BeanDefinitionHolder> beanDefinitions = new LinkedHashSet<>();
+    for (String basePackage : basePackages) {
+        Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
+        for (BeanDefinition candidate : candidates) {
+            ScopeMetadata scopeMetadata = this.scopeMetadataResolver.resolveScopeMetadata(candidate);
+            candidate.setScope(scopeMetadata.getScopeName());
+            String beanName = this.beanNameGenerator.generateBeanName(candidate, this.registry);
+            if (candidate instanceof AbstractBeanDefinition abstractBeanDefinition) {
+                postProcessBeanDefinition(abstractBeanDefinition, beanName);
+            }
+            if (candidate instanceof AnnotatedBeanDefinition annotatedBeanDefinition) {
+                AnnotationConfigUtils.processCommonDefinitionAnnotations(annotatedBeanDefinition);
+            }
+            if (checkCandidate(beanName, candidate)) {
+                BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(candidate, beanName);
+                definitionHolder =
+                        AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
+                beanDefinitions.add(definitionHolder);
+                registerBeanDefinition(definitionHolder, this.registry); // 将扫描到的 BeanDefinition 信息注册到容器中
+            }
+        }
+    }
+    return beanDefinitions;
+}
+```
+
+往下 findCandidateComponents
+
+```shell
+org.springframework.context.annotation.ClassPathBeanDefinitionScanner#findCandidateComponents
+|- org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider#scanCandidateComponents
+```
+
+接下来看 `scanCandidateComponents` 方法
+
+```java
+// org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider#scanCandidateComponents
+private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
+    Set<BeanDefinition> candidates = new LinkedHashSet<>();
+    try {
+        // 假如 basePackage = com.demo
+        // packageSearchPath = classpath*:com/demo/**/*.class，拿到与包名同级的 .class 文件
+        String packageSearchPath = ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX + resolveBasePackage(basePackage) + '/' + this.resourcePattern;
+        // 使用 Spring 封装好的 ResourceLoader 来读取 classpath 的字节码文件
+        Resource[] resources = getResourcePatternResolver().getResources(packageSearchPath);
+        for (Resource resource : resources) {
+            String filename = resource.getFilename();
+            if (filename != null && filename.contains(ClassUtils.CGLIB_CLASS_SEPARATOR)) { continue; /* Ignore CGLIB-generated classes in the classpath */ }
+            try {
+                MetadataReader metadataReader = getMetadataReaderFactory().getMetadataReader(resource);
+                if (isCandidateComponent(metadataReader)) { // 读取字节码文件，生成 BeanDefinition
+                    ScannedGenericBeanDefinition sbd = new ScannedGenericBeanDefinition(metadataReader);
+                    sbd.setSource(resource);
+                    if (isCandidateComponent(sbd)) {
+                        candidates.add(sbd);
+                    }
+                }
+            }
+            catch (FileNotFoundException ex) {}
+            catch (ClassFormatException ex) {} // throw BeanDefinitionStoreException
+            catch (Throwable ex) {} // throw BeanDefinitionStoreException
+        }
+    }
+    catch (IOException ex) {} // throw BeanDefinitionStoreException
+    return candidates;
+}
+```
+
+至此就完成了 Bean 配置的扫描和 BeanDefinition 的注册。在接下来的流程中就能使用 BeanDefinition 来创建 Bean 了。
+
+<br>
+
 ### Bean 创建流程
 
 直接定位
@@ -157,40 +248,39 @@ org.springframework.context.support.AbstractApplicationContext#refresh
 |- org.springframework.beans.factory.support.DefaultListableBeanFactory#preInstantiateSingletons
 ```
 
-到这里发现源码和 spring-5 有点不一样：
+到这里发现源码和 Spring5 有点不一样：
 
 ```java
 // org.springframework.beans.factory.support.DefaultListableBeanFactory#preInstantiateSingletons
-
-// Trigger initialization of all non-lazy singleton beans...
-List<CompletableFuture<?>> futures = new ArrayList<>();
-
-this.preInstantiationThread.set(PreInstantiation.MAIN);
-this.mainThreadPrefix = getThreadNamePrefix();
-try {
-    for (String beanName : beanNames) {
-        RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
-        if (!mbd.isAbstract() && mbd.isSingleton()) {
-            CompletableFuture<?> future = preInstantiateSingleton(beanName, mbd);
-            if (future != null) {
-                futures.add(future);
+public void preInstantiateSingletons() throws BeansException {
+    // Trigger initialization of all non-lazy singleton beans...
+    List<CompletableFuture<?>> futures = new ArrayList<>();
+    this.preInstantiationThread.set(PreInstantiation.MAIN);
+    this.mainThreadPrefix = getThreadNamePrefix();
+    try {
+        for (String beanName : beanNames) {
+            RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
+            if (!mbd.isAbstract() && mbd.isSingleton()) {
+                CompletableFuture<?> future = preInstantiateSingleton(beanName, mbd);
+                if (future != null) {
+                    futures.add(future);
+                }
             }
         }
+    } finally {
+        this.mainThreadPrefix = null;
+        this.preInstantiationThread.remove();
     }
-}
-finally {
-    this.mainThreadPrefix = null;
-    this.preInstantiationThread.remove();
-}
 
-if (!futures.isEmpty()) {
-    try {
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
-    } catch (CompletionException ex) {}
+    if (!futures.isEmpty()) {
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
+        } catch (CompletionException ex) {}
+    }
 }
 ```
 
-使用 CompletableFuture 进行多线程的 Bean 创建，并且把 `DefaultListableBeanFactory#preInstantiateSingletons` 方法拆成了两个（其他的暂且不说，至少方便了看源码 :P）
+Spring6 使用 CompletableFuture 进行多线程的 Bean 创建，并且把 `DefaultListableBeanFactory#preInstantiateSingletons` 方法拆成了两个（其他的暂且不说，至少方便了看源码 :P）
 
 ```shell
 org.springframework.beans.factory.support.DefaultListableBeanFactory#preInstantiateSingletons
