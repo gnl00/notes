@@ -44,28 +44,29 @@ org.springframework.boot.SpringApplication#SpringApplication(org.springframework
 
 ```java
 // org.springframework.boot.WebApplicationType
+public enum WebApplicationType {
+    NONE, // The application should not run as a web application and should not start an embedded web server.
+    SERVLET, // The application should run as a servlet-based web application and should start an embedded servlet web server.
+    REACTIVE; // The application should run as a reactive web application and should start an embedded reactive web server.
 
-NONE, // The application should not run as a web application and should not start an embedded web server.
-SERVLET, // The application should run as a servlet-based web application and should start an embedded servlet web server.
-REACTIVE; // The application should run as a reactive web application and should start an embedded reactive web server.
+    private static final String[] SERVLET_INDICATOR_CLASSES = { "jakarta.servlet.Servlet", "org.springframework.web.context.ConfigurableWebApplicationContext" };
 
-private static final String[] SERVLET_INDICATOR_CLASSES = { "jakarta.servlet.Servlet", "org.springframework.web.context.ConfigurableWebApplicationContext" };
+    private static final String WEBMVC_INDICATOR_CLASS = "org.springframework.web.servlet.DispatcherServlet";
+    private static final String WEBFLUX_INDICATOR_CLASS = "org.springframework.web.reactive.DispatcherHandler";
+    private static final String JERSEY_INDICATOR_CLASS = "org.glassfish.jersey.servlet.ServletContainer";
 
-private static final String WEBMVC_INDICATOR_CLASS = "org.springframework.web.servlet.DispatcherServlet";
-private static final String WEBFLUX_INDICATOR_CLASS = "org.springframework.web.reactive.DispatcherHandler";
-private static final String JERSEY_INDICATOR_CLASS = "org.glassfish.jersey.servlet.ServletContainer";
-
-static WebApplicationType deduceFromClasspath() {
-    if (ClassUtils.isPresent(WEBFLUX_INDICATOR_CLASS, null) && !ClassUtils.isPresent(WEBMVC_INDICATOR_CLASS, null)
-            && !ClassUtils.isPresent(JERSEY_INDICATOR_CLASS, null)) {
-        return WebApplicationType.REACTIVE;
-    }
-    for (String className : SERVLET_INDICATOR_CLASSES) {
-        if (!ClassUtils.isPresent(className, null)) {
-            return WebApplicationType.NONE;
+    static WebApplicationType deduceFromClasspath() {
+        if (ClassUtils.isPresent(WEBFLUX_INDICATOR_CLASS, null) && !ClassUtils.isPresent(WEBMVC_INDICATOR_CLASS, null)
+                && !ClassUtils.isPresent(JERSEY_INDICATOR_CLASS, null)) {
+            return WebApplicationType.REACTIVE;
         }
+        for (String className : SERVLET_INDICATOR_CLASSES) {
+            if (!ClassUtils.isPresent(className, null)) {
+                return WebApplicationType.NONE;
+            }
+        }
+        return WebApplicationType.SERVLET;
     }
-    return WebApplicationType.SERVLET;
 }
 ```
 
@@ -155,8 +156,7 @@ public ConfigurableApplicationContext run(String... args) {
 org.springframework.context.support.AbstractApplicationContext#refresh
 |- org.springframework.context.support.AbstractApplicationContext#invokeBeanFactoryPostProcessors # 在容器上下文中注册 Bean。Invoke factory processors registered as beans in the context
 |- ...
-|- org.springframework.context.annotation.ConfigurationClassParser#processConfigurationClass
-|- org.springframework.context.annotation.ConfigurationClassParser#doProcessConfigurationClass
+|- org.springframework.context.annotation.ConfigurationClassParser#processConfigurationClass -> doProcessConfigurationClass
 |- org.springframework.context.annotation.ComponentScanAnnotationParser#parse
 |- org.springframework.context.annotation.ClassPathBeanDefinitionScanner#doScan
 ```

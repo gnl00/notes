@@ -570,13 +570,11 @@ public interface TransactionManager {}
 // Spring 事务框架中最基础/重要的接口
 public interface PlatformTransactionManager extends TransactionManager {
     /**
-     * 此方法根据参数 TransactionDefinition 返回一个 TransactionStatus 对象
-     * TransactionStatus 对象就可以看成是一个事务
-     * 返回的 TransactionStatus 可能是一个新事务或者已存在的事务（如果当前调用栈中存在事务）
-     * 参数 TransactionDefinition 描述传播行为、隔离级别、超时等
-     * 此方法会根据参数对事务传播行为的定义，返回一个当前处于活跃状态的事务（如果存在），或创建一个新的事务
-     * 参数对事务隔离级别或者超时时间的设置，会忽略已存在的事务，只作用于新建的事务
-     * 并非所有事务定义设置都会受到每个事务管理器的支持，在遇到不受支持的设置时事务管理器会抛出异常
+     * 此方法根据参数 TransactionDefinition 返回一个 TransactionStatus 对象，TransactionStatus 对象就可以看成是一个事务
+     * @param definition 参数 TransactionDefinition 描述传播行为、隔离级别、超时等。使用参数对事务隔离级别或者超时时间的设置，只作用于新建的事务，会忽略已存在的事务
+     * @return 返回的 TransactionStatus 可能是一个新事务或者已存在的事务（如果当前调用栈中存在事务）
+     * 
+     * 并非每个事务管理器都支持设置事务定义，在遇到不受支持的设置时事务管理器会抛出异常
      */
     TransactionStatus getTransaction(TransactionDefinition definition) throws TransactionException;
     void commit(TransactionStatus status) throws TransactionException;
@@ -606,14 +604,15 @@ public interface TransactionDefinition {
   
   	// 可重复度
   	// 解决脏读/不可重复度，存在幻读
-		int ISOLATION_REPEATABLE_READ = 4;  // same as java.sql.Connection.TRANSACTION_REPEATABLE_READ;
+    int ISOLATION_REPEATABLE_READ = 4;  // same as java.sql.Connection.TRANSACTION_REPEATABLE_READ;
   
   	// 可序列化/串行化，事务串行化执行，一次只允许一个事务操作
   	// 解决脏读/不可重复度/幻读
-		int ISOLATION_SERIALIZABLE = 8;  // same as java.sql.Connection.TRANSACTION_SERIALIZABLE;
+    int ISOLATION_SERIALIZABLE = 8;  // same as java.sql.Connection.TRANSACTION_SERIALIZABLE;
 
 
   	// 以下为 Spring 事务管理支持的传播行为，一共 7 种
+
   	/**
   	 * 如果当前存在事务，则加入；如果事务不存在，则新建
   	 * 是 Spring 事务的默认传播行为，通常定义事务同步范围
@@ -627,21 +626,19 @@ public interface TransactionDefinition {
   	int PROPAGATION_MANDATORY = 2;
   
   	// 如果存在事务，则暂停当前事务，创建新事务
-		int PROPAGATION_REQUIRES_NEW = 3;
+    int PROPAGATION_REQUIRES_NEW = 3;
   	
   	// 总是以无事务的方式运行
-		int PROPAGATION_NOT_SUPPORTED = 4;
+    int PROPAGATION_NOT_SUPPORTED = 4;
   	
   	// 如果当前存在事务则抛出异常
   	int PROPAGATION_NEVER = 5;
   	
   	// 如果当前存在事务，则在嵌套事务中执行，否则表现为 PROPAGATION_REQUIRED
-		int PROPAGATION_NESTED = 6;
+    int PROPAGATION_NESTED = 6;
   
   	// 是否将事务优化为只读事务，只读标志适用于任何事务隔离级别
-    default boolean isReadOnly() {
-      return false;
-    }
+    default boolean isReadOnly() { return false; }
 }
 
 /**
@@ -650,8 +647,6 @@ public interface TransactionDefinition {
  */
 public abstract class AbstractPlatformTransactionManager implements PlatformTransactionManager, Serializable {}
 ```
-
-
 
 <br>
 
@@ -666,8 +661,6 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 | PROPAGATION_NOT_SUPPORTED | 总是以无事务的方式运行                                       |
 | PROPAGATION_NEVER         | 如果当前存在事务则抛出异常                                   |
 | PROPAGATION_NESTED        | 如果当前存在事务，则在事务中创建事务，并在嵌套事务中执行，否则表现为 PROPAGATION_REQUIRED |
-
-
 
 ### 声明式事务
 
@@ -707,8 +700,7 @@ TransactionAttributeSource transactionAttributeSource() {
 @Transactional 注解可以同时标注在类和方法上，但是**标注在方法上的优先级会比标注在类上的优先级高**。
 
 ```java
-// (readOnly = true) 表示该事务从事的操作是读操作
-@Transactional(readOnly = true)
+@Transactional(readOnly = true) // (readOnly = true) 表示该事务从事的操作是读操作
 public class DefaultFooService implements FooService {
 
     public Foo getFoo(String fooName) {}
@@ -723,12 +715,12 @@ public class DefaultFooService implements FooService {
 
 **属性设置**
 
-* *propagation* default `Propagation.REQUIRED`
-* *isolation* default `Isolation.DEFAULT`
-* *timeout* default `TransactionDefinition.TIMEOUT_DEFAULT = -1`
-* *readOnly* 是否是只读事务 default `false`
-* *rollbackFor*  Any `RuntimeException` or `Error` triggers rollback, and any checked `Exception` does not.
-* *noRollbackFor*
+- `propagation` default `Propagation.REQUIRED`
+- `isolation` default `Isolation.DEFAULT`
+- `timeout` default `TransactionDefinition.TIMEOUT_DEFAULT = -1`
+- `readOnly` 是否是只读事务 default `false`
+- `rollbackFor` Any `RuntimeException` or `Error` triggers rollback, and any checked `Exception` does not.
+- `noRollbackFor`
 
 …
 
@@ -781,7 +773,7 @@ public class SimpleService implements Service {
                     updateOperation1();
                     updateOperation2();
                 } catch (SomeBusinessException ex) {
-                		status.setRollbackOnly();
+                    status.setRollbackOnly();
                 }
             }
         });
@@ -794,20 +786,23 @@ public class SimpleService implements Service {
 #### TransactionManager
 
 ```java
-DefaultTransactionDefinition def = new DefaultTransactionDefinition();
-// 定义事务属性，如事务名，传播行为，隔离级别等
-def.setName("SomeTxName");
-def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+class Demo {
+    public void doSomething() {
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setName("SomeTxName"); // 定义事务属性，如事务名，传播行为，隔离级别等
+        def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
 
-TransactionManager txManager = new JdbcTransactionManager();
-TransactionStatus status = txManager.getTransaction(def);
-try {
-    // put your business logic here
-} catch (MyException ex) {
-    txManager.rollback(status);
-    throw ex;
+        TransactionManager txManager = new JdbcTransactionManager();
+        TransactionStatus status = txManager.getTransaction(def);
+        try {
+            // put your business logic here
+        } catch (MyException ex) {
+            txManager.rollback(status);
+            throw ex;
+        }
+        txManager.commit(status);
+    }
 }
-txManager.commit(status);
 ```
 
 …
@@ -870,5 +865,5 @@ PlaceholderConfigurerSupport 和 PropertySourcesPlaceholderConfigurer 处理配�
 
 ## 参考
 
-[spring#transaction](https://docs.spring.io/spring-framework/docs/current/reference/html/data-access.html#transaction)
+- [spring#transaction](https://docs.spring.io/spring-framework/docs/current/reference/html/data-access.html#transaction)
 
