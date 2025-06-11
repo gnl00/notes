@@ -1675,8 +1675,6 @@ public class exception.ExceptionTableTest {
 
 > meta-annotation 是注解类使用的注解
 
-
-
 **@Target**
 
 指明注解类可修饰的对象范围。可以用于修饰类/接口/枚举/注解类/类成员（方法/方法参数/构造方法/成员变量/枚举值）/方法参数和本地变量，取值范围定义在`ElementType`枚举类中：
@@ -1726,8 +1724,6 @@ public enum ElementType {
 }
 ```
 
-
-
 **@Retention**
 
 表示注解类在注解到其他类上以后，可被保留到何时。一共有三种策略，定义在`RetentionPolicy`枚举类中：
@@ -1740,25 +1736,17 @@ public enum RetentionPolicy {
 }
 ```
 
-
-
 **@Documented**
 
 生成 Javadoc 文档信息的时候保留注解，对类作辅助说明。
-
-
 
 **@Inherited**
 
 被它修饰的注解将具有继承性。如果某个类使用了被`@Inherited`修饰的注解，则其子类将自动具有该注解。
 
-
-
 **@Repeatable**
 
 Java 8 新增，允许在同一类型/类/属性/方法中多次使用同一个注解。
-
-
 
 **@Native**
 
@@ -1789,8 +1777,6 @@ public @interface MyAnno {
 public @interface MyAnnos {
     MyAnno[] value();
 }
-
-
 ```
 
 ```java

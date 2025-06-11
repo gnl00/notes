@@ -26,11 +26,20 @@ SPI 全称 Service Provider Interface 服务提供接口。以数据库访问接
 
 **How to use**
 
+先在 `META-INF/services/spi.CusDriver` 添加内容
+
+```
+com.demo.spi.impl.CusDriverMySQL
+com.demo.spi.impl.CusDriverPgSQL
+```
+
 ```java
+package com.demo.spi;
 public interface CusDriver {
     void load();
 }
 
+// package com.demo.spi.impl;
 public class CusDriverMySQL implements CusDriver {
     @Override
     public void load() {
@@ -38,16 +47,13 @@ public class CusDriverMySQL implements CusDriver {
     }
 }
 
+// package com.demo.spi.impl;
 public class CusDriverPgSQL implements CusDriver{
     @Override
     public void load() {
         System.out.println("PgSQL driver loaded");
     }
 }
-
-// META-INF/spi.CusDriver
-spi.CusDriverMySQL
-spi.CusDriverPgSQL
 
 public class SPITest {
     public static void main(String[] args) {
@@ -59,8 +65,6 @@ public class SPITest {
     }
 }
 ```
-
-
 
 <br>
 
@@ -79,8 +83,6 @@ JNDI（Java Naming and Directory Interface），即 Java 命名服务和目录�
 JNDI 提供了一种更加灵活和可配置的方式来解决这个问题。你可以将数据库连接信息存储在 JNDI 命名空间中，应用程序只需要从 JNDI 中获取连接信息即可，无需知道连接信息的具体细节。
 
 总的来说，JNDI 是 Java 平台的一个标准 API，提供了一种通用的、统一的方式来访问各种命名和目录服务。它可以将应用程序与特定的命名和目录服务的实现分离开来，提高应用程序的灵活性和可配置性。
-
-
 
 <br>
 
