@@ -18,8 +18,8 @@ create table (
     int_arr int4[],
     float_arr float4[],
     double_arr float8[],
-    vc_arr varchar[],
-    ...
+    vc_arr varchar[]
+    -- ...
 );
 ```
 

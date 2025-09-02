@@ -10,7 +10,8 @@ tag:
 
 > Databases have always had time fields, but using a special database for handling time-series data can make your database work much more effectively. 
 >
-> Specialized time-series databases, like Timescale, are designed to handle large amounts of database writes, so they work much faster. They are also optimized to handle schema changes, and use more flexible indexing, so you don't need to spend time migrating your data whenever you make a change.
+> Specialized time-series databases, like Timescale, are designed to handle large amounts of database writes, so they work much faster. 
+> They are also optimized to handle schema changes, and use more flexible indexing, so you don't need to spend time migrating your data whenever you make a change.
 
 
 

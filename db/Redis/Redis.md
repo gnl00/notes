@@ -1547,6 +1547,8 @@ Redisson 是在 Redis 基础上实现的一款分布式服务相关工具。底�
 2. 如果客户端能够在大多数实例上成功获取锁，并且总耗时小于锁的有效时间，则认为加锁成功。 
 3. 如果加锁失败，客户端需要释放所有已获取的锁。
 
+> [RedLock 与 zookeeper分布式锁](https://mp.weixin.qq.com/s/ybiN5Q89wI0CnLURGUz4vw)
+
 <br>
 
 ## 秒杀系统设计的思考

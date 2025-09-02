@@ -438,3 +438,9 @@ protected void addSingleton(String beanName, Object singletonObject) {
 顶层接口是 `org.springframework.transaction.PlatformTransactionManager` 一般不直接使用，而是使用它的子类 `org.springframework.transaction.support.AbstractPlatformTransactionManager`。
 
 AbstractPlatformTransactionManager 抽象类中实现了事务管理器的核心方法，如 `getTransaction()`、`commit()`、`rollback()` 等。
+
+## Transaction
+
+顶层接口是 `org.springframework.transaction.PlatformTransactionManager` 一般不直接使用，而是使用它的子类 `org.springframework.transaction.support.AbstractPlatformTransactionManager`。
+
+AbstractPlatformTransactionManager 抽象类中实现了事务管理器的核心方法，如 `getTransaction()`、`commit()`、`rollback()` 等。
