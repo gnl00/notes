@@ -1424,6 +1424,8 @@ Java 中的重量级锁是一种传统的互斥锁，是一种阻塞锁。当一
 * [理解内存屏障](https://zhuanlan.zhihu.com/p/491157678)
 * https://mp.weixin.qq.com/s/7jU0ci2tn5TwCvOyxdX6dA
 
+- [Java 锁升级机制详解](https://juejin.cn/post/7515052989889249289)
+
 **锁降级**
 
 * https://javabetter.cn/thread/synchronized.html

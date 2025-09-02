@@ -1751,7 +1751,7 @@ MySQL 从 5.0.3 开始，InnoDB 存储引擎支持 XA 协议的分布式事务�
 
 <br>
 
-## MDL 元数据锁
+## MDL(Metadata Lock) 元数据锁
 
 > 参考：https://juejin.cn/post/6844904014769979400
 
