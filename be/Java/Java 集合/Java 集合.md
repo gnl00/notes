@@ -1590,27 +1590,23 @@ public V put(K key, V value) {
 
 ### ConcurrentMap
 
->提供线程安全操作和原子性保证的 Map 接口。
->
-
->**内存一致性**
->
->一个线程对 ConcurrentMap 的 key-value 的 put 操作 happen-before 于另一个线程对该 ConcurrentMap 的访问和移除操作。
-
 ```java
-public interface ConcurrentMap<K, V> extends Map<K, V>
+/**
+ * 提供线程安全操作和原子性保证的 Map 接口。
+ * 内存一致性：一个线程对 ConcurrentMap 的 key-value 的 put 操作
+ * happen-before 于另一个线程对该 ConcurrentMap 的访问和移除操作。
+ */
+public interface ConcurrentMap<K, V> extends Map<K, V> {}
 ```
-
-
 
 <br>
 
 ### ConcurrentHashMap
 
 > 一个支持并发查找和并发更新的哈希表，具有以下特点：
-> * 支持和 Hashtable 一样的功能规范，每个方法都和 Hashtable 的方法相对应；
-> * 在线程安全方面和 Hashtable 是互通的，但在保证线程安全的实现细节上是不同的；Hashtable 使用的是 synchronized 方法，ConcurrentHashMap 使用局部 CAS + synchronized 块。
-> * 所有操作都是线程安全的，但读操作并不完全加锁，不支持锁住整个哈希表。因此可能存在对元素的更新/删除操作与读取操作重叠，此时同一个键值的更新操作 happen-before 读取操作。
+> * 支持和 Hashtable 一样的功能规范，每个方法都和 Hashtable 的方法相对应，所有操作都是线程安全的；
+> * 和 Hashtable 一样都是线程安全的，但在保证线程安全的实现细节上是不同的；Hashtable 使用的是 synchronized 方法，ConcurrentHashMap 使用局部 CAS + synchronized 同步代码块。
+> * 读操作并不完全加锁，不支持锁住整个哈希表。因此可能存在对元素的更新/删除操作与读取操作**重叠**，此时同一个键值的更新操作 happen-before 读取操作。
 > * 与 HashMap 不同：ConcurrentHashMap 不允许 null 作为键；
 > * 当出现太多哈希碰撞时，动态扩容。
 >
@@ -1628,7 +1624,7 @@ public interface ConcurrentMap<K, V> extends Map<K, V>
 
 ```java
 public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
-    implements ConcurrentMap<K,V>, Serializable
+    implements ConcurrentMap<K,V>, Serializable {}
 ```
 
 #### 内部属性
@@ -1796,7 +1792,7 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
         else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
           	// 如果对应哈希位置的 bucket 为空，则使用 CAS 操作将新节点插入哈希桶
             // no lock when adding to empty bin
-          	// 和 HashMap 对比，ConcurrentHashMap 好就好在这里，支持并发写，如果添加到一个空的哈希 bucket 中只需要 CAS 操作，不需要 synchronized
+          	// 和 HashMap 对比，ConcurrentHashMap 好在这里，支持并发写，如果添加到一个空的哈希 bucket 中只需要 CAS 操作，不需要 synchronized
             if (casTabAt(tab, i, null,
                          new Node<K,V>(hash, key, value, null)))
                 break;
