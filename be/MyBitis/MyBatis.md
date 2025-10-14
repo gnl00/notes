@@ -11,32 +11,36 @@ tag:
 
 > [官方文档](https://mybatis.org/mybatis-3/)
 
-> 在操作 MySQL 的时候，需要先启动服务，再使用客户端连接，开启一个会话（Session），才能在会话中进行增删改查操作。单纯的 JDBC 只能支持单个数据库连接，数据库操作需要频繁的打开和关闭会话连接。于是出现了数据源（DataSource），比如说 Druid DataSource，维护一个连接池，管理和维护多个会话连接。不管是 JDBC 还是数据源，都不能饶过会话，所有对数据库的操作都是在会话中进行的。**会话是数据库操作中很重要的一环**。
->
+在操作 MySQL 的时候，需要先启动服务，再使用客户端连接，开启一个会话（Session），才能在会话中进行增删改查操作。单纯的 JDBC 只能支持单个数据库连接，数据库操作需要频繁的打开和关闭会话连接。
+
+于是出现了数据源（DataSource），比如说 Druid DataSource，维护一个连接池，管理和维护多个会话连接。
+不管是 JDBC 还是数据源，都不能饶过会话，所有对数据库的操作都是在会话中进行的。**会话是数据库操作中很重要的一环**。
 
 > MyBatis 是一个持久层框架，支持定制化 SQL 以及高级映射，可将 Java 类型/接口/POJO 映射为数据库中的记录。MyBatis 可以使用的 XML 或编码的方式来创建和配置。
 >
 > 在引入了 MyBatis 后，可以将数据源交给 MyBatis 管理。数据源的连接池维护和管理多个会话，MyBatis 管理数据源，这样一来，MyBatis 也就间接的管理了会话。
 >
-> 会话很重要，在 MyBatis 中同样如此，所有的 MyBatis 操作都是通过会话进行的。因此就可以围绕 MyBatis **创建会话前要做什么，如何创建会话，创建会话后**这几个方面出发来了解 MyBatis。
+> 会话很重要，在 MyBatis 中同样如此，所有的 MyBatis 操作都是通过会话进行的。
+> 可以围绕 MyBatis **创建会话前要做什么，如何创建会话，创建会话后**这几个方面出发来了解 MyBatis。
 >
 > * 创建会话前，解析配置文件，处理接口和 XML 映射等
 > * 如何创建会话，工厂模式（SqlSessionFactory）
-> * 创建会话后，进行会话操作（SqlSession）
+> * 创建会话后：
+> * - 保持会话连接（PooledDataSource/PooledDataSourceFactory/PoolState）
+> * - 进行会话操作（SqlSession）
 
-> **MyBatis 特点**
->
-> MyBatis 是一个**半自动的 ORM **框架（Object Relational Mapping，对象关系映射），通过使用描述对象和数据库之间映射的元数据，将对象自动持久化到关系数据库中，本质上就是将数据从一种形式转换到另外一种形式。
->
-> 一般来说，对数据库的操作包括：编写 SQL –> 预编译 –> 设置参数 –> 执行 SQL –> 封装结果。
->
-> * MyBatis 将编写 SQL 的步骤交给开发者，是半自动的；
-> * JPA 帮助开发者生成 SQL，是全自动的。
->
-> 在 MyBatis 中支持编写原生 SQL，灵活度高。内部封装 JDBC，开发时只需要关注 SQL 语句本身。
->
-> MyBatis 可以使用 **XML** 或**注解**来配置和进行关系映射，避免了几乎所有的 JDBC 连接和维护代码，同时也处理好了 POJO 和数据库记录之间的映射，以及将结果映射为 Java 对象。
->
+**MyBatis 特点**
+
+MyBatis 是一个**半自动的 ORM**框架（Object Relational Mapping，对象关系映射），通过使用描述对象和数据库之间映射的元数据，将对象自动持久化到关系数据库中，本质上就是将数据从一种形式转换到另外一种形式。
+
+一般来说，对数据库的操作包括：编写 SQL –> 预编译 –> 设置参数 –> 执行 SQL –> 封装结果。
+
+* MyBatis 将编写 SQL 的步骤交给开发者，是半自动的；
+* JPA 帮助开发者生成 SQL，是全自动的。
+
+在 MyBatis 中支持编写原生 SQL，灵活度高。内部封装 JDBC，开发时只需要关注 SQL 语句本身。
+
+MyBatis 可以使用 **XML** 或**注解**来配置和进行关系映射，避免了几乎所有的 JDBC 连接和维护代码，同时也处理好了 POJO 和数据库记录之间的映射，以及将结果映射为 Java 对象。
 
 > **优点**
 >
@@ -48,8 +52,6 @@ tag:
 >
 > 4、提供**映射标签**，支持对象与数据库的 ORM 字段关系映射；提供**对象关系映射标签**，支持对象关系组件维护
 >
-> 5、能够与 Spring/SpringBoot 很好的集成
->
 > …
 >
 > **缺点**
@@ -58,13 +60,13 @@ tag:
 >
 > 2、SQL 语句依赖于数据库，导致数据库移植性差，不能随意更换数据库
 
-> **与 Hibernate 对比**
->
-> 1、Hibernate 是全自动的 ORM 框架；
->
-> 2、Hibernate 对象/关系映射能力强，数据库无关性好，对于关系模型要求高的软件，开发可以节省很多代码，提高效率；
->
-> 3、MyBatis 支持编写原生 SQL，灵活度高。灵活的后果是 MyBatis 无法做到数据库无关性，如果需要实现支持多种数据库的软件，则需要自定义多套 SQL 映射。
+**与 Hibernate 对比**
+
+1、Hibernate 是全自动的 ORM 框架；
+
+2、Hibernate 对象/关系映射能力强，数据库无关性好，对于关系模型要求高的软件，开发可以节省很多代码，提高效率；
+
+3、MyBatis 支持编写原生 SQL，灵活度高。灵活的后果是 MyBatis 无法做到数据库无关性，如果需要实现支持多种数据库的软件，则需要自定义多套 SQL 映射。
 
 …
 
@@ -77,6 +79,7 @@ tag:
 * MyBatis 最顶层是接口层，即 Mapper 接口定义，包含了对数据库的 CRUD 操作方法；
 
 * 数据处理层主要是配置 Mapper 到 XML 之间的参数映射，SQL 解析，SQL 执行，结果映射的过程；
+
 * 基础支持层包括连接管理，事务管理，配置加载和缓存管理等。
 
 …
@@ -103,17 +106,18 @@ SqlSessionFactory 有两个实现类，主要负责创建 SqlSession。
 
 - DefaultSqlSessionFactory
 
- 默认实现类，这个类的实例是全局共享的，只会在首次调用时生成一个实例（单例模式），就一直存在直到应用关闭。
+ 默认实现类，这个类的实例是全局共享的，只会在首次调用时生成一个 SqlSession 实例（单例模式），该 SqlSession 就一直存在直到应用关闭。
 
-- SqlSessionManager
 
- 已被废弃，内部需要维护一个 ThreadLocal，用来维护当前线程的 SqlSession。而使用 MyBatis 更多的是要与 Spring 进行集成，SqlSession 已经交由 Spring 容器来管理，再无维护 ThreadLocal 的意义。
+~~- SqlSessionManager~~
+
+~~已被废弃，内部需要维护一个 ThreadLocal，用来维护当前线程的 SqlSession。而使用 MyBatis 更多的是要与 Spring 进行集成，SqlSession 已经交由 Spring 容器来管理，再无维护 ThreadLocal 的意义。~~
 
 …
 
 **SqlSession**
 
-SqlSession 接口中定义了一系列获取数据库连接方法、CRUD 操作方法、getMapper 方法、以及事务操作方法。
+SqlSession 接口中定义了一系列获取数据库连接方法、CRUD 操作方法、getMapper 方法、事务操作方法。
 
 …
 
@@ -123,14 +127,15 @@ SqlSession 接口中定义了一系列获取数据库连接方法、CRUD 操作�
 
 **配置解析**
 
-负责解析 MyBatis 配置，解析后的信息会保存到 Configuration 类中。
+负责解析 MyBatis 配置，解析后的信息会保存到 Configuration 类中。Configuration 类是一个全局的配置类。
 
 …
 
 **SQL 解析**
 
 * SqlSource，表示从 XML 文件或注释读取的映射语句的内容，它将从用户接收的输入参数传递给数据库，创建对应的 SQL。
-* 每个 SQL 映射语句在 MyBatis 中都会被解析为一个 MappedStatement 对象。主要用来保存 SQL 语句、参数类型、结果类型、缓存等配置信息。在运行时 MyBatis 会根据调用的方法，获取对应 MappedStatement 对象中的信息，生成相应的 SQL 语句，并执行，最后将结果映射为 Java 对象返回。
+* MappedStatement，每个 SQL 映射语句在 MyBatis 中都会被解析为一个 MappedStatement 对象。
+  <p>主要用来保存 SQL 语句、参数类型、结果类型、缓存等配置信息。MyBatis 会根据调用的方法，获取对应 MappedStatement 对象信息，生成相应的 SQL 语句，并执行，最后将结果映射为 Java 对象返回。
 
 …
 
