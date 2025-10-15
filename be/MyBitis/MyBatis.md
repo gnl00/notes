@@ -1085,11 +1085,13 @@ public class SqlSessionTemplate implements SqlSession, DisposableBean
 
 ## 参考
 
+- [Mybatis源码解析](https://schunter.doocs.org/Mybatis/%E6%A0%B8%E5%BF%83%E5%A4%84%E7%90%86%E5%B1%82/Mybatis-MapperMethod.html)
+
 **SQL 执行**
 
-* [MyBatis SQL 如何执行](https://mp.weixin.qq.com/s/N4LPTmlKRrUPvZ0axzO0GA)
-* https://mp.weixin.qq.com/s/E6sRawj1YdnRapwqYXC2gg
+- [MyBatis SQL 如何执行](https://mp.weixin.qq.com/s/N4LPTmlKRrUPvZ0axzO0GA)
+- https://mp.weixin.qq.com/s/E6sRawj1YdnRapwqYXC2gg
 
 **Mapper 接口**
 
-* [MyBatis 的 mapper接口如何工作？](https://mp.weixin.qq.com/s/5A6RHkAjJlcEjBdMW6kqVQ)
+- [MyBatis 的 mapper接口如何工作？](https://mp.weixin.qq.com/s/5A6RHkAjJlcEjBdMW6kqVQ)
