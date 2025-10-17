@@ -308,6 +308,59 @@ public abstract class AbstractExecutorService implements ExecutorService
 public class ThreadPoolExecutor extends AbstractExecutorService
 ```
 
+```java
+/**
+ * Executes the given task sometime in the future.  The task
+ * may execute in a new thread or in an existing pooled thread.
+ *
+ * If the task cannot be submitted for execution, either because this
+ * executor has been shutdown or because its capacity has been reached,
+ * the task is handled by the current RejectedExecutionHandler.
+ */
+public void execute(Runnable command) {
+    if (command == null)
+        throw new NullPointerException();
+    /*
+     * Proceed in 3 steps:
+     *
+     * 1. If fewer than corePoolSize threads are running, try to
+     * start a new thread with the given command as its first
+     * task.  The call to addWorker atomically checks runState and
+     * workerCount, and so prevents false alarms that would add
+     * threads when it shouldn't, by returning false.
+     *
+     * 2. If a task can be successfully queued, then we still need
+     * to double-check whether we should have added a thread
+     * (because existing ones died since last checking) or that
+     * the pool shut down since entry into this method. So we
+     * recheck state and if necessary roll back the enqueuing if
+     * stopped, or start a new thread if there are none.
+     *
+     * 3. If we cannot queue task, then we try to add a new
+     * thread.  If it fails, we know we are shut down or saturated
+     * and so reject the task.
+     */
+    int c = ctl.get();
+    if (workerCountOf(c) < corePoolSize) { // 如果当前 worker 数小于 corePoolSize，直接创建新的 核心线程 执行当前任务
+        if (addWorker(command, core=true))
+            return;
+        c = ctl.get();
+    }
+    if (isRunning(c) && workQueue.offer(command)) { // 否则将当前任务加入工作队列
+        int recheck = ctl.get();
+        if (!isRunning(recheck) && remove(command))
+            reject(command); // 如果当前线程池 isNotRunning 状态，则将当前任务从工作队列中移除
+        else if (workerCountOf(recheck) == 0)
+            // 即使任务已经成功入队（workQueue.offer(command) 成功），
+            // 但如果此时线程池中没有任何活跃的工作线程，那么这个任务就会永远卡在队列里，无人执行。
+            addWorker(null, false);
+    }
+    else if (!addWorker(command, core=false)) // 直接创建新的 非核心线程 执行当前任务
+        reject(command);
+}
+```
+
+
 <br>
 
 #### 线程池状态

@@ -1484,7 +1484,11 @@ public V put(K key, V value) {
 
 > 带排序的 Map，基于链表和红黑树。继承自 HashMap，实现 Map 接口。
 
-与 HashMap 不同的是 LinkedHashMap 使用双向链表来连接它的 entry。使用链表的同时也确定了 LinkedHashMap 的遍历顺序，通常来说 LinkedHashMap 的遍历都是按照 key 添加的顺序来进行的。如果已经存在的 key 重新插入，不会影响其先前的顺序。
+与 HashMap 不同的是 LinkedHashMap 内部 Entry 使用双向链表来连接。
+
+LinkedHashMap 的有序可以按两种顺序排列：一种是按照插入的顺序；一种是按照访问的顺序。（初始化 LinkedHashMap 对象时设置 accessOrder 参数为 true）
+
+通常来说 LinkedHashMap 的遍历都是按照 key 添加的顺序来进行的。如果已经存在的 key 重新插入，不会影响其先前的顺序。
 
 ```java
 public class LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V> {}
