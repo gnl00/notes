@@ -680,7 +680,7 @@ bitcount key [start end]
 (integer) 4
 ```
 
-
+---
 
 **Bitmap 统计日活**
 
@@ -716,6 +716,29 @@ bitop or weekCount activity_0809 activity_0810 activity_0811 activity_0812 activ
 # 获取周活
 bitcount weekCount
 ```
+
+**使用 Bitmap 统计用户登录状态**
+
+```shell
+[7]> setbit key_user_login_status {user_id} 1
+(integer) 0
+[7]> setbit key_user_login_status 1000002 1
+(integer) 0
+[7]> setbit key_user_login_status 1000003 0
+(integer) 0
+[7]> setbit key_user_login_status 1000004 1
+(integer) 0
+```
+
+如果用户 ID 从 10000001 开始，则一个初始的 bitmap 空间占用大概为：
+
+所需总位数 = 1000001 + 1 = 1000002 位（因为 offset 从 0 开始，offset = N 需要 N+1 位）
+
+所需字节数 = ⌈1000002 ÷ 8 / 1024⌉ = 122 kb
+
+> [BitMap使用](https://segmentfault.com/a/1190000040177140)
+
+---
 
 <br>
 

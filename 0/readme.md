@@ -2,6 +2,15 @@
 
 <p>
 
+- 2025.11
+
+  [centrifugo-java](https://github.com/gnl00/one-springcloud)
+  - 基本使用
+  - 设计原理
+  - 架构
+
+<p>
+
 - 2025.10
 
   [springcloud-gateway](https://github.com/gnl00/one-springcloud)
@@ -11,6 +20,9 @@
   <br>mybatis源码
   - PooledDataSource/PooledDataSourceFactory/PoolState/PooledConnection
   - cache模块实现（顺便实现了一遍LRUCache）
+
+  <br>[dubbo源码](https://github.com/gnl00/dubbo-source)
+
 <p>
 
 - 2025.09
