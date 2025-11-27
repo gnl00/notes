@@ -2403,7 +2403,40 @@ mysql> UNLOCK TABLES;
 * 数据库分片是在多台机器上存储大型数据库的过程。一台计算机或数据库服务器只能存储和处理有限数量的数据，数据库分片通过将数据拆分为更小的块（称为分片）并将其存储在多个数据库服务器上来克服此限制。
 * 分区是将数据库表拆分为多个组的过程。将表被分成不同的子集，但保存在一个数据库中。
 
-…
+---
+
+### 分区表
+
+> https://www.cnblogs.com/ivictor/p/15713667.html
+
+创建分区
+
+```sql
+CREATE TABLE t_table (
+    id bigint not null AUTO_INCREMENT,
+    t_date DATETIME,
+    desc VARCHAR(30),
+    PRIMARY KEY (id, t_date)
+)
+PARTITION BY RANGE COLUMNS (t_date) (
+    PARTITION p0 VALUES LESS THAN ('20250101'),
+    PARTITION p1 VALUES LESS THAN ('20250601'),
+    PARTITION p2 VALUES LESS THAN MAXVALUE
+);
+```
+
+新增分区
+
+```sql
+-- 查询当前分区列表
+SELECT *
+FROM information_schema.PARTITIONS 
+WHERE TABLE_SCHEMA = 't_db' AND TABLE_NAME = 't_table';
+
+ALTER TABLE `t_table` ADD PARTITION (PARTITION p3 VALUES LESS THAN (20251001))
+```
+
+---
 
 ## MySQL 配置详解
 

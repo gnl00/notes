@@ -4,6 +4,10 @@
 
 - 2025.11
 
+  [现代 CPU 性能分析与优化](https://weedge.github.io/perf-book-cn/zh/)
+
+<p>
+
   [centrifugo-java](https://github.com/gnl00/one-springcloud)
   - 基本使用
   - 设计原理

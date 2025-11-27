@@ -264,7 +264,7 @@ Leader。
 
 …
 
-**生产者 ISR**
+**生产者 ISR（In-Sync Replicas）**
 
 > 采用第二种方案之后，设想以下情景：Leader 收到数据，所有 Follower 都开始同步数据，但有一个 Follower 发生故障不能与 Leader
 > 进行同步，Leader 就要一直等待，直到 Follower 完成同步，才能发送 ACK。**这个问题怎么解决呢？**

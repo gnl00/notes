@@ -1336,13 +1336,12 @@ public ReentrantReadWriteLock.ReadLock  readLock()  { return readerLock; }
 > * 读锁不支持 Condition
 > * 在只获取一种锁的情况下，读/写锁都是可重入锁。在获取了读锁的情况下，不允许重入写锁；在获取了写锁的情况下，允许重入读锁
 
-
-
 <br>
 
 ### StampedLock
 
-> 一个基于能力的锁，有三种模式来控制读/写。StampedLock 的状态由 version 和 mode 两部分组成，锁的获取方法返回一个 stamp，代表并控制与锁状态有关的访问。
+> StampedLock 有三种模式来控制读/写操作，分别是：乐观读锁，悲观读锁和写锁，对应的方法分别是：tryOptimisticRead、tryReadLock、tryWriteLock。
+> StampedLock 锁的获取方法返回一个 stamp（版本），代表并控制与锁状态有关的访问。StampedLock 的状态由 version（stamp版本） 和 mode（锁模式） 两部分组成，
 > 
 > 如果使用 tryXXX 方法获取锁，返回 0 表示获取失败。锁的释放和转换方法需要传入 stamp 作为参数，首先进行 stamp 校验，如果 stamp 不匹配则操作失败。
 
@@ -1350,19 +1349,19 @@ public ReentrantReadWriteLock.ReadLock  readLock()  { return readerLock; }
 > 
 > * 读锁
 > 
->   readLock，可能会阻塞非独占访问，返回一个 stamp 用于 unlockRead 解锁。
+>   readLock，共享读锁，多个线程可同时持有，但会阻塞写线程。
 > 
 > * 写锁
 > 
->   writeLock，可能会阻塞独占访问，返回一个 stamp 用于 unlockWrite 解锁。如果写锁被占有，则所有的读锁获取操作都会失败，并且乐观锁校验都会失败。
+>   writeLock，独占锁，如果写锁被占有，所有的读锁获取操作都会失败，并且乐观锁校验也会失败，表示数据已经被修改过，需要重新获取。
 > 
-> * 乐观锁
+> * 乐观读锁
 > 
 >   tryOptimisticRead，如果当前不是写模式，则返回非 0 的 stamp 表示获取到乐观锁。在获取到乐观锁后，可以使用 validate 方法检查写锁是否被占有。
 > 
 >   乐观锁可以认为是一个很弱的读锁，随时都有可能被写锁打破。它只会返回一个 stamp 用作校验，并不会真正上锁不会阻塞其他线程。
 > 
->   使用乐观锁对简短的只读代码段通常会降低线程对锁的争抢，提高吞吐量。
+>   在简短的只读代码中使用乐观锁通常会降低线程对锁的争抢，可以提高吞吐量。
 
 > **锁模式转换**
 > 
@@ -1378,7 +1377,7 @@ public ReentrantReadWriteLock.ReadLock  readLock()  { return readerLock; }
 
 > **公平与非公平**
 > 
-> 同样的，StampedLock 提供了 tryXXX 方法，这些方法不遵循公平规则，只要锁处于空闲状态都会尝试去获取。StampedLock 没有内置的等待队列，而是通过尝试获取读锁或写锁来实现并发控制，不支持 Condition
+> 同样的，StampedLock 提供了 tryXXX 方法，这些方法都是非公平的，只要锁处于空闲状态都会尝试去获取。StampedLock 没有内置的等待队列，而是通过尝试获取读锁或写锁来实现并发控制，不支持 Condition
 
 > **可重入性**
 >
@@ -1404,13 +1403,11 @@ public ReentrantReadWriteLock.ReadLock  readLock()  { return readerLock; }
 > 
 > 此二进制序列号会被读锁的非零计数抵消，如果获取的是乐观锁，读计数会忽略。因为需要用一个足够小的有限数来表示读计数，读锁超过计数最大值时，使用 RBITS 来表示读锁溢出，作为更新溢出的自旋保护机制
 
-```java
-public class StampedLock implements java.io.Serializable
-```
-
 **Usage**
 
 ```java
+public class StampedLock implements java.io.Serializable {}
+
 class Point {    
   private double x, y;    
   private final StampedLock sl = new StampedLock();
@@ -1481,8 +1478,6 @@ static final class WNode {
 }
 ```
 
-
-
 <br>
 
 ##### ReadLockView
@@ -1490,7 +1485,7 @@ static final class WNode {
 > Returns a ReadWriteLock view of this StampedLock in which the ReadWriteLock.readLock() method is mapped to asReadLock()
 
 ```java
-final class ReadLockView implements Lock
+final class ReadLockView implements Lock {}
 ```
 
 ```java
