@@ -93,6 +93,32 @@ sh bin/mqshutdown namesrv
 
 ---
 
+## 创建主题
+
+> [创建主题](https://github.com/apache/rocketmq/blob/develop/docs/cn/Example_CreateTopic.md)
+
+RocketMQ 5.0 引入了 `TopicMessageType` 的概念，并且使用了现有的主题属性功能来实现它。
+
+主题的创建是通过 `mqadmin` 工具来申明 `message.type` 属性。
+
+使用案例
+```shell
+# default
+sh ./mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c DefaultCluster
+
+# normal topic
+sh ./mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c DefaultCluster -a +message.type=NORMAL
+
+# fifo topic
+sh ./mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c DefaultCluster -a +message.type=FIFO
+
+# delay topic
+sh ./mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c DefaultCluster -a +message.type=DELAY
+
+# transaction topic
+sh ./mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c DefaultCluster -a +message.type=TRANSACTION
+```
+
 <br>
 
 ## 基本概念
@@ -801,6 +827,8 @@ RocketMQ **不保证消息不重复**，如果需要保证严格的不重复消�
 
 > 例如，在电商项目中，提交了一个订单之后发送指定时间的延时消息，等到指定时间之后检查订单状态，若是未付款就取消订单，释放库存
 
+RocketMQ V4 版本不支持设置确定的时间精度：
+
 ```java
 // org/apache/rocketmq/store/config/MessageStoreConfig.java 共 18 个级别
 // private String messageDelayLevel = "1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h";
@@ -809,7 +837,42 @@ RocketMQ **不保证消息不重复**，如果需要保证严格的不重复消�
 msg.setDelayTimeLevel(3);
 ```
 
-…
+RocketMQ V5 版本已改版，支持设置确定的时间精度：
+
+```java
+Message message = provider.newMessageBuilder()
+        .setTopic(TOPIC)
+        .setTag("order-cancel")
+        .setKeys(orderId)
+        .setBody(messageBody.getBytes(StandardCharsets.UTF_8))
+        .setDeliveryTimestamp(System.currentTimeMillis() + 35 * 1000) // 延迟 30 秒（测试用）
+        .build();
+```
+
+---
+
+**如何取消一条定时消息？**
+
+直接操作 RocketMQ 来删除消息比较麻烦，并且还需要 mqadmin 权限。我们可以采用曲线救国的方法：
+
+**利用业务逻辑实现“软取消”**
+
+1. 发送消息时增加唯一标识： 在发送延迟消息 A 时，给它附加一个唯一的业务 ID（例如订单 ID、任务 ID）。
+3. 消费者检查状态： 当消息 A 延迟到达消费者时，消费者不要立即执行业务逻辑。而是先去您的业务数据库或 缓存（如 Redis） 中查询该业务 ID 的最新状态。
+3. 判断是否取消：
+   1. 如果在延迟期间，业务操作（例如用户取消了订单）更新了数据库状态为“已取消”，那么消费者收到消息 A 后，会发现状态是已取消，从而直接丢弃/忽略这条消息，不执行后续处理。
+   2. 如果状态正常，则执行业务逻辑。
+   这种方式的优点是：完全符合 RocketMQ 的消息模型，实现简单，可靠性高，不依赖 RocketMQ 的内部实现细节。
+
+---
+
+**使用两个主题**。
+
+- 使用两个主题： 一个用于延迟任务（TopicA_Delay），一个用于取消指令（TopicB_Cancel）。
+- 发送取消指令： 当业务需要取消延迟消息 A 时，立即向 TopicB_Cancel 发送一条普通消息（不延迟），包含了需要取消的业务 ID。
+- 消费者端处理： 您的消费者需要同时订阅这两个主题。
+- 消费者收到普通消息（TopicB_Cancel）时，立即将对应的业务 ID 标记为“已取消”（存入本地缓存或 Redis 中）。
+- 当延迟消息 A 到达时，消费者检查这个“已取消”列表，如果 ID 存在，则忽略。
 
 ---
 
