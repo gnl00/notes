@@ -119,6 +119,25 @@ sh ./mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c DefaultClust
 sh ./mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c DefaultCluster -a +message.type=TRANSACTION
 ```
 
+每个 Topic 下默认的消息队列数量是 8 个：
+
+```shell
+~/rocketmq-5.3.2/bin$ sh mqadmin updateTopic -c DefaultCluster -t order-sequence-topic
+create topic to 127.0.0.1:10911 success.
+TopicConfig [topicName=order-sequence-topic, readQueueNums=8, writeQueueNums=8, perm=RW-, topicFilterType=SINGLE_TAG, topicSysFlag=0, order=false, attributes={}]
+
+~/rocketmq-5.3.2/bin$ sh mqadmin topicStatus -t order-sequence-topic
+#Broker Name                      #QID  #Min Offset           #Max Offset             #Last Updated
+824f9364b856                      0     0                     0
+824f9364b856                      1     0                     2                       xxxx-12-09 03:50:23,980
+824f9364b856                      2     0                     0
+824f9364b856                      3     0                     0
+824f9364b856                      4     0                     1                       xxxx-12-09 03:50:23,952
+824f9364b856                      5     0                     1                       xxxx-12-09 03:50:23,938
+824f9364b856                      6     0                     1                       xxxx-12-09 03:50:03,043
+824f9364b856                      7     0                     1                       xxxx-12-09 03:49:44,475
+```
+
 <br>
 
 ## 基本概念
@@ -209,9 +228,9 @@ Topic 一般为领域范围，比如交易和物流，是两个不同的领域�
 >
 > ![image-20230418211817701](./assets/image-20230418211817701.png)
 >
-> 因为 RocketMQ 中消息队列在分配消息的时候是以消费组为单位的，而组又会根据每个消费者的消费情况进行负载均衡消费分配，而不会在意消费者订阅了哪个主题。
+> 因为 RocketMQ 中消息队列在分配消息的时候是以消费者组为单位的，而组又会根据每个消费者的消费情况进行负载均衡消费分配，将消息队列分配给指定的消费者，而不会在意消费者订阅了哪个主题。
 >
-> 假设存在 TopicA 和 TopicB，以及 ConsumerA 和 ConsumerB。
+> 假设存在 TopicA 和 TopicB，以及同属于一个消费者组内的 ConsumerA 和 ConsumerB。
 >
 > ConsumerA 订阅 TopicB，ConsumerB 订阅 TopicA。当有 TopicA 或 TopicB 消息分发到消费者组时，消费者组不关注哪个消费者订阅了哪个 Topic，它只会将消息均匀分配给群组内的消费者。此时可能会将 TopicA 的消息分发给 ConsumerA，但是 ConsumerA 并没有订阅该主题，就可能会报错：*the consumer's subscription not exist*。
 
@@ -917,6 +936,10 @@ Message message = provider.newMessageBuilder()
 **实现**
 
 > https://github.com/gnl00/springboot-rocketmq/tree/main/rmq-challenge/src/main/java/one/demo/challenge/level5
+
+**RocketMQ & Kafka 顺序消息**
+
+> https://objcoding.com/2020/05/01/mq-sequential-consumption/
 
 …
 

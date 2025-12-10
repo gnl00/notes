@@ -113,6 +113,89 @@ Especially, there are some different processing procedures for FIFO consumption.
 The server ensures that the next batch of messages will not be obtained by the client
 until the previous batch of messages is confirmed to be consumed successfully or not.
 
+---
+
+## 顺序消息实现
+
+首先确定两个概念：
+
+- 全局有序：整个 Topic 只有一个队列，所有消息严格按 FIFO 顺序
+- 分区有序：Topic 有多个队列，相同业务标识的消息进入同一队列，保证局部有序
+
+RocketMQ 中的顺序消息是一种“分区有序”，生产者端在设置了消息的 `MessageGroup` 后将顺序消息都发送到一个对应的消息队列中。
+
+**RocketMQ 如何保证消息的有序性？**
+
+### 消息主题
+
+创建支持顺序消息的主题
+
+```shell
+sh mqadmin updateTopic -t <topic_name> -c <cluster_name> -a +message.type=FIFO
+sh mqadmin updateTopic -n <nameserver_address> -t <topic_name> -c <cluster_name> -a +message.type=FIFO
+```
+
+### 生产者端
+
+创建消息时指定 `MessageGroup` 属性
+
+```java
+// org.apache.rocketmq.client.java.impl.producer.ProducerImpl#send(java.util.List<org.apache.rocketmq.client.apis.message.Message>, boolean)
+
+// Prepare the candidate message queue(s) for retry-sending in advance.
+final List<MessageQueueImpl> candidates = null == messageGroup ? takeMessageQueues(result) :
+    Collections.singletonList(result.takeMessageQueueByMessageGroup(messageGroup));
+final SettableFuture<List<SendReceiptImpl>> future0 = SettableFuture.create();
+send0(future0, topic, messageType, candidates, pubMessages, 1);
+```
+
+如果设置了 messageGroup，在发送消息的时候会调用 `takeMessageQueueByMessageGroup` 方法，该方法会返回一个与 MessageGroup 对应的消息队列，生产者往该消息队列顺序发送消息，消费者从该消息队列顺序消费消息。
+
+### 消费者端
+
+RocketMQ 给每个消息队列分配一个消费者，一个消费者对应多个消费线程。当消费者拉取顺序消息的时候会先给它所负责的消息队列加锁，然后再进行消费，以此来保证消息消费的顺序性。
+
+可以看看这两个类的实现：
+
+```
+org.apache.rocketmq.client.impl.consumer.ConsumeMessageOrderlyService
+org.apache.rocketmq.client.impl.consumer.ConsumeMessagePopOrderlyService
+```
+
+### 顺序消息实现
+
+> https://juejin.cn/post/7320169906222841856
+
+---
+
+## 数据分层存储
+
+> https://juejin.cn/post/7340603873605222435
+
+<br>
+
+---
+
+## Controller层
+
+> https://juejin.cn/post/7295036072755822604
+
+Controller 启动方式有两种：
+
+1、内嵌在 NameServer 中启动
+
+```shell
+org.apache.rocketmq.namesrv.NamesrvStartup#main
+```
+
+2、单独部署启动
+
+```shell
+org.apache.rocketmq.controller.ControllerStartup#main
+```
+
+---
+
 # GoogleGuava
 
 ## ListenableFuture

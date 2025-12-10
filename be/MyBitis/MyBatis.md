@@ -340,6 +340,8 @@ UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
 
 ### 参数传递
 
+> [MyBatis 中 $ 与 # 解析原理](https://juejin.cn/post/7388470580465532980)
+
 **`#{}` 表示占位符**
 
 - 可以实现 preparedStatement 向占位符中设置值，自动进行 Java 类型和 JDBC 类型转换，可以有效防止 SQL 注入；
