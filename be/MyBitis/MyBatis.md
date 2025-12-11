@@ -258,10 +258,6 @@ MyBatis 中有**一级缓存**和**二级缓存**，这两级缓存都依赖于�
 …
 
 ```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE configuration
-        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-config.dtd">
 <configuration>
     <properties>
         <property name="username" value="root"/>

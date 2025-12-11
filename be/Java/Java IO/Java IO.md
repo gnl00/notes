@@ -57,11 +57,24 @@
 
 > 零拷贝（*Zero Copy*）是指：应用数据不需要在用户态和内核态之间来回进行拷贝，而是直接在内核空间中进行数据传输的技术。主要是为了解决数据传输过程中频繁拷贝所带来的性能问题。
 >
-> 在传统的 IO 操作中，数据需要先从磁盘或网络中读取到内核空间，再从内核空间拷贝到用户空间，最后再通过网络传输给接收方。这种传输方式会导致数据在用户空间和内核空间之间频繁拷贝，造成额外的 CPU 开销和内存带宽消耗，影响系统的性能。
+> 在传统的 IO 操作中，数据需要先从磁盘或网络中读取到内核空间，再从内核空间拷贝到用户空间，用户进程操作完成后，最后再通过网络传输给接收方。这种操作方式会导致数据在用户空间和内核空间之间频繁拷贝，造成额外的 CPU 开销和内存带宽消耗，影响系统的性能。
 >
-> 零拷贝技术可以将数据在内核空间中直接进行传输，减少性能开销。此外，零拷贝还可以降低应用程序的内存占用，提高系统的吞吐量。
+> 零拷贝技术可以将数据在内核空间中直接进行传输，减少性能开销。
 
-> 在 Java 中，零拷贝可以通过 NIO 中的 FileChannel 类实现。FileChannel 提供了 transferTo() 和 transferFrom() 方法，可以直接将数据在内核空间中进行传输，避免了数据在用户空间和内核空间之间的拷贝。同时，Java 也提供了 MappedByteBuffer 类，可以将文件直接映射到内存中，从而避免了文件在内存和磁盘之间的拷贝。
+在 Java 中，零拷贝可以通过 NIO 中的 `FileChannel` 类实现。`FileChannel` 提供了 `transferTo` 和 `transferFrom` 方法，可以直接将数据在内核空间中进行传输，避免了数据在用户空间和内核空间之间的拷贝。
+
+```java
+FileChannel channel = FileChannel.open(Paths.get("./test.txt"), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+//调用transferTo方法向目标数据传输
+channel.transferTo(position, len, target);
+```
+
+同时，Java 也提供了 `MappedByteBuffer` 类，采用 `mmap` 的方式将文件直接映射到内存中，从而避免了文件在内存和磁盘之间的拷贝。
+
+```java
+FileChannel fileChannel = new RandomAccessFile("test.txt", "rw").getChannel();
+MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, fileChannel.size());
+```
 
 …
 
