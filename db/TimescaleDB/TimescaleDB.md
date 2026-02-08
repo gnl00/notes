@@ -13,8 +13,6 @@ tag:
 > Specialized time-series databases, like Timescale, are designed to handle large amounts of database writes, so they work much faster. 
 > They are also optimized to handle schema changes, and use more flexible indexing, so you don't need to spend time migrating your data whenever you make a change.
 
-
-
 ## 使用
 
 以 PostgreSQL 扩展的形式
