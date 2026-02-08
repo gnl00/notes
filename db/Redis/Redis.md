@@ -2,8 +2,6 @@
 
 ## 前言
 
-<br>
-
 ### 特点
 
 1、**完全基于内存**，数据存在内存中，查找和操作的时间复杂度是 O(1)
@@ -17,15 +15,15 @@
 > * 比如 String 类型采用 SDS 数据结构来存储。**String 空间不够时，总是尝试去申请更多的内存；空间多余的时候，不归还多余空间，而是将多余的空间维护起来**。以此来减少内存的申请，可以更快实现对数据的操作。
 > * **有序集合 ZSet 采用的跳跃表，获取数据时可以通过不同的层次间跳跃来达到加速访问节点的效果**
 
-3、**Redis 的 IO 读写操作是单线程的**，避免了不必要的上下文切换和竞争条件，不存在多线程导致的 CPU 切换。不用考虑各种锁的问题，不存在加锁释放锁操作，没有死锁问题导致的性能消耗。Redis 的性能不在 CPU，而在内存。
+3、**Redis 的命令执行主路径是单线程模型（主线程负责网络 IO + 命令执行）**，避免了共享数据下的大量锁竞争和线程切换开销。Redis 的性能瓶颈通常更容易先出现在网络和内存，而不是纯 CPU。
 
 > 多线程环境中，当一个线程的状态由 Runnable 转换为非 Runnable（Blocked、Waiting、TimedWaiting）时，相应线程的上下文信息（包括 CPU 的寄存器和程序计数器在某一时间点的内容等）需要被保存，以便相应线程稍后再次进入 Runnable 状态时能够在之前的执行进度的基础上继续前进。而一个线程从非 Runnable 状态进入 Runnable 状态可能涉及恢复之前保存的上下文信息。这个对线程的上下文进行保存和恢复的过程就被称为上下文切换
 
 4、使用 IO 多路复用模型，非阻塞 IO
 
-> IO 多路复用让一个线程可以同时监听并管理多个 TCP 连接的读写就绪事件，无需为每个连接都创建一个线程或进程。如果采用多个请求起多个进程或者多个线程的模式，除了要考虑到进程或者线程的切换之外，还要用户去检查事件是否到达，效率低下。Redis 支持 select、poll、epoll 模式的多路复用，默认情况下，会选择系统支持的最好的模式。通过 IO 多路复用技术，用户不用去遍历 fd-set 集合（文件描述符集合）。通过内核通知告诉事件的到达，效率比较高。
+> IO 多路复用让一个线程可以同时监听并管理多个 TCP 连接的读写就绪事件，无需为每个连接都创建一个线程或进程。如果采用多个请求起多个进程或者多个线程的模式，除了要考虑到进程或者线程的切换之外，还要用户去检查事件是否到达，效率低下。Redis 支持 select、poll、epoll 模式的多路复用，默认情况下，会选择系统支持的最好的模式。通过 IO 多路复用技术，用户不用去遍历 fd_set 集合（文件描述符集合）。通过内核通知告诉事件的到达，效率比较高。
 
-5、[渐进式 Rehash](##渐进式哈希)
+5、[渐进式 Rehash](#渐进式哈希)
 
 <br>
 
@@ -52,7 +50,7 @@ del key
 flushdb
 flushall
 
-# （不建议再生产环境中使用）把指定的键从源数据库移动到目标数据库
+# （不建议在生产环境中使用）把指定的键从源数据库移动到目标数据库
 move key db
 
 # 键数据类型
@@ -73,9 +71,9 @@ pexpire key milliseconds
 # key在豪秒级时间戳timestamp后过期
 pexpireat key milliseconds-timestamp
 # 命令可以查看键hello的剩余过期时间，单位：秒（>0剩余过期时间；-1没设置过期时间；-2键不存在）
-ttl
+ttl key
 # 毫秒级ttl
-pttl
+pttl key
 
 # 排序
 sort mylist
@@ -97,12 +95,23 @@ sort list by it:* desc get it:* store sorc:result
 
 **redisObject 内部属性**
 
+```c
+/* 简化示意：不同 Redis 版本字段位宽可能有差异 */
+typedef struct redisObject {
+    unsigned type:4;      // 对象类型：string/list/hash/set/zset/stream...
+    unsigned encoding:4;  // 底层编码：raw/int/hashtable/quicklist/listpack/skiplist...
+    unsigned lru:24;      // LRU/LFU 相关信息（不同版本含义略有差异）
+    int refcount;         // 引用计数
+    void *ptr;            // 指向实际数据结构
+} robj;
+```
+
 - type，表示一个 value 对象具体是何种数据类型
 - encoding，是不同数据类型在 Redis 内部的存储方式
 
-…
+- lru/lfu 等字段，用于内存淘汰和访问统计等运行时信息（不同版本字段实现有差异）
 
-type=string，表示 value 存储的是一个普通字符串， encoding 可以是 raw 或者 int。
+type=string，表示 value 存储的是一个普通字符串， encoding 可以是 raw/int/hashtable... 等
 
 ![image-20210528110958956](./assets/image-20210528110958956.png)
 
@@ -114,6 +123,20 @@ type=string，表示 value 存储的是一个普通字符串， encoding 可以�
 
 > String 是 Redis 最基本的类型。String 类型是二进制安全的，意思是 Redis 的 String 类型可以包含任何数据，比如 jpg 图片或者序列化的对象。String 类型的值最大能存储 512M
 
+**SDS 结构（简化示意）**
+
+```c
+/* Redis 3.2+ 使用 sdshdr5/8/16/32/64，这里给出常见简化结构 */
+typedef char *sds;
+
+struct sdshdr {
+    int len;      // 已使用长度（不含 '\0'）
+    int alloc;    // 分配空间长度（不含头部）
+    unsigned char flags; // 低 3 bit 表示 header 类型
+    char buf[];   // 实际数据，末尾额外保留 '\0'
+};
+```
+
 **操作**
 
 ```shell
@@ -121,7 +144,7 @@ set key value
 # 键必须不存在，才可以设置成功
 setnx key value
 # 为键值设置秒级过期时间
-setex key value
+setex key seconds value
 # 从index开始替换value
 setrange key index value 
 
@@ -132,10 +155,10 @@ mget k1 k2 k3
 # key计数增
 incr key
 # key计数增，每次增increment
-incr key by increment
+incrby key increment
 # key计数减
 decr key
-decr key by increment
+decrby key increment
 
 # 追加值，向key中的value字符串尾部追加值
 append key value
@@ -149,8 +172,8 @@ getset key value
 # 获取部分字符串，start和end分别为开始和结束的偏移量，偏移量从0开始
 getrange key start end 
 
-# 设置指定位置的字符，offeset是字符串下标
-setrange key offeset value
+# 设置指定位置的字符，offset是字符串下标
+setrange key offset value
 > set key aaa
 OK
 > get key
@@ -161,7 +184,7 @@ OK
 "baa"
 ```
 
-**String key设置约定**
+**String Key 设置约定**
 
 ```shell
 # 中间不能用空格来隔开
@@ -177,7 +200,7 @@ user:id:1001:name aaa
 
 **实现方式**
 
-底层实现是一个双向链表，可以支持反向查找和遍历，可以用来当消息队列用。
+Redis 新版本中，List 底层以 quicklist 为主（由多个 listpack 组成的双向链表），兼顾内存效率与读写性能，也常用于消息队列场景。
 
 ```c
 typedef struct listNode {
@@ -197,7 +220,7 @@ typedef struct list {
     void *(*dup)(void *ptr);
     void (*free)(void *ptr);
     int (*match)(void *ptr, void *key);
-    unsignedlong len;
+    unsigned long len;
 } list;
 ```
 
@@ -206,10 +229,10 @@ typedef struct list {
 ```shell
 #添加
 # 从右边插入元素
-rpush lists elements[elements . . .]
+rpush lists elements [elements ...]
 rpush lists a b c d
 # 从左边插入元素
-lpush lists elements[elements . . .]
+lpush lists elements [elements ...]
 # 向某个元素前或者后插入元素
 linsert lists BEFORE|AFTER element value
 
@@ -284,16 +307,16 @@ typedef struct dictEntry {
 ```shell
 # 设置值
 hset key field value
-hsetnx key filed value
+hsetnx key field value
 # 批量设置值
-Hmset key field value [field value]
+hset key field value [field value ...]
 # 判断field是否存在
 hexists key field
 
 # 获取值
 hget key field
 # 批量获取值
-Hmget key field [field ......]
+hmget key field [field ...]
 # 计算field的个数
 hlen key
 # 计算value字符串的长度
@@ -304,9 +327,9 @@ hkeys key
 hvals key
 # 获取所有的field、value
 hgetall key
-# hincrby hincrbyfloat 作用域是field
-hincrby key field
-hincrbyfloat key field
+# hincrby / hincrbyfloat 作用域是 field
+hincrby key field increment
+hincrbyfloat key field increment
 
 [2]> hset user:1 name aaa age 18
 (integer) 2
@@ -341,31 +364,31 @@ Rehash 过程需要将 哈希表0 里面的所有键值对 Rehash 到 哈希表1
 
 * 扩容
 
-当 Redis 的哈希槽数量不足时扩容。扩容时 Redis 会创建容量为旧哈希表 2 倍大小的新哈希表，并将原有的键值对重新 Rehash 存放到新的哈希表中。
+    当 Redis 的哈希槽数量不足时扩容。扩容时 Redis 会创建容量为旧哈希表 2 倍大小的新哈希表，并将原有的键值对重新 Rehash 存放到新的哈希表中。
 
 * 缩小
 
-当 Redis 空闲的哈希槽数量过多时，可以考虑缩容。缩容时，Redis 会合并一些相邻的哈希槽，并将其合并后的键值对重新 Rehash 保存到新的哈希槽中。
+    当负载因子较低时会触发缩容。缩容时会分配更小的新哈希表，并将原哈希表中的键值对渐进式迁移到新表中。
 
 <br>
 
 **Rehash 步骤**
 
-1、为 哈希表1 分配空间，且空间大小为 哈希表0 的 2 倍，让字典同时持有 哈希表0 和 哈希表1 两个哈希表
+1、为 `哈希表1` 分配空间，且空间大小为 `哈希表0` 的 2 倍，让字典同时持有 `哈希表0` 和 `哈希表1` 两个哈希表
 
-2、在字典中维持一个索引计数器变量 *rehashidx*（哈希表的下标），并将它的值设置为 0，表示 Rehash 工作正式开始
+2、在字典中维持一个索引计数器变量 *rehashidx*（哈希表的下标），并将它的值设置为 `0`，表示 Rehash 工作正式开始
 
-3、在 Rehash 进行期间，每次对字典执行 CRUD 操作时，程序除了执行指定的操作以外，还会顺带将哈希表 0 在 *rehashidx* 索引上的键值对 Rehash，并放到哈希表 1。 当 Rehash 工作完成之后，将 rehashidx 属性的值加上 1
+3、在 Rehash 进行期间，每次对字典执行 CRUD 操作时，程序除了执行指定的操作以外，还会顺带将 `哈希表0` 在 *rehashidx* 索引上的键值对 Rehash，并放到 `哈希表1`。 当 Rehash 工作完成之后，将 rehashidx 属性的值加上 `1`
 
-4、随着字典操作的不断执行，哈希表 0 的所有键值对都会被 Rehash 至哈希表 1，这时程序将 *rehashidx* 属性的值设为 -1 ，表示 Rehash 操作已完成。
+4、随着字典操作的不断执行，`哈希表 0` 的所有键值对都会被 Rehash 至 `哈希表 1`，这时程序将 *rehashidx* 属性的值设为 -1 ，表示 Rehash 操作已完成。
 
 <br>
 
 **Rehash 期间的 CRUD 操作**
 
-因为在进行渐进式 Rehash 的过程中，字典会同时使用 哈希表0 和 哈希表1 两个哈希表，所以在渐进式 Rehash 进行期间， **CRUD 操作会在两个哈希表上同时进行**。
+因为在进行渐进式 Rehash 的过程中，字典会同时使用 `哈希表0` 和 `哈希表1` 两个哈希表，所以在渐进式 Rehash 进行期间， **CRUD 操作会在两个哈希表上同时进行**。
 
-在渐进式 Rehash 执行期间，新添加到字典的键值对会被保存到 哈希表1，而 哈希表0 不再进行任何添加操作。这一措施保证 哈希表0 包含的键值对数量会只减不增，并随着 Rehash 操作的执行而最终变成空表。Rehash 期间在字典里面查找一个 Key，程序会先在 哈希表0 里面进行查找，如果没找到，就会到 哈希表1 中进行查找。
+在渐进式 Rehash 执行期间，新添加到字典的键值对会被保存到 `哈希表1`，而 `哈希表0` 不再进行任何添加操作。这一措施保证 `哈希表0` 包含的键值对数量会只减不增，并随着 Rehash 操作的执行而最终变成空表。Rehash 期间在字典里面查找一个 Key，程序会先在 `哈希表0` 里面进行查找，如果没找到，就会到 `哈希表1` 中进行查找。
 
 <br>
 
@@ -384,7 +407,7 @@ Rehash 过程需要将 哈希表0 里面的所有键值对 Rehash 到 哈希表1
 ```shell
 # 添加
 # 返回结果为添加成功的元素个数
-sadd key element [element .....]
+sadd key element [element ...]
 
 # 获取
 smembers key
@@ -397,22 +420,22 @@ srandmember key [count]
 
 # 删除
 # 返回结果为删除成功的元素个数
-srem key element [element .....]
+srem key element [element ...]
 # 从set中随机pop元素，count可以省略，默认1
 spop key [count]
 
 # set集合间的操作
 # 交集
-sinter key [key . . .]
+sinter key [key ...]
 # 并集
-sunion key [key . . .]
+sunion key [key ...]
 # 差集
-sdiff key [key . . .]
+sdiff key [key ...]
 
 # 将交集、并集、差集的结果保存，destination：保存到的目的地
-sinterstore destination key [ key ......]
-sunionstore destination key [ key ......]
-sdiffstore destination key [ key ......]
+sinterstore destination key [key ...]
+sunionstore destination key [key ...]
+sdiffstore destination key [key ...]
 ```
 
 <br>
@@ -440,41 +463,41 @@ zrange key start end [withscores]
 # 从高分到低分
 zrevrange key start end [withscores] 
 
-# 返回指定分数范围的成员
+# 返回指定分数范围的成员（Redis 6.2+ 推荐写法）
 # 按照分数从低分到高分
-zrange key min max [withscores] [limit offset count ]
+zrange key min max byscore [withscores] [limit offset count]
 # 按照分数从高分到低分
-zrevrange key max min [withscores] [limit offset count ]
+zrevrangebyscore key max min [withscores] [limit offset count]
 # 返回指定分数范围的成员个数
 zcount key min max
 
 # 计算成员个数
 zcard key
 # 计算某个成员分数
-zsore key member
+zscore key member
 # 从0开始计算成员的排名
 zrank key member
 
 # 删除
 # 删除成员
-zrem key member [member .......]
+zrem key member [member ...]
 # 删除指定排名内的升序元素
 zremrangebyrank key start end
 # 删除指定分数范围的成员
-zremrangebystore key min max
+zremrangebyscore key min max
 
 # zset集合操作
 # 交集
-zinter key [key . . .]
+zinter numkeys key [key ...]
 # 并集
-zunion key [key . . .]
+zunion numkeys key [key ...]
 # 差集
-zdiff key [key . . .]
+zdiff numkeys key [key ...]
 
 # 将交集、并集、差集的结果保存，destination：保存到的目的地
-zinterstore destination key [ key ......]
-zunionstore destination key [ key ......]
-zdiffstore destination key [ key ......]
+zinterstore destination numkeys key [key ...]
+zunionstore destination numkeys key [key ...]
+zdiffstore destination numkeys key [key ...]
 ```
 
 <br>
@@ -486,23 +509,23 @@ Zset 需要高效的插入和删除，数组插入删除的时间复杂度为 O(
 那么问题就来了，**二分查找的对象必须是有序数组，只有数组支持快速定位，链表做不到该怎么办呢?**
 这就需要**跳跃表**了
 
-Zset 的底层涉及到 3 个结构：dict、Ziplist、SkipList。
-Zset 最开始使用 ziplist，当达到一定条件时，改变存储结构为 skiplist，这个很类似于 Java HashMap 在处理 hash 冲突时链表转红黑树的做法。  
+Zset 的底层核心结构是 dict + 跳跃表（SkipList）；小集合时会使用紧凑编码（Redis 7 中为 listpack）。当超过阈值后会转换为跳跃表 + 哈希表结构。
 
 需要同时满足如下两个条件：  
 1. 压缩列表个数小于128个   
 2. 压缩列表每个元素大小小于64字节   
 这两个参数可以在 redis.conf 中配置
 ```
-zset-max-ziplist-entries 128
-zset-max-ziplist-value 64
+# Redis 7 使用 listpack 参数
+zset-max-listpack-entries 128
+zset-max-listpack-value 64
 ```
 
 SkipList 数据结构如下：
 
 ```c
 /* ZSETs use a specialized version of Skiplists */
-typedefstruct zskiplistNode {
+typedef struct zskiplistNode {
     // value
     sds ele;
     // 分值
@@ -514,15 +537,15 @@ typedefstruct zskiplistNode {
         // 前进指针
         struct zskiplistNode *forward;
         // 跨度
-        unsignedlong span;
+        unsigned long span;
     } level[];
 } zskiplistNode;
 
-typedefstruct zskiplist {
+typedef struct zskiplist {
     // 跳跃表头指针
     struct zskiplistNode *header, *tail;
     // 表中节点的数量
-    unsignedlong length;
+    unsigned long length;
     // 表中层数最大的节点的层数
     int level;
 } zskiplist;
@@ -532,6 +555,25 @@ typedefstruct zskiplist {
 
 1. 性能考虑：在高并发的情况下，树形结构需要执行 rebalance 这样的可能涉及整棵树的操作，相对来说跳跃表的变化只涉及局部；
 2. 实现考虑：在复杂度与红黑树相同的情况下，跳跃表实现起来更简单。
+
+**跳跃表插入示意（插入 score=35）**
+
+```text
+插入前：
+L2:  HEAD -----------------------> [50] -----------------------> NIL
+L1:  HEAD -----------> [30] ------> [50] -----------------------> NIL
+L0:  HEAD -> [10] -> [20] -> [30] -> [40] -> [50] -> [60] -----> NIL
+
+查找插入位置（从高层向低层）：
+L2:  HEAD (下探)
+L1:  HEAD -> [30] (30 < 35，继续向右；下一个是 50，停止并下探)
+L0:  [30] -> [40] (40 > 35，确定插入点在 30 和 40 之间)
+
+假设随机层高 = 2（占 L0、L1）：
+L2:  HEAD -----------------------> [50] -----------------------> NIL
+L1:  HEAD -----------> [30] -> [35] -> [50] -------------------> NIL
+L0:  HEAD -> [10] -> [20] -> [30] -> [35] -> [40] -> [50] -> [60] -> NIL
+```
 
 <br>
 
@@ -561,33 +603,33 @@ geoadd china:city 120.20000 30.26667 hangzhou
 geoadd china:city 120.20000 30.26667 hangzhou 121.473720 31.230350 shanghai
 
 # 获取
-geopos key member [member. . .]
-geoadd china:city hangzhou shanghai
+geopos key member [member ...]
+geopos china:city hangzhou shanghai
 
 # 获取两地距离，默认距离单位m
-geodist china:key hangzhou shanghai
-geodist china:key hangzhou shanghai km
-# 以某个地理位置为中心，找出某半径内的包含的位置
-georadius key longitude latitude radius m|km|ft|mi [WITHCOORD] [WITHDIST] [WITHHASH] [COUNT count [ANY]] [ASC|DESC] [STORE key] [STOREDIST key]
-georadius key 经度 纬度 半径 半径单位m/km 包含直线距离 显示经纬度 count 显示的个数 升序/降序
+geodist china:city hangzhou shanghai
+geodist china:city hangzhou shanghai km
+# 以某个地理位置为中心，找出某半径内的位置
+# Redis 6.2+ 推荐使用 GEOSEARCH/GEOSEARCHSTORE（GEORADIUS/GEORADIUSBYMEMBER 已废弃）
+geosearch key fromlonlat longitude latitude byradius radius m|km|ft|mi [withcoord] [withdist] [count count [any]] [asc|desc]
 # 根据给定的成员元素，找出指定距离内的其他元素
-georadiusbymember china:city hangzhou 200 km withcoord withdist
+geosearch key frommember member byradius radius m|km|ft|mi [withcoord] [withdist] [count count [any]] [asc|desc]
 
 # 获取位置元素地理位置的哈希值
-geohash key member [member. . .]
+geohash key member [member ...]
 
 
 [5]> geodist china:city shanghai hangzhou km
 "162.2105"
-[5]> georadius china:city 120.2 30.2 200 km
+[5]> geosearch china:city fromlonlat 120.2 30.2 byradius 200 km
 1) "hangzhou"
 2) "shanghai"
-[5]> georadius china:city 120.2 30.2 200 km withdist
+[5]> geosearch china:city fromlonlat 120.2 30.2 byradius 200 km withdist
 1) 1) "hangzhou"
    2) "7.4155"
 2) 1) "shanghai"
    2) "167.2338"
-[5]> georadius china:city 120.2 30.2 200 km withdist withcoord
+[5]> geosearch china:city fromlonlat 120.2 30.2 byradius 200 km withdist withcoord
 1) 1) "hangzhou"
    2) "7.4155"
    3) 1) "120.20000249147415161"
@@ -596,7 +638,7 @@ geohash key member [member. . .]
    2) "167.2338"
    3) 1) "121.47371917963027954"
       2) "31.2303488312778228"
-[5]> georadiusbymember china:city hangzhou 200 km withcoord withdist
+[5]> geosearch china:city frommember hangzhou byradius 200 km withcoord withdist
 1) 1) "hangzhou"
    2) "0.0000"
    3) 1) "120.20000249147415161"
@@ -620,11 +662,11 @@ geohash key member [member. . .]
 
 ```shell
 # 添加
-pfadd key element [element . . .]
+pfadd key element [element ...]
 # 获取 key 基数
 pfcount key
 # 将多个 hyperloglog 合并为一个
-pfmerge destkey sourcekey [sourcekey . . .]
+pfmerge destkey sourcekey [sourcekey ...]
 
 [6]> pfadd hyper a b c d e f g
 (integer) 1
@@ -658,7 +700,7 @@ OK
 
 ```shell
 # 设置值，一般设置 0 或 1
-setbit key value
+setbit key offset value
 # 获取值
 getbit key offset
 # 统计某个键其值为 1 的数量
@@ -778,7 +820,7 @@ bitcount weekCount
 
 2. 输入一组命令，命令入队
 
-3. 执行事务，`exec`，执行之后本次事务结束，若还要使用事务则需要再次开启
+3. `exec`执行事务，执行之后本次事务结束，若还要使用事务则需要再次开启
 
 4. 取消事务，`discard`
 
@@ -802,7 +844,7 @@ multi
 # 执行事务内的命令
 exec
 
-# 监视一个或者多个key，如果事务执行之前，这个kye被其它命令所动，则事务被打断
+# 监视一个或者多个 key，如果事务执行之前，这个 key 被其它命令所动，则事务被打断
 watch key [key ...]
 # 取消watch命令对所有key的监视
 unwatch
@@ -853,7 +895,7 @@ QUEUED
 Redis 提供了两个命令来生成 RDB 快照文件，分别是：
 
 * `save` 在主线程中执行，会导致阻塞；
-*  `bgsave` 创建一个子进程，用于写入 RDB 文件的操作，避免了对主线程的阻塞，**是 RDB 的默认配置**。
+*  `bgsave` 创建一个子进程，用于写入 RDB 文件的操作，避免阻塞主线程（生产中通常优先使用）。
 
 <br>
 
@@ -873,8 +915,8 @@ save 60 10000
 
 **手动触发**
 
-1. 执行完命令之后，手动执行 save 指令
-2. 执行 `flushdb` 指令，执行 flushdb 指令之后，会生成一个空的 `dump.rdb` 文件，并将之前的 RDB 文件覆盖。
+1. 手动执行 `save`（阻塞）或 `bgsave`（后台）生成快照；
+2. `flushdb/flushall` 指令执行会清空数据，会生成一个空的 `dump.rdb` 文件，并将之前的 RDB 文件覆盖。
 
 > *注意*：如果 Redis 命令是以 flushdb 命令结尾，那么下次启动的时候会导致数据丢失。
 
@@ -972,7 +1014,7 @@ appendfsync everysec
 
 1. `always`，每次发生数据变更会被立即记录到 AOF 文件，性能较差但是数据完整性较好。
 2. `everysec`，出厂默认，每秒记录，如果系统 1s 内宕机，会出现数据丢失。
-3. `no`
+3. `no`，由操作系统决定何时刷盘，性能较高但宕机时丢失数据风险更大。
 
 <br>
 
@@ -1012,7 +1054,7 @@ Redis 会 fork 一个新进程来进行 AOF 重写操作（先写入临时文件
 **AOF 细节**
 
 - 若是目录下同时存在 `dump.rdb` 和 `appendonly.aof`，Redis 会优先加载 aof 文件进行数据恢复。因为在通常情况下，aof  文件保存的数据要比 rdb 文件保存的数据更完整。
-- aof 文件会记录 `flusdb` 和 `flushall` 指令，若在操作的最后执行了 `flushdb`，在下次启动时从 aof 文件恢复的指令中末尾就是 `flushdb`，数据会被再次清空。
+- aof 文件会记录 `flushdb` 和 `flushall` 指令，若在操作的最后执行了 `flushdb`，在下次启动时从 aof 文件恢复的指令中末尾就是 `flushdb`，数据会被再次清空。
 
 <br>
 
@@ -1030,8 +1072,8 @@ Redis 会 fork 一个新进程来进行 AOF 重写操作（先写入临时文件
 从 Redis 7.0.0 开始，Redis 使用了 Multi Part AOF 机制。顾名思义，Multi Part AOF 就是将原来的单个 AOF 文件拆分成多个 AOF 文件。在 Multi Part AOF 中，AOF 文件被分为三种类型，分别为：
 
 * BASE：表示基础 AOF 文件，它一般由子进程通过重写产生，该文件最多只有一个。
-* INCR：表示增量 AOF 文件，它一般会在 AOF重写 开始执行时被创建，该文件可能存在多个。
-* HISTORY：表示历史 AOF 文件，它由 BASE 和 INCR AOF 变化而来，每次 AOF重写 成功完成时，本次 AOF重写 之前对应的 BASE 和 INCR AOF 都将变为 HISTORY，HISTORY 类型的 AOF 会被 Redis 自动删除。
+* INCR：表示增量 AOF 文件，它一般会在 AOF 重写开始执行时被创建，该文件可能存在多个。
+* HISTORY：表示历史 AOF 文件，它由 BASE 和 INCR AOF 变化而来，每次 AOF 重写成功完成时，本次 AOF 重写之前对应的 BASE 和 INCR AOF 都将变为 HISTORY，HISTORY 类型的 AOF 会被 Redis 自动删除。
 
 <br>
 
@@ -1065,7 +1107,7 @@ aof-use-rdb-preamble yes
 
 1、拷贝`redis.conf` 文件备份
 
-2、开启 `deamonlize yes`
+2、开启 `daemonize yes`
 
 3、指定端口
 
@@ -1095,16 +1137,16 @@ dbfilename dump端口号.rdb
 
 
 
-二、从库配置，有两种方法可指定 master
+二、从库配置，有两种方法可指定主库（新术语为 primary/replica，命令里兼容旧写法）
 
-1. 命令行指定，每次与 master 断开之后，都需要重新连接
+1. 命令行指定，每次与主库断开之后，都需要重新连接
    
    ```shell
    # redis 客户端命令行
-   slaveOf <master-ip> <master-port>
+   replicaof <master-ip> <master-port>
    ```
 
-2. 配置文件指定，在 `redis.conf` 中指定 master
+2. 配置文件指定，在 `redis.conf` 中指定主库
 
 
 
@@ -1121,12 +1163,12 @@ info replication
 
 接力配置，slave 同样可以接受其他 slave 的连接和同步请求，中间的 slave 作为链条中下一个 Slave的 master，可以有效减轻 master 的写压力。
 
-> *注意*：中途变更两种不同的 master-slave 配置会清除之前的数据，重新建立拷贝最新的数据。
+> *注意*：中途变更两种不同的主从配置会清除之前的数据，重新建立拷贝最新的数据。
 
-配置步骤同一主多从，仅在 slaveOf 命令处有改动
+配置步骤同一主多从，仅在 `replicaof` 命令处有改动
 
 ```shell
-slaveOf <new-master-ip> <new-master-port>
+replicaof <new-master-ip> <new-master-port>
 ```
 
 <br>
@@ -1175,7 +1217,7 @@ slaveOf <new-master-ip> <new-master-port>
    
    ```conf
    # sentinel.conf 最后的数字 1 表示，主机挂掉后 slave 投票，看谁得票多让谁接替成为主机
-   sentinel minitor 被检控的主机名 主机ip 主机port 1
+   sentinel monitor <master-name> <master-ip> <master-port> 1
    ```
 
 4. 启动哨兵
@@ -1310,7 +1352,7 @@ gossip 协议包含多种消息，包括 `ping/pong/meet/fail` 等：
 
 1. **API 接口层增加校验**，如用户鉴权校验，对 ID 做基础校验，ID 小于 0 直接拦截
 2. **缓存空对象**，从缓存取不到的数据，在数据库中也没有取到，这时可以将 `key-value` 对写为`key-null`，缓存有效时间可以设置得短一点，如 30s（设置太长会导致正常情况也没法使用）。这样可以防止攻击用户反复用同一个 ID 暴力攻击
-3. **布隆过滤器**，将所有可能存在的数据哈希到一个足够大的 bitmap 中，一定不存在的数据会被会被这个 bitmap 拦截掉，从而减少了对底层存储系统的查询压力
+3. **布隆过滤器**，将所有可能存在的数据哈希到一个足够大的 bitmap 中，一定不存在的数据会被这个 bitmap 拦截掉，从而减少了对底层存储系统的查询压力
 
 <br>
 
@@ -1331,19 +1373,20 @@ public String getData(String key) {
         // tryLock，获取成功，去数据库取数据
         if (lock.tryLock()) {
             res = getDataFromCache(key);
-            if (res != null) {
+            if (res == null) {
+                res = getDataFromDb(key);
                 setDataToCache(key, res);
             }
             // 释放锁资源
             lock.unlock();
-        }
-    } else {
-        // 等待一段时间后再重新获取数据
-        try {
-            Thread.sleep(1000 * 3);
-            getData(key);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        } else {
+            // 获取锁失败，等待后重试
+            try {
+                Thread.sleep(1000 * 3);
+                return getData(key);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
     return res;
@@ -1586,7 +1629,7 @@ Redisson 是在 Redis 基础上实现的一款分布式服务相关工具。底�
 
 2、**一致性**，秒杀中商品减库存的实现方式同样关键。可想而知，有限数量的商品在同一时刻被很多被的请求同时来减库存，减库存又分为拍下减库存和付款减库存以及预扣款等几种，在大并发更新的过程中都要保证数据的准确性。
 
-3、**高可用**，现实中难免会出现一些在系统设计时未考虑到的情况，所以要保证高可用的正确定，还要设计一个保底的方案，以便在最坏情况发生时仍然能够从容应对
+3、**高可用**，现实中难免会出现一些在系统设计时未考虑到的情况，所以要保证高可用的正确性，还要设计一个保底方案，以便在最坏情况发生时仍然能够从容应对
 
 **前置步骤**
 
@@ -1624,4 +1667,3 @@ Redisson 是在 Redis 基础上实现的一款分布式服务相关工具。底�
 * [Redis 核心篇：唯快不破的秘密](https://mp.weixin.qq.com/s?__biz=MzkzMDI1NjcyOQ==&mid=2247487752&idx=1&sn=72a1725e1c86bb5e883dd8444e5bd6c4)
 * [redis 数据类型](https://github.com/jmilktea/jtea/tree/master/redis)
 * [redis-persistence](https://github.com/Snailclimb/JavaGuide/blob/main/docs/database/redis/redis-persistence.md)
-
