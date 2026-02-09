@@ -7,34 +7,23 @@ tag:
 
 # Netty
 
-> 基于 Java NIO 封装的网络框架
+基于 Java NIO 封装的网络框架
 
 > 关于 IO 模型的演变以及多路复用可以看看[这篇文章](https://mp.weixin.qq.com/s/zAh1yD5IfwuoYdrZ1tGf5Q)，很详细。
 
-> **关键词**
->
-> * DMA：直接内存访问 *Direct Memory Access*
->
-> * 阻塞：循环等待；
->
-> * 阻塞读：让出 CPU，直到有足够的数据可读取才会被唤醒进行数据读取
->
-> * 阻塞写：如果缓存空间不足以写入所有的数据则阻塞等待，直到缓存空间足够大到可以一次性写入所有数据
->
-> * 非阻塞；不循环等待，若无数据直接返回
->
-> * IO 的同步模式：由用户线程的内核态来将数据从内核空间拷贝到用户空间（Linux下的 `epoll` 和Mac 下的  `kqueue` 都属于同步 IO）
->
-> * IO 的异步模式：由内核来将数据从内核空间拷贝到用户空间，并通知用户线程数据拷贝的结果。
->
-> * …从上面可以看到，异步 IO 比较依赖于底层内核的支持
->
-> * C10K 问题：C10K 表示处理 10000 个并发连接。
->
->   注意这里的并发连接和每秒请求数不同，虽然它们是相似的：每秒处理许多请求需要很高的吞吐量（快速处理它们），但是更大的数量并发连接需要高效的连接调度。
->
-> * [零拷贝](https://mp.weixin.qq.com/s/kUkw-RoqLEEr1xuv2ex0FQ) 这里几张图很形象
-> * …
+**关键词**
+
+* DMA：直接内存访问 *Direct Memory Access*
+* 阻塞：循环等待；非阻塞；不循环等待，若无数据直接返回。
+* 阻塞读：让出 CPU，直到有足够的数据可读取才会被唤醒进行数据读取；
+* 阻塞写：如果缓存空间不足以写入所有的数据则阻塞等待，直到缓存空间足够大到可以一次性写入所有数据
+* 同步 IO：由用户线程的内核态来将数据从内核空间拷贝到用户空间（Linux下的 `epoll` 和Mac 下的  `kqueue` 都属于同步 IO）
+* 异步 IO：由内核来将数据从内核空间拷贝到用户空间，并通知用户线程数据拷贝的结果。
+    …从上面可以看出，异步 IO 比较依赖于底层内核的支持
+* C10K：指 **单机同时处理 1 万个并发连接（10,000 concurrent clients）** 的问题。
+  注意这里的并发连接和每秒请求数不同，虽然它们是相似的：每秒处理许多请求需要很高的吞吐量（快速处理它们），但是更大的数量并发连接需要高效的连接调度。
+* [零拷贝](https://mp.weixin.qq.com/s/kUkw-RoqLEEr1xuv2ex0FQ) 这里几张图很形象
+* …
 
 <br>
 
@@ -49,16 +38,16 @@ public class EchoServer {
       this.port = port;
   }
   public void start() {
-    	// NioEventLoopGroup 用来处理 I/O 操作的多线程事件循环器
+        // NioEventLoopGroup 用来处理 I/O 操作的多线程事件循环器
     	// boss 将接收到的客户端请求注册到 worker 上，由 worker 来处理
       NioEventLoopGroup boss = new NioEventLoopGroup(); // 接收连接
-      NioEventLoopGroup worker = new NioEventLoopGroup(); // 处理连接
+      NioEventLoopGroup worker = new NioEventLoopGroup(); // 处理连接事件 read/write/handler 回调
       try {
-        	// 启动 NIO 服务的辅助启动类
+            // 启动 NIO 服务的辅助启动类
           ServerBootstrap server = new ServerBootstrap();
         	// Set the EventLoopGroup for the parent (acceptor) and the child (client)
           server.group(boss, worker)
-            			// The Class which is used to create Channel instances
+                    // The Class used to create Channel instances
                   .channel(NioServerSocketChannel.class)
                   .childHandler(new ChannelInitializer<SocketChannel>() {
                       @Override
@@ -66,9 +55,10 @@ public class EchoServer {
                           ch.pipeline().addLast(new EchoServerChannelHandler());
                       }
                   })
-            			// Allow to specify a ChannelOption which is used for the Channel instances once they got created
+                    // Allow to specify a ChannelOption which is used for the Channel instances once they got created
+                    // 等待建立连接队列的长度
                   .option(ChannelOption.SO_BACKLOG, 128)
-            			// Allow to specify a ChannelOption which is used for the Channel instances once they get created (after the acceptor accepted the Channel)
+                    // Allow to specify a ChannelOption which is used for the Channel instances once they get created (after the acceptor accepted the Channel)
                   .childOption(ChannelOption.SO_KEEPALIVE, true);
           // start
           ChannelFuture future = server.bind(port).sync();
@@ -223,32 +213,32 @@ ByteBuf 使用一个读和一个写索引作为数据访问指针。
 
 **数据读取**
 
-任何名称以 read 或 skip 开头的操作都会获取或跳过 readerIndex 之前的数据
+discardable bytes 表示已经读取过的内容，任何名称以 read 或 skip 开头的操作都会获取或跳过 readerIndex 之前的数据（跳过 discardable bytes）
 
 **数据写入**
 
-任何名称以 write 开头的操作都会从当前 writerIndex 处开始写入数据。如果没有足够的可写字节，报错 IndexOutOfBoundsException。
+任何名称以 write 开头的操作都会从当前 writerIndex 处开始写入数据。如果没有足够的可写字节，报错 `IndexOutOfBoundsException。`
 
 **数据丢弃**
 
 任何在 readerIndex 之前的数据在调用 discardReadBytes() 方法之后都会被丢弃
 
 ```
- *  BEFORE discardReadBytes()
- *
- *      +-------------------+------------------+------------------+
- *      | discardable bytes |  readable bytes  |  writable bytes  |
- *      +-------------------+------------------+------------------+
- *      |                   |                  |                  |
- *      0      <=      readerIndex   <=   writerIndex    <=    capacity
- *
- *  AFTER discardReadBytes()
- *
- *      +------------------+--------------------------------------+
- *      |  readable bytes  |    writable bytes (got more space)   |
- *      +------------------+--------------------------------------+
- *      |                  |                                      |
- * readerIndex (0) <= writerIndex (decreased)        <=        capacity
+BEFORE discardReadBytes()
+
+    +-------------------+------------------+------------------+
+    | discardable bytes |  readable bytes  |  writable bytes  |
+    +-------------------+------------------+------------------+
+    |                   |                  |                  |
+    0      <=      readerIndex   <=   writerIndex    <=    capacity
+
+AFTER discardReadBytes()
+
+    +------------------+--------------------------------------+
+    |  readable bytes  |    writable bytes (got more space)   |
+    +------------------+--------------------------------------+
+    |                  |                                      |
+readerIndex (0) <= writerIndex (decreased)        <=        capacity
 ```
 
 …
@@ -258,21 +248,21 @@ ByteBuf 使用一个读和一个写索引作为数据访问指针。
 可以通过调用 clear() 方法来清空当前 ByteBuf
 
 ```
- *  BEFORE clear()
- *
- *      +-------------------+------------------+------------------+
- *      | discardable bytes |  readable bytes  |  writable bytes  |
- *      +-------------------+------------------+------------------+
- *      |                   |                  |                  |
- *      0      <=      readerIndex   <=   writerIndex    <=    capacity
- *
- *  AFTER clear()
- *
- *      +---------------------------------------------------------+
- *      |             writable bytes (got more space)             |
- *      +---------------------------------------------------------+
- *      |                                                         |
- *      0 = readerIndex = writerIndex            <=            capacity
+BEFORE clear()
+
+    +-------------------+------------------+------------------+
+    | discardable bytes |  readable bytes  |  writable bytes  |
+    +-------------------+------------------+------------------+
+    |                   |                  |                  |
+    0      <=      readerIndex   <=   writerIndex    <=    capacity
+
+AFTER clear()
+
+    +---------------------------------------------------------+
+    |             writable bytes (got more space)             |
+    +---------------------------------------------------------+
+    |                                                         |
+    0 = readerIndex = writerIndex            <=            capacity
 ```
 
 …
@@ -331,7 +321,13 @@ b.writeByte('5');
 
 #### HeapBuffer
 
-顾名思义，将缓冲数据保存在 JVM 的堆区中
+顾名思义，将缓冲数据保存在 JVM 的堆区中，“放到堆中”本质是普通 Java 数组操作。
+
+使用的路径是：
+
+```
+heap byte[] -> (拷贝到) 临时 direct buffer -> 内核 socket buffer
+```
 
 …
 
@@ -339,11 +335,19 @@ b.writeByte('5');
 
 Java NIO 新增的缓冲类，可以将缓冲数据保存到 JVM 堆外存中，不会被垃圾回收。
 
+使用的路径是
+
+```
+direct memory -> 内核 socket buffer
+```
+
 …
 
 #### ByteBufHolder
 
 > A packet which is send or receive.
+
+本质是个接口：里面有一个内容体 content()（就是 ByteBuf）。
 
 …
 
@@ -470,44 +474,44 @@ ChannelHandler 本身没有提供很多方法，它提供以下子接口：
 每个 Channel 都有一个对应的 ChannelPipeline，用于管理 ChannelHandler。多个 ChannelHandler 在 ChannelPipeline 上形成一条调用链。
 
 ```
- *                                                 I/O Request
- *                                            				 or
- *                                        		ChannelHandlerContext
- *                                                      |
- *  +---------------------------------------------------+---------------+
- *  |                           ChannelPipeline         |               |
- *  |                                                  \|/              |
- *  |    +---------------------+            +-----------+----------+    |
- *  |    | Inbound Handler  N  |            | Outbound Handler  1  |    |
- *  |    +----------+----------+            +-----------+----------+    |
- *  |              /|\                                  |               |
- *  |               |                                  \|/              |
- *  |    +----------+----------+            +-----------+----------+    |
- *  |    | Inbound Handler N-1 |            | Outbound Handler  2  |    |
- *  |    +----------+----------+            +-----------+----------+    |
- *  |              /|\                                  .               |
- *  |               .                                   .               |
- *  | ChannelHandlerContext.fireIN_EVT() ChannelHandlerContext.OUT_EVT()|
- *  |        [ method call]                       [method call]         |
- *  |               .                                   .               |
- *  |               .                                  \|/              |
- *  |    +----------+----------+            +-----------+----------+    |
- *  |    | Inbound Handler  2  |            | Outbound Handler M-1 |    |
- *  |    +----------+----------+            +-----------+----------+    |
- *  |              /|\                                  |               |
- *  |               |                                  \|/              |
- *  |    +----------+----------+            +-----------+----------+    |
- *  |    | Inbound Handler  1  |            | Outbound Handler  M  |    |
- *  |    +----------+----------+            +-----------+----------+    |
- *  |              /|\                                  |               |
- *  +---------------+-----------------------------------+---------------+
- *                  |                                  \|/
- *  +---------------+-----------------------------------+---------------+
- *  |               |                                   |               |
- *  |       [ Socket.read() ]                    [ Socket.write() ]     |
- *  |                                                                   |
- *  |  Netty Internal I/O Threads (Transport Implementation)            |
- *  +-------------------------------------------------------------------+
+                                                 I/O Request
+                                            				 or
+                                        		ChannelHandlerContext
+                                                      |
+  +---------------------------------------------------+---------------+
+  |                           ChannelPipeline         |               |
+  |                                                  \|/              |
+  |    +---------------------+            +-----------+----------+    |
+  |    | Inbound Handler  N  |            | Outbound Handler  1  |    |
+  |    +----------+----------+            +-----------+----------+    |
+  |              /|\                                  |               |
+  |               |                                  \|/              |
+  |    +----------+----------+            +-----------+----------+    |
+  |    | Inbound Handler N-1 |            | Outbound Handler  2  |    |
+  |    +----------+----------+            +-----------+----------+    |
+  |              /|\                                  .               |
+  |               .                                   .               |
+  | ChannelHandlerContext.fireIN_EVT() ChannelHandlerContext.OUT_EVT()|
+  |        [ method call]                       [method call]         |
+  |               .                                   .               |
+  |               .                                  \|/              |
+  |    +----------+----------+            +-----------+----------+    |
+  |    | Inbound Handler  2  |            | Outbound Handler M-1 |    |
+  |    +----------+----------+            +-----------+----------+    |
+  |              /|\                                  |               |
+  |               |                                  \|/              |
+  |    +----------+----------+            +-----------+----------+    |
+  |    | Inbound Handler  1  |            | Outbound Handler  M  |    |
+  |    +----------+----------+            +-----------+----------+    |
+  |              /|\                                  |               |
+  +---------------+-----------------------------------+---------------+
+                  |                                  \|/
+  +---------------+-----------------------------------+---------------+
+  |               |                                   |               |
+  |       [ Socket.read() ]                    [ Socket.write() ]     |
+  |                                                                   |
+  |  Netty Internal I/O Threads (Transport Implementation)            |
+  +-------------------------------------------------------------------+
 ```
 
 …
@@ -530,6 +534,26 @@ ChannelHandler 通过调用 ChannelHandlerContext 中的方法，将事件传递
 * 协议编码器，将 Java 对象编码成二进制数据，通过 Channel 传输到远程
 * 业务逻辑处理器，负责实现实际的业务逻辑
 
+ChannelPipeline 的顺序是有语义的，不是随便放。要按事件流向排：decoder 要在业务入站前，encoder 要位于业务写出路径上（通常放在业务 handler 前面）。
+
+核心规则：
+
+1. Inbound 事件按添加顺序从前往后走。
+2. Outbound 事件按添加逆序从后往前走。
+
+所以 decode/encode 一般这样放最稳妥：
+
+```java
+pipeline.addLast("decoder", new XxxDecoder());   // Inbound
+pipeline.addLast("encoder", new XxxEncoder());   // Outbound
+pipeline.addLast("biz", new BizHandler());       // Inbound/业务
+```
+
+原因：
+
+- 入站数据：decoder -> biz
+- 出站数据（在 biz 里用 `ctx.writeAndFlush(...)`）：会反向经过前面的 encoder
+
 …
 
 ---
@@ -538,7 +562,25 @@ ChannelHandler 通过调用 ChannelHandlerContext 中的方法，将事件传递
 
 ### EventLoop
 
-在使用 Netty 来实现服务器的过程中你可能会奇怪，NIO 中的 Selector 角色在哪里？在 Netty 中 EventLoop 中就维护着一个 Selector 实例，用来处理 Channel 的 IO 操作。
+在使用 Netty 来实现服务器的过程中你可能会奇怪，NIO 中的 Selector 角色在哪里？
+在 Netty 中 EventLoop 中就维护着一个 Selector 实例，用来处理 Channel 的 IO 操作。
+
+`io.netty.channel.nio.NioEventLoop`
+
+```java
+public final class NioEventLoop extends SingleThreadEventLoop {
+    /**
+     * The NIO {@link Selector}.
+     */
+    private Selector selector;
+    private Selector unwrappedSelector;
+    private SelectedSelectionKeySet selectedKeys;
+    private final SelectorProvider provider;
+
+    private final SelectStrategy selectStrategy;
+}
+```
+
 Netty 启动时，会将多个 Channel 注册到 EventLoop 中，一个 EventLoop 可以处理多个 Channel 事件，一个 EventLoopGroup 可以包含多个 EventLoop。
 
 …
@@ -559,8 +601,48 @@ Netty 启动时，会将多个 Channel 注册到 EventLoop 中，一个 EventLoo
 
 ## 架构总览
 
-![img](./assets/components.png)
+```text
+                          +----------------------+
+                          |      Bootstrap       |
+                          | Server/Client 启动入口 |
+                          +----------+-----------+
+                                     |
+                                     v
+                 +-------------------------------------------+
+                 |              EventLoopGroup               |
+                 |     bossGroup(接收连接) / workerGroup(读写) |
+                 +-------------------+-----------------------+
+                                     |
+                                     v
+                        +-----------------------------+
+                        |          EventLoop          |
+                        |   绑定线程 + 维护 Selector    |
+                        +---------------+-------------+
+                                        |
+                             register(Channel)
+                                        |
+                                        v
++---------------------------------------------------------------------------------+
+|                                   Channel                                       |
+|                        封装 Socket / ServerSocketChannel                        |
+|                                        |                                        |
+|                                        v                                        |
+|                            +-------------------------+                          |
+|                            |     ChannelPipeline     |                          |
+|                            | Inbound  <->  Outbound  |                          |
+|                            +-----------+-------------+                          |
+|                                        |                                        |
+|                                        v                                        |
+|                          +-------------------------------+                      |
+|                          |         ChannelHandler        |                      |
+|                          | decoder -> biz -> encoder     |                      |
+|                          +-------------------------------+                      |
++---------------------------------------------------------------------------------+
 
+数据载体：ByteBuf（入站解码、出站编码）
+```
+
+![架构总览](./assets/components.png)
 
 
 缓冲（Buffer），通道（Channel），事件模型（Event Model）是 Netty 的三大核心。
@@ -738,6 +820,16 @@ public class CombinedByteCharCodec extends CombinedChannelDuplexHandler<ByteToCh
 
 > [TCP 粘包和拆包及解决方案](https://dongzl.github.io/netty-handbook/#/_content/chapter09?id=第-9-章-tcp-粘包和拆包及解决方案)
 
+关于“粘包”和“拆包”：
+
+1. TCP 是字节流协议，天然没有消息边界。
+2. 发送端多次 write，接收端可能一次 read 到一起（被叫“粘包”）。
+3. 发送端一次 write，接收端也可能分多次 read（被叫“拆包”）。
+
+所以问题本质不是“包被粘/拆”，而是“应用层消息边界需要自己定义”。
+
+> 很多人认为这翻译糟糕，是因为它把一个“正常语义（stream）”说成了“异常现象（粘/拆）”。
+
 …
 
 <br>
@@ -753,6 +845,17 @@ public class CombinedByteCharCodec extends CombinedChannelDuplexHandler<ByteToCh
 ## RPC 调用实现
 
 > [RPC 调用实现](https://dongzl.github.io/netty-handbook/#/_content/chapter11)
+
+在 Dubbo 里，RPC 调用前后的编解码就在网络层的出站/入站处理链上完成：
+
+1. 出站：请求对象 -> 序列化（encode）-> 字节流发送
+2. 入站：字节流 -> 反序列化（decode）-> 请求/响应对象
+
+流程大概是：
+
+- 先做协议层封包/拆包（header、body、长度字段、请求ID 等）
+- 再对 body 做具体序列化（Hessian2/Kryo/Fastjson2/Protobuf 等，取决于配置）
+- 同时可能叠加压缩、心跳、事件帧等处理
 
 …
 
@@ -821,11 +924,11 @@ socketChannel.bind(new InetSocketAddress(8888));
 
 **在 Netty 中**
 
-先说结论：Bootstrap 就是帮助我们打开 Channel，并绑定端口的*启动类*或者说*辅助类*。
+先说结论：使用 Bootstrap 作为辅助类打开 Channel，并绑定端口，可以认为是一个*启动类*或者说*辅助类*。
 
-> Bootstrap sub-class which allows easy bootstrap of ServerChannel
+> Bootstrap sub-class which allows easy bootstrap of ServerChannel.
 
-翻译过来就是：ServerBootstrap 是 Bootstrap 的子类，开启一个 ServerChannel。
+ServerBootstrap 是 Bootstrap 的子类，开启一个 ServerChannel。
 
 ServerBootstrap 有一个父类 AbstractBootstrap
 
@@ -886,7 +989,7 @@ public ReflectiveChannelFactory(Class<? extends T> clazz) {
 
 …
 
-让我们把目光转移到标号 [1] 这一行代码，接下来就到 NioEventLoopGroup 出场了。
+首先让我们先看看 **Selector 在哪里？** 把目光转移到标号 [1] 这一行代码，接下来到 NioEventLoopGroup 出场。
 
 …
 
@@ -895,8 +998,7 @@ public ReflectiveChannelFactory(Class<? extends T> clazz) {
 #### NioEventLoopGroup
 
 ```java
-// Debug 的时候注意一下这两个 NioEventLoopGroup，
-// 后面可以用来和 AbstractBootstrap#initAndRegister 中的 config().group() 进行比较
+// Debug 的时候注意一下这两个 NioEventLoopGroup，后面可以用来和 AbstractBootstrap#initAndRegister 中的 config().group() 进行比较
 NioEventLoopGroup boss = new NioEventLoopGroup();
 NioEventLoopGroup worker = new NioEventLoopGroup();
 ```
@@ -971,13 +1073,13 @@ NioEventLoop(/**...**/) {
 }
 ```
 
-现在恍然大悟，原来一直没出现的 Selector 角色被 Netty “藏”在了 EventLoop 中。由此我们也可以确定，Channel 是注册到 EventLoop 所管理的 Selector 中的。
+一直没出现的 Selector 角色被 Netty “藏”在了 EventLoop 中。由此我们也可以确定，Channel 是注册到 EventLoop 所管理的 Selector 中的。
 
 …
 
 <br>
 
-到这里，Channel 开启了，Selector 有了，那**何时注册 Channel？**
+到这里，Channel 开启了，Selector 有了，那 **何时注册 Channel？**
 
 还记得 AbstractBootstrap 吗？它是 ServerBootstrap 的父类，初始化并注册 Channel 的操作就是在 AbstractBootstrap#doBind 方法中进行的。
 
@@ -1002,7 +1104,8 @@ final ChannelFuture initAndRegister() {
 }
 ```
 
-从 AbstractBootstrap#initAndRegister 代码中可以看出，它主要负责创建和初始化 Channel。这里的 `init(channel)` 这句代码在后续会聊到。看到最后 `group().register(channel)` 这一句代码：将 Channel 注册到 EventLoopGroup 中。
+从 AbstractBootstrap#initAndRegister 代码中可以看出，它主要负责创建和初始化 Channel。这里的 `init(channel)` 这句代码在后续会聊到。
+看到最后 `group().register(channel)` 这一句代码：将 Channel 注册到 EventLoopGroup 中。
 
 <br>
 
@@ -1088,8 +1191,8 @@ public final SelectionKey register(Selector sel, int ops,
 
 先给出结论：
 
-* bossGroup 负责：1、连接新的 Channel；2、将 Channel 注册到 workerGroup 上
-* workerGroup 用于处理已经建立的连接和执行具体的业务逻辑。
+* bossGroup 负责监听 accept，接收新连接（SocketChannel），并把它注册到 workerGroup 的某个 EventLoop
+* workerGroup 负责已建立连接的 I/O 事件（read/write/connect）和 pipeline 中的 handler 回调。
 
 …
 
@@ -1105,10 +1208,10 @@ void init(Channel channel) {
     setChannelOptions(channel, newOptionsArray(), logger);
   	// 设置 Channel 属性
     setAttributes(channel, newAttributesArray());
-		// 获取 ChannelPipeline
+    // 获取 ChannelPipeline
   	// 在创建 Channel 的时候也会同步创建 ChannelPipeline
     ChannelPipeline p = channel.pipeline();
-		// 主角 workerGroup 来了
+    // 主角 workerGroup 来了
     final EventLoopGroup currentChildGroup = childGroup;
     final ChannelHandler currentChildHandler = childHandler;
     final Entry<ChannelOption<?>, Object>[] currentChildOptions = newOptionsArray(childOptions);
@@ -1348,7 +1451,7 @@ public class GreenisChannelHandler extends ChannelDuplexHandler {
 
 原理如下图
 
-![image-20230623163413683](./assets/image-20230623163413683.png)
+![代理服务器架构示意图](./assets/image-20230623163413683.png)
 
 …
 
@@ -1356,7 +1459,7 @@ public class GreenisChannelHandler extends ChannelDuplexHandler {
 
 ### 内网穿透
 
-> 在 [GitHub](https://github.com/wandererex/wormhole) 看到一个使用 Netty 实现内网穿透的工具，使用 Java 实现，学习一下。
+> 在 [wandererex/wormhole](https://github.com/wandererex/wormhole) 看到一个使用 Netty 实现内网穿透的工具，使用 Java 实现，学习一下。
 
 比如，将 127.0.0.1:3307 代理到 127.0.0.1:3306。**如何实现呢？**
 
