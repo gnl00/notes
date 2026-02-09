@@ -554,6 +554,8 @@ java.lang.OutOfMemoryError:Java heap space
 
 - `-XX:MaxTenuringThreshold`，设置对象在新生代中交换的次数；
 
+- `XX:PretenureSizeThreshold`：设置大对象直接进入老年代的阈值（避免在年轻代反复复制）
+
 - `-XX:+PrintGCDetails`，输出详细的 GC 处理日志。
 
 #### 永久代与元空间
