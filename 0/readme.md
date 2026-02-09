@@ -8,7 +8,7 @@
 
 <p>
 
-  [centrifugo-java](https://github.com/gnl00/one-springcloud)
+  [centrifugo-java](https://github.com/gnl00/centrifugo-java)
   - 基本使用
   - 设计原理
   - 架构
