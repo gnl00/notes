@@ -151,6 +151,7 @@ TopicConfig [topicName=order-sequence-topic, readQueueNums=8, writeQueueNums=8, 
 * Producer 负责生产消息；
 * Consumer 负责消费消息；
 * Group，具有相同角色组成 Group，分为 *Producer Group* 和 *Consumer Group*。如果原生产者交易崩溃，Broker 可以联系同一个组的不同生产者进行提交或回退交易。
+* Controller
 
 …
 
@@ -182,7 +183,19 @@ Proxy 层充当客户端（Producer 和 Consumer）与后端 Broker 存储层之
 
 #### Controller
 
-…
+RocketMQ 5.x 引入的控制面组件，主要负责 **Broker 主从关系管理与故障切换协调**，不直接存储业务消息。
+
+核心职责：
+
+* Broker 存活检测与角色状态维护（Master/Slave）；
+* Broker 异常时触发主从切换决策，降低人工切换成本；
+* 维护与副本切换相关的关键元数据，并保证控制面决策一致性（通常通过多节点部署保障高可用）。
+
+边界说明：
+
+* Controller 不是 NameServer 的简单替代。NameServer 仍负责路由发现；
+* Controller 不参与消息收发链路，消息读写仍由 Proxy/Broker 完成；
+* Controller 更偏“集群控制面”，Broker 更偏“数据面”。
 
 #### 生产者
 
@@ -228,7 +241,7 @@ Topic 一般为领域范围，比如交易和物流，是两个不同的领域�
 >
 > ![image-20230418211817701](./assets/image-20230418211817701.png)
 >
-> 因为 RocketMQ 中消息队列在分配消息的时候是以消费者组为单位的，而组又会根据每个消费者的消费情况进行负载均衡消费分配，将消息队列分配给指定的消费者，而不会在意消费者订阅了哪个主题。
+> RocketMQ 中消息队列在分配消息的时候是以消费者组为单位的，消费者组又会根据每个消费者的消费情况进行负载均衡消费分配，将消息队列分配给指定的消费者，不会在意组内的消费者订阅了哪个主题。
 >
 > 假设存在 TopicA 和 TopicB，以及同属于一个消费者组内的 ConsumerA 和 ConsumerB。
 >
