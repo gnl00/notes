@@ -95,24 +95,39 @@ java -jar boot-demo.jar --spring.profiles.active=test
 
 **proxyBeanMethods**
 
-@Configuration 有一个属性：proxyBeanMethods 表示配置类中的 @Bean 方法是否应该被代理
+@Configuration 有一个 `proxyBeanMethods` 配置表示：当一个 @Bean 方法在同一个配置类里“直接调用另一个 @Bean 方法”时，是否还能拿到容器里的单例 Bean。
 
 * true 表示 Full 模式，保证 @Bean 方法无论被调用多少次返回的都是单例对象；
 
 * false 表示 Lite 模式，保证 @Bean 方法无论被调用多少次返回的都是新对象。
 
-…
-
-`proxyBeanMethods=true` 的优点是可以保证在同一个ApplicationContext中，同一个bean只被创建一次，从而有效地利用了单例模式。缺点是：需要创建代理类，会对启动速度产生一定影响。
+`proxyBeanMethods=true` 可以保证在同一个 ApplicationContext 中，同一个 bean 只被创建一次，从而有效地利用了单例模式。缺点是：需要创建代理类，会对启动速度产生一定影响。
 
 `proxyBeanMethods=false` 的优点是启动速度更快，因为不需要创建代理。但是这也意味着如果在同一配置类中有多个 @Bean 方法调用了同一个 @Bean 方法，那么会有多个实例被创建，不再享受 Spring 的单例保障。
 
-…
+`proxyBeanMethods=true` 比如说：
 
-**使用场景**
+```java
+@Bean
+A a() { return new A(b()); } // 直接调用 b()
+@Bean
+B b() { return new B(); }
+```
 
-- 配置类创建的 Bean 之间**无依赖关系**，用 Lite 模式加速容器启动，减少容器对生成组件的判断；
-- 配置类创建的 @Bean 方法需要用到之前保存在容器中的单实例组件，用 Lite 模式。
+- 开启代理后，`a()` 里调用 `b()` 不会真的走普通 Java 方法，而是被拦截后从 Spring 容器拿 `B`，保证是同一个 Bean（遵守作用域、AOP 等容器语义）。
+- 代价是有一点点启动和调用开销（CGLIB 代理）。
+
+`proxyBeanMethods=false` 比如说：
+
+- 你的 `@Bean` 方法之间**没有互相直接调用**（最常见，尤其现在 Spring Boot 自动配置大量用这个）。
+- 或者你通过**方法参数注入**来表达依赖，而不是 `a()` 里手调 `b()`
+
+```java
+@Bean
+A a(B b) { return new A(b); } // 推荐
+@Bean
+B b() { return new B(); }
+```
 
 …
 
