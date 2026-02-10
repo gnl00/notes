@@ -242,8 +242,9 @@ ACK，就会进行下一轮的发送，否则重新发送上一条消息。
 
 **何时发送 ACK？**
 
-确保有 Follower 与 Leader 同步完成，Leader 再发送 ACK。这样才能保证 Leader 故障后仍有完整的数据保存在 Follower 中，才能选举出新的
-Leader。
+确保有 Follower 与 Leader 同步完成，Leader 再发送 ACK。
+
+> 这样才能保证 Leader 故障后仍有完整的数据保存在 Follower 中，才能选举出新的 Leader。
 
 …
 
@@ -271,8 +272,8 @@ Leader。
 
 Leader 维护了一个动态的 ISR（*In-Sync Replica Set*），同步状态的备份的集合，表示和 Leader 保持同步的 Follower 集合。
 
-当 ISR 中的 Follower 完成数据的同步之后，就会给 Leader 发送 ACK。如果 Follower 长时间（由 `replica.lag.time.max.ms` 参数设定）未向
-Leader 同步数据，将其从 ISR 剔除。等待 Follower 恢复正常再重新加入 ISR。
+当 ISR 中的 Follower 完成数据的同步之后，就会给 Leader 发送 ACK。如果 Follower 长时间未向
+Leader 同步数据，将其从 ISR 剔除（由 `replica.lag.time.max.ms` 参数设定）。等待 Follower 恢复正常再重新加入 ISR。
 
 > ISR 还有一个作用：当 Leader 发生故障，Kafka 就会从 ISR 中选举新的 Leader。
 
@@ -303,10 +304,12 @@ Kafka 为用户提供了三种级别 ACK：
 
 ### 生产者分区
 
+> 生产者分区属于逻辑分区。
+
 **原因**
 
 * 提高并发，以分区为单位读写，多个分区可以处理更多的读操作；
-* 方便在集群中扩展，每个分区可调整以适应它所在的机器。
+* 方便在集群中扩展，每个分区可调整，以适应它所在的机器。
 
 …
 
@@ -337,11 +340,15 @@ Consumer 的消费能力以适当的速率消费消息。
 
 消息推送速率由 Broker 决定，Broker 尽可能以最快速度传递消息，但消费者消费速度可能跟不上。
 
+> 底层实现也是“拉模型”。
+
 …
 
 ---
 
 ### 消费者分区
+
+> 消费者分区属于逻辑分区。
 
 **分区分配再平衡机制**
 
@@ -364,8 +371,8 @@ Consumer 的消费能力以适当的速率消费消息。
 
 有两种分配策略：
 
-- round-robin 轮询
-- range
+- RoundRobinAssignor，分区内的消费者**轮询消费**
+- RangeAssignor，分区内的消费者**按照 range 消费**。先按 topic 分组，对每个 topic，把分区号排序、消费者排序，按“连续区间”切给消费者（每人一段 range）。
 
 …
 
@@ -387,13 +394,16 @@ Consumer 的消费能力以适当的速率消费消息。
 
 ### 消息流向
 
-Kafka 中消息是以 Topic 进行分类的，消息的生产和消费都是面向 Topic 的。**Topic 是逻辑上的概念，而 Partition 是物理上的概念
-**。
+Kafka 中消息是以 Topic 进行分类，以 Partition 进行存储的；消息的生产和消费都是面向 Topic 进行。
 
-每个 Partition 对应于一个 log 文件，该 log 文件中存储的就是生产者生产的数据（Topic = N partition，partition = log）。
+> Topic 是逻辑上的概念，Partition 也是逻辑上的概念，Partition 下的 Segment 才是真正的物理存储文件。
 
-Producer 生产的数据会被不断追加到该 log 文件末端，且每条数据都有自己的 Offset。消费者组中的每个消费者会实时记录自己消费到了哪个
-Offset，以便出错恢复时从上次的位置继续消费。
+每个 Partition 对应于一组 log 文件（一组 Segment 文件），log 文件中存储的就是生产者生产的数据。
+
+> Topic 下面有 N 个 Partition，Partition 下面有 N 组 Segment 文件。
+
+Producer 生产的数据会被不断追加到该 log 文件末端，每条消息数据都有自己的 Offset。消费者组中的每个消费者会实时记录自己消费到了哪个
+Offset，以便从上次的位置继续消费。
 
 > 生产者 -> Topic（实际上是 Partition Log File） -> 消费者
 
@@ -403,11 +413,15 @@ Offset，以便出错恢复时从上次的位置继续消费。
 
 ### 消息存储
 
-一个 Topic 可分为多个 Partition，生产者生产的消息会不断追加到不同分区中的 log 文件末尾。为防止 log 文件过大导致数据定位效率低下，Kafka
-采取了**分片**和**索引**机制，将每个 Partition 分为多个 Segment。
+一个 Topic 可分为多个 Partition，生产者生产的消息会不断追加到不同分区中的 log 文件末尾。为防止 log 文件过大导致数据定位效率低下，Kafka 采取了**分片**和**索引**机制，将每个 Partition 分为多个 Segment。
 
-每个 Segment 对应两个文件：`.index` 和 `.log` 文件。这些文件位于一个文件夹下，文件夹的命名规则为：`Topic 名称 + 分区序号`
-。例如，topic-first 有 3 个分区，则其对应的文件夹为 topic-first-0，topic-first-1，topic-first-2。
+每个 Segment 对应两个文件：`.index` 和 `.log` 文件。这些文件位于一个文件夹下，文件夹的命名规则为：`Topic 名称 + 分区序号`。
+
+例如，topic-first 有 3 个分区，对应的文件夹为
+
+- topic-first-0
+- topic-first-1
+- topic-first-2
 
 文件命名是以当前 Segment 的第一条消息的 Offset 命名，当文件大小达到配置的大小（默认 1G）时会根据新的 Offset 生成新的文件。
 
@@ -433,8 +447,10 @@ Offset，以便出错恢复时从上次的位置继续消费。
 Kakfa 提供了三种删除策略：一是基于时间；二是基于起始偏移量；三是基于分区文件的大小。
 
 * 日志删除任务会检查当前日志文件中是否有保留时间超过设定的阈值来寻找可删除的日志分段文件集合。
-* 一般情况下，日志文件的起始偏移量 logStartOffset 等于第一个日志分段的 baseOffset。基于日志起始偏移量的保留策略的判断依据：某日志分段的起始偏移量
-  baseOffset 是否小于等于 logStartOffset，若是，则可以删除此日志分段。
+* 基于 baseOffset 和 logStartOffset 判断
+  - 每个 segment 有自己的 baseOffset（该段第一条消息 offset）。
+  - logStartOffset 是分区中当前仍可读取的最小 offset（日志起始位点）
+  - 当某 segment 的 baseOffset <= logStartOffset 且满足清理条件时，会删除这个整段 segment 文件（连同索引文件）。
 * 日志删除任务会检查当前日志的大小是否超过设定的阈值来寻找可删除的日志分段的文件集合。
 
 …
@@ -468,9 +484,54 @@ Leader。
 
 > 首先了解两个概念
 >
-> * LEO（Log End Offset），每个副本的最后一个 Offset
+> * LEO（Log End Offset）表示下一条消息将要写入的位置（next offset）
 >
 > * HW（High Watermark）高水位，指的是消费者能见到的最大的 Offset，ISR 队列中最小的 LEO
+
+```text
+同一 Partition 在 Leader / Follower 上的位点关系（示意）
+
+offset:   0   1   2   3   4   5   6   7   8   9
+Leader : [m0][m1][m2][m3][m4][m5][m6][m7][m8] ...
+                  ^                       ^
+                 HW=3                    LEO=9   (next write)
+
+Follower-A:
+         [m0][m1][m2][m3][m4][m5][m6]
+                  ^               ^
+                 HW=3            LEO=7
+
+Follower-B:
+         [m0][m1][m2][m3]
+                  ^       ^
+                 HW=3    LEO=4
+
+ISR = {Leader, Follower-A, Follower-B}
+HW = min(LEO of ISR) = min(9, 7, 4) = 4
+对消费者可见范围：offset < HW（即 0..3）
+```
+
+```text
+当 Leader 新写入一条消息（offset=9）后的变化（示意）
+
+Step 1：仅 Leader 先写入，Follower 尚未追上
+Leader LEO: 9 -> 10
+Follower-A LEO: 7 (不变)
+Follower-B LEO: 4 (不变)
+HW = min(10, 7, 4) = 4   （不变，消费者可见范围不变）
+
+Step 2：Follower-A 同步成功
+Leader LEO: 10
+Follower-A LEO: 8
+Follower-B LEO: 4
+HW = min(10, 8, 4) = 4   （仍不变）
+
+Step 3：Follower-B 同步成功
+Leader LEO: 10
+Follower-A LEO: 8
+Follower-B LEO: 5
+HW = min(10, 8, 5) = 5   （推进，消费者可见范围扩展到 0..4）
+```
 
 …
 
@@ -514,8 +575,7 @@ Leader 同步数据。
 
 **何时需要 ExactlyOnce？**
 
-*At Least Once* 可以保证数据不丢失，但是不能保证数据不重复；*At Most Once* 可以保证数据不重复，但是不能保证数据不丢失。但是对于一些非常重要的消息，比如说
-**交易消息**，要求数据既不重复也不丢失，此时就需要 *Exactly Once* 语义。
+*At Least Once* 可以保证数据不丢失，但是不能保证数据不重复；*At Most Once* 可以保证数据不重复，但是不能保证数据不丢失。但是对于一些非常重要的消息，比如说 **交易消息**，要求数据既不重复也不丢失，此时就需要 *Exactly Once* 语义。
 
 …
 
@@ -565,7 +625,7 @@ Segment File 生命周期不同，同一事务的消息可能会出现重启后�
 
 ### 顺序写磁盘
 
-Kafka 的生产者生产数据，会写入到 log 文件中，写的过程是一直追加到文件末端，为顺序写。顺序写**省去了大量磁头寻址的时间**。
+Kafka 的生产者生产数据，会写入到 log 文件中，采用顺序写追加到文件末端，顺序写**省去了磁头寻址的时间**。
 
 实际上不管是内存还是磁盘，快或慢关键在于寻址的方式。磁盘分为顺序读写与随机读写，内存也一样分为顺序读写与随机读写。顺序读写性能高于随机读写。
 
@@ -655,7 +715,6 @@ NIC 网络接口控制器缓冲区。
 ### 批量读写
 
 > Kafka 数据读写是批量的而不是单个的。在向 Kafka 写入数据时，启用批次写入可以避免在网络上频繁传输单个消息带来的延迟和带宽开销。
->
 
 …
 
@@ -698,6 +757,52 @@ IO 更应该需要考虑：
 > ![Leader选举流程](assets/15.png)
 
 …
+
+---
+
+<br>
+
+## Kraft 与 ZAB
+
+KRaft（Kafka Raft Metadata mode）是 Kafka 用于替代 ZooKeeper 的新元数据管理模式。可以理解为把“元数据一致性”能力内建到 Kafka 集群内部，不再依赖外部 ZooKeeper 集群。
+
+**KRaft 时间线**
+
+* Kafka 2.8：首次引入 KRaft（早期可用）。
+* Kafka 3.3：KRaft 可用于新集群生产。
+* Kafka 3.5：ZooKeeper 模式被标记弃用。
+* Kafka 4.0：移除 ZooKeeper，仅支持 KRaft。
+
+**KRaft（Raft）与 ZAB 对比**
+
+* 协议定位：
+  - KRaft：Kafka 实现的 Raft 变体，通用一致性协议思路更强；
+  - ZAB：ZooKeeper 的原子广播协议，更偏 ZooKeeper 场景化设计。
+
+* 架构差异：
+  - KRaft：元数据日志存储在 Kafka Controller Quorum 内部；
+  - ZAB：元数据存储在独立 ZooKeeper 集群。
+
+* 日志标识：
+  - Raft 常见是 `term + index`；
+  - ZAB 使用 `zxid = epoch + counter`。
+
+* 故障恢复：
+  - KRaft（Raft）依赖多数派选主与日志复制对齐；
+  - ZAB 通常描述为 `Discovery -> Synchronization -> Broadcast` 三阶段恢复。
+
+**ZAB 原理**
+
+> 一个 Leader 把写请求按全局顺序广播给多数 Follower，再提交生效。
+
+* 集群单 Leader，多 Follower。
+* 写请求统一由 Leader 排序并广播。
+* 多数 Follower ACK 后提交（commit），保证全局顺序一致。
+* Leader 宕机后重新选主并先做日志同步，再恢复广播。
+
+**只有 Leader 能写**
+
+ZAB 模型下只有 Leader 负责写入排序与提交决策，Follower 收到写请求会转发给 Leader。读请求可由 Follower 本地处理（是否强一致取决于读策略）。
 
 ---
 
